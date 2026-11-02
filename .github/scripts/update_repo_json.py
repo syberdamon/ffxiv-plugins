@@ -11,8 +11,9 @@ from pathlib import Path
 OWNER_REPO = "syberdamon/ffxiv-plugins"
 
 plugin, tag = sys.argv[1], sys.argv[2]
-out_dir = Path(plugin) / "bin" / "x64" / "Release" / plugin
-manifest = json.loads((out_dir / f"{plugin}.json").read_text(encoding="utf-8-sig"))
+# DalamudPackager writes <plugin>.json next to latest.zip; find it wherever it landed.
+zip_path = next((Path(plugin) / "bin" / "Release").rglob("latest.zip"))
+manifest = json.loads((zip_path.parent / f"{plugin}.json").read_text(encoding="utf-8-sig"))
 
 link = f"https://github.com/{OWNER_REPO}/releases/download/{tag}/{plugin}.zip"
 manifest.update({
