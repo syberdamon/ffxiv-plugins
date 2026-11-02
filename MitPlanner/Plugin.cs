@@ -46,7 +46,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open settings. /mitplan preview | stop | timeline",
+            HelpMessage = "Open settings. /mitplan on | off (plan) | auto on | auto off | preview | stop | timeline",
         });
 
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
@@ -74,6 +74,18 @@ public sealed class Plugin : IDalamudPlugin
                 return;
             case "stop":
                 Runner.Stop();
+                return;
+            case "on":
+            case "off":
+                Configuration.PlanEnabled = args.Trim().ToLowerInvariant() == "on";
+                Configuration.Save();
+                ChatGui.Print($"[MitPlanner] Plan {(Configuration.PlanEnabled ? "ON" : "OFF")}");
+                return;
+            case "auto on":
+            case "auto off":
+                Configuration.AllowAutoUse = args.Trim().ToLowerInvariant() == "auto on";
+                Configuration.Save();
+                ChatGui.Print($"[MitPlanner] Auto-use {(Configuration.AllowAutoUse ? "ON" : "OFF")}");
                 return;
             case "timeline":
                 Configuration.ShowTimeline = !Configuration.ShowTimeline;

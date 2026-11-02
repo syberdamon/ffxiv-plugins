@@ -42,7 +42,21 @@ public sealed class TimelineWindow : Window
             : new System.Collections.Generic.Dictionary<System.Guid, PlanConflict>();
         var now = runner.Running ? runner.Now : 0;
 
-        if (!runner.Running) ImGui.TextDisabled("Waiting for the pull...");
+        // Quick toggles: run the plan at all, and let it press auto-use cooldowns.
+        if (ToggleButton(config.PlanEnabled ? "Plan: ON" : "Plan: OFF", config.PlanEnabled))
+        {
+            config.PlanEnabled = !config.PlanEnabled;
+            config.Save();
+        }
+        ImGui.SameLine();
+        ImGui.BeginDisabled(!config.PlanEnabled);
+        if (ToggleButton(config.AllowAutoUse ? "Auto: ON" : "Auto: OFF", config.AllowAutoUse && config.PlanEnabled))
+        {
+            config.AllowAutoUse = !config.AllowAutoUse;
+            config.Save();
+        }
+        ImGui.EndDisabled();
+        if (!runner.Running) { ImGui.SameLine(); ImGui.TextDisabled("Waiting for the pull..."); }
 
         var events = runner.Upcoming(config.UpcomingCount,
             config.ShowOnlyTagged ? (System.Func<TimelineEvent, bool>)(e => config.TagFor(fight, e.Label) != MechanicType.Other) : null);
@@ -86,5 +100,19 @@ public sealed class TimelineWindow : Window
             }
         }
         ImGui.EndTable();
+    }
+
+    private static readonly Vector4 OnColor = new(0.20f, 0.50f, 0.25f, 1f);
+    private static readonly Vector4 OffColor = new(0.35f, 0.35f, 0.38f, 1f);
+
+    private static bool ToggleButton(string label, bool on)
+    {
+        var color = on ? OnColor : OffColor;
+        ImGui.PushStyleColor(ImGuiCol.Button, color);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color * 1.2f);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, color * 0.9f);
+        var pressed = ImGui.SmallButton(label);
+        ImGui.PopStyleColor(3);
+        return pressed;
     }
 }

@@ -56,7 +56,7 @@ public sealed class CalloutWindow : Window
 
             string text;
             Vector4 color;
-            if (p.Done) { text = $"{name}  (done)"; color = Done; }
+            if (p.Done) { text = p.AutoPresses > 0 ? $"{name}  (done, auto)" : $"{name}  (done)"; color = Done; }
             else if (p.NotReady) { text = $"{name}  still on cooldown!  ({p.Event.Label} in {Style.Clock(p.SecondsToHit)})"; color = Late; }
             else if (p.SecondsToPress > 0) { text = $"{name} in {Style.Clock(p.SecondsToPress)}  ->  {p.Event.Label}"; color = Soon; }
             else { text = $"USE {name} NOW  ->  {p.Event.Label} in {Style.Clock(p.SecondsToHit)}"; color = Now; }
