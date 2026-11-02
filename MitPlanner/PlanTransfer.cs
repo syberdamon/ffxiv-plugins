@@ -15,12 +15,12 @@ public static class PlanTransfer
     private const string Prefix = "MITPLAN1:";
 
     private sealed record Payload(uint Territory, uint Job, List<Item> Entries);
-    private sealed record Item(string Event, uint Action, float Lead, bool Auto);
+    private sealed record Item(string Event, uint Action, float Lead, bool Auto, TargetCondition Condition = TargetCondition.Always);
 
     public static string Export(FightDefinition fight, uint jobId, IEnumerable<PlanEntry> plan)
     {
         var payload = new Payload(fight.TerritoryId, jobId,
-            plan.Select(p => new Item(p.EventKey, p.ActionId, p.LeadSeconds, p.AutoUse)).ToList());
+            plan.Select(p => new Item(p.EventKey, p.ActionId, p.LeadSeconds, p.AutoUse, p.Condition)).ToList());
         return Prefix + Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload)));
     }
 
@@ -50,7 +50,7 @@ public static class PlanTransfer
         if (payload.Job != jobId) { error = "That plan is for a different job. Switch to that job to paste it."; return null; }
 
         return payload.Entries
-            .Select(i => new PlanEntry { EventKey = i.Event, ActionId = i.Action, LeadSeconds = i.Lead, AutoUse = i.Auto })
+            .Select(i => new PlanEntry { EventKey = i.Event, ActionId = i.Action, LeadSeconds = i.Lead, AutoUse = i.Auto, Condition = i.Condition })
             .ToList();
     }
 }

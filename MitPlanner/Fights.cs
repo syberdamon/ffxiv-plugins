@@ -5,7 +5,13 @@ using System.Reflection;
 namespace MitPlanner;
 
 /// <summary>A fight the plugin knows: which zone, which timeline file, and default mechanic tags.</summary>
-public sealed record FightDefinition(uint TerritoryId, string Name, string Resource, IReadOnlyDictionary<string, MechanicType> DefaultTags);
+public sealed record FightDefinition(
+    uint TerritoryId,
+    string Name,
+    string Resource,
+    IReadOnlyDictionary<string, MechanicType> DefaultTags,
+    IReadOnlyDictionary<string, uint>? HeadMarkers = null,   // label -> head marker that marks the target
+    IReadOnlySet<string>? DefaultSwaps = null);               // event keys followed by a tank swap
 
 public static class Fights
 {
@@ -33,6 +39,28 @@ public static class Fights
             ["Meteor Stream"] = MechanicType.Mechanic,
             ["Magitek Meteor"] = MechanicType.Mechanic,
             ["Bradamante"] = MechanicType.Mechanic,
+        }),
+
+        // ui/raidboss/data/05-shb/trial/emerald_weapon.txt + emerald_weapon.ts; ZoneId.CastrumMarinum = 934
+        // Tank busters: Emerald Shot (cast on the tank), Divide Et Impera (head marker 00DA on the tank).
+        // No tank-swap responses in cactbot's triggers for this fight.
+        new FightDefinition(934, "Castrum Marinum", "MitPlanner.Timelines.emerald_weapon.txt", new Dictionary<string, MechanicType>
+        {
+            ["Emerald Shot"] = MechanicType.TankBuster,
+            ["Divide Et Impera"] = MechanicType.TankBuster,
+            ["Optimized Ultima"] = MechanicType.Raidwide,
+            ["Magitek Magnetism"] = MechanicType.Mechanic,
+            ["Emerald Crusher"] = MechanicType.Mechanic,
+            ["Split"] = MechanicType.Mechanic,
+            ["Sidescathe"] = MechanicType.Mechanic,
+            ["Primus Terminus Est"] = MechanicType.Mechanic,
+            ["Secundus Terminus Est"] = MechanicType.Mechanic,
+            ["Tertius Terminus Est"] = MechanicType.Mechanic,
+            ["Legio Phantasmatis"] = MechanicType.Mechanic,
+        },
+        HeadMarkers: new Dictionary<string, uint>
+        {
+            ["Divide Et Impera"] = 0x00DA,
         }),
     };
 

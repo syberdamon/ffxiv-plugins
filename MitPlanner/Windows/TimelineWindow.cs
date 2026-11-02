@@ -81,6 +81,17 @@ public sealed class TimelineWindow : Window
 
             ImGui.TableNextColumn();
             ImGui.TextColored(color, e.Label);
+            if (config.SwapAfter(fight, e)) { ImGui.SameLine(); ImGui.TextColored(Style.Swap, "SWAP"); }
+            // Tank busters coming up soon: who's it on?
+            if (type == MechanicType.TankBuster && runner.Running && e.Time - now <= 12)
+            {
+                var t = plugin.Targeting.Check(fight, e);
+                if (t.Source != TargetSource.Unknown)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextColored(t.IsMe ? Style.Warning : Style.Ok, t.IsMe ? $"(you, {t.Describe()})" : $"(not you, {t.Describe()})");
+                }
+            }
 
             ImGui.TableNextColumn();
             if (plan == null) continue;

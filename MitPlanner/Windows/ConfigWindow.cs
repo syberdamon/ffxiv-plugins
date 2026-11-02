@@ -111,6 +111,14 @@ public sealed class ConfigWindow : Window
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             ImGui.TextColored(Style.Color(type), multi.Contains(e.Label) ? $"{e.Label} #{e.Occurrence}" : e.Label);
+            var swap = Config.SwapAfter(fight, e);
+            ImGui.SameLine();
+            if (ImGui.Checkbox("swap##swap", ref swap))
+            {
+                Config.SwapOverrides[Configuration.SwapKey(fight.TerritoryId, e.Key)] = swap;
+                Config.Save();
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Tank swap after this mechanic (shows a SWAP badge on the timeline).");
 
             ImGui.TableNextColumn();
             var t = (int)type;
@@ -122,7 +130,7 @@ public sealed class ConfigWindow : Window
             }
 
             ImGui.TableNextColumn();
-            DrawEntries(plan, e, catalog, conflicts, timeline);
+            DrawEntries(plan, e, catalog, conflicts, timeline, type);
 
             ImGui.PopID();
         }
@@ -130,7 +138,7 @@ public sealed class ConfigWindow : Window
     }
 
     private void DrawEntries(System.Collections.Generic.List<PlanEntry> plan, TimelineEvent e, System.Collections.Generic.IReadOnlyList<CatalogEntry> catalog,
-        System.Collections.Generic.Dictionary<Guid, PlanConflict> conflicts, Timeline timeline)
+        System.Collections.Generic.Dictionary<Guid, PlanConflict> conflicts, Timeline timeline, MechanicType type)
     {
         PlanEntry? remove = null;
         foreach (var p in plan.Where(p => p.EventKey == e.Key))
@@ -149,6 +157,13 @@ public sealed class ConfigWindow : Window
             var lead = p.LeadSeconds;
             ImGui.SetNextItemWidth(60);
             if (ImGui.DragFloat("##lead", ref lead, 0.1f, 0f, 30f, "%.1fs")) { p.LeadSeconds = lead; Config.Save(); }
+            ImGui.SameLine();
+            var cond = (int)p.Condition;
+            ImGui.SetNextItemWidth(130);
+            if (ImGui.Combo("##cond", ref cond, Style.ConditionNames, Style.ConditionNames.Length)) { p.Condition = (TargetCondition)cond; Config.Save(); }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Who this mechanic hits decides whether to call it out / auto-press.\n" +
+                                 "Checked live: head marker, then the boss's cast target, then who the boss is attacking.");
             ImGui.SameLine();
             var auto = p.AutoUse;
             if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Config.Save(); }
@@ -201,7 +216,13 @@ public sealed class ConfigWindow : Window
                 any = true;
                 if (ImGui.Selectable($"{c.Name}  ({Style.ClockWithSeconds(c.RecastSeconds)})##{c.ActionId}"))
                 {
-                    plan.Add(new PlanEntry { EventKey = e.Key, ActionId = c.ActionId });
+                    // Tank-buster mits default to "only if I'm targeted".
+                    plan.Add(new PlanEntry
+                    {
+                        EventKey = e.Key,
+                        ActionId = c.ActionId,
+                        Condition = type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,
+                    });
                     Config.Save();
                 }
             }

@@ -56,11 +56,14 @@ public sealed class CalloutWindow : Window
 
             string text;
             Vector4 color;
-            if (p.Done) { text = p.AutoPresses > 0 ? $"{name}  (done, auto)" : $"{name}  (done)"; color = Done; }
+            var who = p.Target is { } t ? $"  [{(t.Source == TargetSource.Unknown ? "target ?" : t.IsMe ? "on you" : "not you")}: {t.Describe()}]" : "";
+            if (p.Skipped) { text = $"{name}: skip  ->  {p.Event.Label}{who}"; color = Done; }
+            else if (p.Done) { text = p.AutoPresses > 0 ? $"{name}  (done, auto)" : $"{name}  (done)"; color = Done; }
             else if (p.NotReady) { text = $"{name}  still on cooldown!  ({p.Event.Label} in {Style.Clock(p.SecondsToHit)})"; color = Late; }
             else if (p.SecondsToPress > 0) { text = $"{name} in {Style.Clock(p.SecondsToPress)}  ->  {p.Event.Label}"; color = Soon; }
             else { text = $"USE {name} NOW  ->  {p.Event.Label} in {Style.Clock(p.SecondsToHit)}"; color = Now; }
 
+            if (!p.Skipped && !p.Done) text += who;
             ImGui.AlignTextToFramePadding();
             ImGui.TextColored(color, text);
         }

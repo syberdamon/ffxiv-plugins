@@ -8,7 +8,7 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 
 ## How it works
 - **Fight detection:** entering a supported duty loads its timeline
-  (bundled: **The Cinder Drift**, zone 897).
+  (bundled: **The Cinder Drift**, zone 897; **Castrum Marinum**, zone 934).
 - **Clock:** starts on the pull and syncs to the boss's real abilities using the
   fight's cactbot timeline, so it stays accurate and follows phase changes.
 - **Timeline window:** next 5 mechanics (configurable) with countdowns, type
@@ -31,6 +31,28 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
 
+## "Only if targeted"
+Each planned cooldown has a condition: **Always**, **If I'm targeted**, or
+**If I'm NOT targeted**. Cooldowns added to a tank buster default to
+"If I'm targeted". Who a mechanic targets is checked live, best evidence first:
+1. **Head marker** cactbot associates with the mechanic (Castrum Marinum:
+   Divide Et Impera's tank-buster marker 00DA).
+2. **The boss's cast target** (e.g. Emerald Shot, Stamp).
+3. **Aggro**: who the boss is attacking, if neither has happened yet.
+
+Callouts show the verdict and source, e.g. `[on you: cast]`; if it's not for you
+the line turns grey ("skip"). Auto-use never fires when the condition fails or the
+target can't be determined. Because it's live, it follows tank swaps.
+
+## Tank swaps
+cactbot timelines don't mark tank swaps; only some cactbot trigger files do
+(mostly Extreme fights). Neither bundled fight has any. Tick **swap** on a
+mechanic in the Plan tab to show a SWAP badge on the timeline after it.
+
+## Fight loops
+Some fights loop (Castrum Marinum repeats parts of both phases). When the
+timeline jumps back, planned cooldowns for the repeated mechanics re-arm.
+
 ## Plan QC
 The Plan tab checks every planned cooldown against its recharge time (including
 abilities with charges, which recharge one at a time). If a use comes before the
@@ -51,6 +73,10 @@ settings on that PC. To move a plan to another PC (or share it): Plan tab >
 ## Testing without a duty
 Display > **Preview** runs the timeline from 0 anywhere (no syncing, no auto-use),
 so you can check plans and callout placement before queueing.
+
+## Castrum Marinum default tags (from cactbot's triggers)
+- Tank busters: Emerald Shot, Divide Et Impera
+- Raid-wide: Optimized Ultima
 
 ## Cinder Drift default tags (from cactbot's triggers)
 - Tank busters: Stamp (x3), Ruby Claw (x2)

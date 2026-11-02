@@ -13,7 +13,9 @@ public sealed record Prompt(
     float SecondsToHit,
     bool Done,
     bool NotReady,          // still on cooldown, so it can't be pressed yet
-    int AutoPresses);       // how many times auto-use has pressed it this pull
+    int AutoPresses,        // how many times auto-use has pressed it this pull
+    bool Skipped,           // condition says this one isn't for you (e.g. buster on the other tank)
+    TargetCheck? Target);   // who the mechanic targets, when the entry has a condition
 
 /// <summary>
 /// Watches the plan against the running timeline: which cooldowns are coming due, whether you
@@ -37,23 +39,37 @@ public sealed class PlanTracker : IDisposable
 
     private readonly Configuration config;
     private readonly TimelineRunner runner;
+    private readonly Targeting targeting;
     private readonly Dictionary<Guid, State> states = new();
     private readonly List<Prompt> active = new();
 
     public IReadOnlyList<Prompt> Active => active;
 
-    public PlanTracker(Configuration config, TimelineRunner runner)
+    public PlanTracker(Configuration config, TimelineRunner runner, Targeting targeting)
     {
         this.config = config;
         this.runner = runner;
+        this.targeting = targeting;
         runner.PullStarted += states.Clear;
+        runner.JumpedBack += OnJumpedBack;
         Plugin.Framework.Update += OnUpdate;
     }
 
     public void Dispose()
     {
         runner.PullStarted -= states.Clear;
+        runner.JumpedBack -= OnJumpedBack;
         Plugin.Framework.Update -= OnUpdate;
+    }
+
+    /// <summary>The fight looped back: re-arm every planned cooldown for mechanics that will repeat.</summary>
+    private void OnJumpedBack(float newTime)
+    {
+        var plan = CurrentPlan();
+        if (plan == null) return;
+        foreach (var entry in plan)
+            if (runner.FindByKey(entry.EventKey) is { } ev && ev.Time >= newTime)
+                states.Remove(entry.Id);
     }
 
     public List<PlanEntry>? CurrentPlan()
@@ -84,6 +100,18 @@ public sealed class PlanTracker : IDisposable
             if (!states.TryGetValue(entry.Id, out var st)) { st = new State(); states[entry.Id] = st; }
             var status = ActionState.Get(entry.ActionId);
 
+            // Targeting condition: decided live, so it follows tank swaps and late markers.
+            TargetCheck? target = null;
+            var applies = true;
+            if (entry.Condition != TargetCondition.Always)
+            {
+                var t = targeting.Check(runner.Fight!, ev);
+                target = t;
+                applies = t.Source != TargetSource.Unknown &&
+                          (entry.Condition == TargetCondition.IfTargeted ? t.IsMe : !t.IsMe);
+            }
+            var targetUnknown = target is { Source: TargetSource.Unknown };
+
             if (!st.Started)
             {
                 st.Started = true;
@@ -111,7 +139,8 @@ public sealed class PlanTracker : IDisposable
             // Auto-use: only with both switches on, from the press time until the mechanic lands, never in preview.
             // Press, then press again every 0.25s until the cooldown actually starts. The game queues
             // off-GCD abilities during animation lock, so a repeat press while queued is harmless.
-            if (!st.Done && config.AllowAutoUse && entry.AutoUse && !runner.Preview &&
+            // Never auto-press when the condition says it isn't for you, or we can't tell yet.
+            if (!st.Done && applies && config.AllowAutoUse && entry.AutoUse && !runner.Preview &&
                 now >= pressAt && now <= ev.Time && !status.OnCooldown &&
                 (DateTime.UtcNow - st.LastAutoPress).TotalSeconds >= AutoRetrySeconds)
             {
@@ -126,7 +155,8 @@ public sealed class PlanTracker : IDisposable
             if (st.Done && (DateTime.UtcNow - st.DoneAt).TotalSeconds > 1.5) continue;
 
             active.Add(new Prompt(entry, ev, ActionCatalog.Find(entry.ActionId),
-                pressAt - now, ev.Time - now, st.Done, status.OnCooldown && !st.Done, st.AutoPresses));
+                pressAt - now, ev.Time - now, st.Done, status.OnCooldown && !st.Done, st.AutoPresses,
+                !applies && !targetUnknown && !st.Done, target));
         }
 
         active.Sort((a, b) => a.SecondsToPress.CompareTo(b.SecondsToPress));
