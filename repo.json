@@ -3,7 +3,7 @@
     "Author": "Jay",
     "Name": "Tank Stance Manager",
     "InternalName": "TankStanceManager",
-    "AssemblyVersion": "0.1.0.0",
+    "AssemblyVersion": "0.2.0.0",
     "Description": "MT mode keeps tank stance on at all times. OT mode toggles tank stance to hold your enmity inside a configurable band of the main tank's enmity (default 75%-90%), and turns it on if you are pushed to #3. Supports PLD, WAR, DRK, GNB.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -19,8 +19,8 @@
     "LoadPriority": 0,
     "Punchline": "Keeps tank stance on as MT, or holds an enmity band as OT.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.1.0.0/TankStanceManager.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.1.0.0/TankStanceManager.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.1.0.0/TankStanceManager.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.0.0/TankStanceManager.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.0.0/TankStanceManager.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.0.0/TankStanceManager.zip"
   }
 ]
