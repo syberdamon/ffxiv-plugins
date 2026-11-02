@@ -1,0 +1,75 @@
+name: Build
+
+# Every push to main: compile all plugins (a check that everything still builds).
+# Pushing a tag named <PluginFolder>-v<version> (e.g. TankStanceManager-v0.1.0):
+#   compile, publish a GitHub Release with <PluginFolder>.zip, and update repo.json
+#   so Dalamud on every PC offers the update.
+on:
+  push:
+    branches: [main]
+    tags: ['*-v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Dalamud SDK compiles against Dalamud's own DLLs, which XIVLauncher
+      # normally installs. On the build server we download them instead.
+      - name: Download Dalamud dev files
+        shell: pwsh
+        run: |
+          $dest = "$env:APPDATA\XIVLauncher\addon\Hooks\dev"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
+          Expand-Archive -Force latest.zip -DestinationPath $dest
+
+      - name: Build all plugins
+        run: dotnet build ffxiv-plugins.slnx -c Release
+
+      - name: Upload builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugins
+          path: '*/bin/x64/Release/*/'
+
+      - name: Read release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $plugin = $tag.Substring(0, $tag.LastIndexOf('-v'))
+          "plugin=$plugin" >> $env:GITHUB_OUTPUT
+          Copy-Item "$plugin/bin/x64/Release/$plugin/latest.zip" "$plugin.zip"
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.tag.outputs.plugin }}.zip
+
+      - name: Update repo.json on main
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          git checkout main
+          git pull origin main
+          python .github/scripts/update_repo_json.py "${{ steps.tag.outputs.plugin }}" "${{ github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+          git commit -m "repo.json: ${{ github.ref_name }}"
+          git push origin main
