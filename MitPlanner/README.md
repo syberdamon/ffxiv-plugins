@@ -26,8 +26,14 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
   Off by default. If the cooldown hasn't started within 0.25 s it presses again,
   every 0.25 s, until it goes off or the mechanic lands (the game queues
   off-GCD presses during animation lock, so repeats are harmless).
-- **On/off:** "Plan: ON/OFF" and "Auto: ON/OFF" buttons on the timeline window.
-  Plan off = timeline only, no callouts, no auto-use.
+- **On/off:** "Plan", "Auto" and "Callouts" buttons on the timeline window.
+  Plan off = timeline only, no callouts, no auto-use. Callouts off hides the
+  callout window only (auto-use still runs if Auto is on).
+- **New cooldowns default to Auto ticked**; nothing auto-presses until the
+  Auto: ON switch is on (off by default).
+- **Columns:** in both the Plan table and the timeline window, drag a column
+  edge to resize and a header to reorder (timeline: right-click a header to
+  hide a column). ImGui remembers the layout.
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
 
@@ -42,12 +48,7 @@ Each planned cooldown has a condition: **Always**, **If I'm targeted**, or
 
 Callouts show the verdict and source, e.g. `[on you: cast]`; if it's not for you
 the line turns grey ("skip"). Auto-use never fires when the condition fails or the
-target can't be determined. Because it's live, it follows tank swaps.
-
-## Tank swaps
-cactbot timelines don't mark tank swaps; only some cactbot trigger files do
-(mostly Extreme fights). Neither bundled fight has any. Tick **swap** on a
-mechanic in the Plan tab to show a SWAP badge on the timeline after it.
+target can't be determined. Because it's checked live, it follows tank swaps.
 
 ## Fight loops
 Some fights loop (Castrum Marinum repeats parts of both phases). When the

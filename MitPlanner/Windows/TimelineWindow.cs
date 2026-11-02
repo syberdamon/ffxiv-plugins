@@ -55,17 +55,28 @@ public sealed class TimelineWindow : Window
             config.AllowAutoUse = !config.AllowAutoUse;
             config.Save();
         }
+        ImGui.SameLine();
+        if (ToggleButton(config.ShowCallouts ? "Callouts: ON" : "Callouts: OFF", config.ShowCallouts && config.PlanEnabled))
+        {
+            config.ShowCallouts = !config.ShowCallouts;
+            config.Save();
+        }
         ImGui.EndDisabled();
         if (!runner.Running) { ImGui.SameLine(); ImGui.TextDisabled("Waiting for the pull..."); }
 
         var events = runner.Upcoming(config.UpcomingCount,
             config.ShowOnlyTagged ? (System.Func<TimelineEvent, bool>)(e => config.TagFor(fight, e.Label) != MechanicType.Other) : null);
 
-        if (!ImGui.BeginTable("##upcoming", 4, ImGuiTableFlags.SizingFixedFit)) return;
-        ImGui.TableSetupColumn("in", ImGuiTableColumnFlags.WidthFixed, 80);
-        ImGui.TableSetupColumn("type", ImGuiTableColumnFlags.WidthFixed, 40);
-        ImGui.TableSetupColumn("name", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("plan", ImGuiTableColumnFlags.WidthFixed);
+        // Drag a header to reorder, drag a column edge to resize, right-click a header to hide/show.
+        // ImGui remembers the layout between sessions.
+        if (!ImGui.BeginTable("##upcoming", 4,
+                ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Resizable | ImGuiTableFlags.Reorderable | ImGuiTableFlags.Hideable))
+            return;
+        ImGui.TableSetupColumn("In", ImGuiTableColumnFlags.WidthFixed, 80);
+        ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.WidthFixed, 40);
+        ImGui.TableSetupColumn("Mechanic", ImGuiTableColumnFlags.WidthFixed, 200);
+        ImGui.TableSetupColumn("Cooldowns", ImGuiTableColumnFlags.WidthFixed, 80);
+        if (config.ShowTimelineHeaders) ImGui.TableHeadersRow();
 
         foreach (var e in events)
         {
@@ -81,7 +92,6 @@ public sealed class TimelineWindow : Window
 
             ImGui.TableNextColumn();
             ImGui.TextColored(color, e.Label);
-            if (config.SwapAfter(fight, e)) { ImGui.SameLine(); ImGui.TextColored(Style.Swap, "SWAP"); }
             // Tank busters coming up soon: who's it on?
             if (type == MechanicType.TankBuster && runner.Running && e.Time - now <= 12)
             {

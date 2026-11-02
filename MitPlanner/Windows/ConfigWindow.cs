@@ -85,13 +85,15 @@ public sealed class ConfigWindow : Window
         }
         if (transferMessage != null) { ImGui.SameLine(); ImGui.TextDisabled(transferMessage); }
 
-        if (!ImGui.BeginTable("##plan", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH,
+        // Drag a header to reorder, drag a column edge to resize; ImGui remembers the layout.
+        if (!ImGui.BeginTable("##plan", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH |
+                ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.Resizable | ImGuiTableFlags.Reorderable | ImGuiTableFlags.ScrollX,
                 new Vector2(0, ImGui.GetContentRegionAvail().Y))) return;
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Fight time", ImGuiTableColumnFlags.WidthFixed, 96);
         ImGui.TableSetupColumn("Mechanic", ImGuiTableColumnFlags.WidthFixed, 200);
         ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.WidthFixed, 110);
-        ImGui.TableSetupColumn("Cooldowns (press N seconds early; Auto = plugin presses it)", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("Cooldowns (press N seconds early; Auto = plugin presses it)", ImGuiTableColumnFlags.WidthFixed, 640);
         ImGui.TableHeadersRow();
 
         var multi = timeline.Events.Where(e => !e.Hidden).GroupBy(e => e.Label).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
@@ -111,14 +113,6 @@ public sealed class ConfigWindow : Window
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             ImGui.TextColored(Style.Color(type), multi.Contains(e.Label) ? $"{e.Label} #{e.Occurrence}" : e.Label);
-            var swap = Config.SwapAfter(fight, e);
-            ImGui.SameLine();
-            if (ImGui.Checkbox("swap##swap", ref swap))
-            {
-                Config.SwapOverrides[Configuration.SwapKey(fight.TerritoryId, e.Key)] = swap;
-                Config.Save();
-            }
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Tank swap after this mechanic (shows a SWAP badge on the timeline).");
 
             ImGui.TableNextColumn();
             var t = (int)type;
@@ -222,6 +216,7 @@ public sealed class ConfigWindow : Window
                         EventKey = e.Key,
                         ActionId = c.ActionId,
                         Condition = type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,
+                        AutoUse = true, // still needs the Auto: ON switch
                     });
                     Config.Save();
                 }
@@ -256,6 +251,13 @@ public sealed class ConfigWindow : Window
 
         var chat = Config.ChatCallouts;
         if (ImGui.Checkbox("Also print callouts to chat", ref chat)) { Config.ChatCallouts = chat; Config.Save(); }
+
+        var showCallouts = Config.ShowCallouts;
+        if (ImGui.Checkbox("Show on-screen callouts", ref showCallouts)) { Config.ShowCallouts = showCallouts; Config.Save(); }
+        ImGui.TextDisabled("Off hides the callout window only; auto-use still runs if it's on.");
+
+        var headers = Config.ShowTimelineHeaders;
+        if (ImGui.Checkbox("Show timeline column headers (drag to reorder, edges to resize)", ref headers)) { Config.ShowTimelineHeaders = headers; Config.Save(); }
 
         var place = plugin.ShowCalloutPlacement;
         if (ImGui.Checkbox("Show callout area (to move it)", ref place)) plugin.ShowCalloutPlacement = place;

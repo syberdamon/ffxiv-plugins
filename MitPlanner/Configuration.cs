@@ -50,9 +50,6 @@ public class Configuration : IPluginConfiguration
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
     public Dictionary<string, MechanicType> TagOverrides { get; set; } = new();
 
-    /// <summary>"territoryId:eventKey" -> tank swap after this mechanic (overrides bundled data).</summary>
-    public Dictionary<string, bool> SwapOverrides { get; set; } = new();
-
     // Display
     public bool ShowTimeline { get; set; } = true;
     public int UpcomingCount { get; set; } = 5;
@@ -64,6 +61,12 @@ public class Configuration : IPluginConfiguration
     public float CalloutHeadsUp { get; set; } = 3f;
 
     public bool ChatCallouts { get; set; } = false;
+
+    /// <summary>Show the on-screen callout window. Auto-use still runs when this is off.</summary>
+    public bool ShowCallouts { get; set; } = true;
+
+    /// <summary>Show column headers on the timeline window (drag them to reorder, edges to resize).</summary>
+    public bool ShowTimelineHeaders { get; set; } = true;
 
     /// <summary>Master switch for the plan: callouts and auto-use. The timeline still shows when off.</summary>
     public bool PlanEnabled { get; set; } = true;
@@ -88,12 +91,6 @@ public class Configuration : IPluginConfiguration
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
         : fight.DefaultTags.TryGetValue(label, out var d) ? d
         : MechanicType.Other;
-
-    public static string SwapKey(uint territory, string eventKey) => $"{territory}:{eventKey}";
-
-    public bool SwapAfter(FightDefinition fight, TimelineEvent e) =>
-        SwapOverrides.TryGetValue(SwapKey(fight.TerritoryId, e.Key), out var v) ? v
-        : fight.DefaultSwaps?.Contains(e.Key) == true;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }
