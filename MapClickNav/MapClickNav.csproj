@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>Jay</Author>
+    <Name>Map Click Nav</Name>
+    <Punchline>Ctrl+click the map to travel there with vnavmesh, flying when you can.</Punchline>
+    <Description>Hold a modifier (Ctrl by default) and left-click a spot on your current zone's map. Map Click Nav places your flag there, mounts you with Mount Roulette, and has vnavmesh fly you there if flight is unlocked in the zone (or ride there if not). A Stop button appears while traveling. Requires vnavmesh.</Description>
+    <Tags>map;navigation;vnavmesh;flag</Tags>
+    <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>
