@@ -48,6 +48,7 @@ public sealed class CalloutWindow : Window
         foreach (var p in plugin.Tracker.Active)
         {
             var name = p.Ability?.Name ?? $"Action {p.Entry.ActionId}";
+            if (p.Entry.SendToTarget) name = $"Send {name} to {p.SendTo ?? "MT"}";
             if (p.Ability != null)
             {
                 var tex = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(p.Ability.Icon)).GetWrapOrEmpty();

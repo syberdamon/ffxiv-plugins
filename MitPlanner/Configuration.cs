@@ -24,6 +24,19 @@ public class PlanEntry
 
     /// <summary>Only call it out / press it depending on who the mechanic targets.</summary>
     public TargetCondition Condition { get; set; } = TargetCondition.Always;
+
+    /// <summary>
+    /// OT Sent Mits: cast this on whoever the mechanic targets (normally the MT) instead of
+    /// on your current target. Pairs with "If I'm NOT targeted".
+    /// </summary>
+    public bool SendToTarget { get; set; } = false;
+}
+
+/// <summary>Which tank you are this pull; plans are kept separately for each.</summary>
+public enum TankRole
+{
+    MainTank = 0,
+    OffTank = 1,
 }
 
 public enum TargetCondition
@@ -42,9 +55,12 @@ public enum AbilitySort
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
-    /// <summary>"territoryId:classJobId" -> plan.</summary>
+    /// <summary>MT or OT: picks which plan runs. Non-tanks just use the MT slot.</summary>
+    public TankRole Role { get; set; } = TankRole.MainTank;
+
+    /// <summary>"territoryId:classJobId:MT|OT" -> plan.</summary>
     public Dictionary<string, List<PlanEntry>> Plans { get; set; } = new();
 
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
@@ -77,12 +93,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>Master switch for per-entry auto-use. Off by default.</summary>
     public bool AllowAutoUse { get; set; } = false;
 
-    public static string PlanKey(uint territory, uint job) => $"{territory}:{job}";
+    public static string RoleCode(TankRole role) => role == TankRole.OffTank ? "OT" : "MT";
+    public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{RoleCode(role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";
 
-    public List<PlanEntry> PlanFor(uint territory, uint job)
+    public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
+
+    public List<PlanEntry> PlanFor(uint territory, uint job, TankRole role)
     {
-        var key = PlanKey(territory, job);
+        var key = PlanKey(territory, job, role);
         if (!Plans.TryGetValue(key, out var list)) { list = new(); Plans[key] = list; }
         return list;
     }
@@ -91,6 +110,21 @@ public class Configuration : IPluginConfiguration
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
         : fight.DefaultTags.TryGetValue(label, out var d) ? d
         : MechanicType.Other;
+
+    /// <summary>v1 plans had no role ("897:21"); they become MT plans ("897:21:MT").</summary>
+    public void Migrate()
+    {
+        if (Version >= 2) return;
+        foreach (var key in new List<string>(Plans.Keys))
+        {
+            if (key.Split(':').Length != 2) continue;
+            var target = key + ":MT";
+            if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
+            Plans.Remove(key);
+        }
+        Version = 2;
+        Save();
+    }
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

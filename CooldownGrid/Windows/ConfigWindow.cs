@@ -129,7 +129,7 @@ public sealed class ConfigWindow : Window
 
     private void DrawGroups()
     {
-        ImGui.TextWrapped("Each group is its own window. The three default groups can be renamed but not deleted.");
+        ImGui.TextWrapped("Each group is its own window. The default groups can be renamed but not deleted.");
         if (ImGui.Button("Add group"))
         {
             Config.Groups.Add(new CooldownGroup { Name = $"Group {Config.Groups.Count + 1}" });
@@ -158,6 +158,10 @@ public sealed class ConfigWindow : Window
                 ImGui.SameLine();
                 var bg = g.ShowBackground;
                 if (ImGui.Checkbox("Background", ref bg)) { g.ShowBackground = bg; Config.Save(); }
+
+                var coTank = g.CastOnCoTank;
+                if (ImGui.Checkbox("Cast on the other tank (OT Sent Mits)", ref coTank)) { g.CastOnCoTank = coTank; Config.Save(); }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Clicking an icon in this group casts it on the other tank in your party, without targeting them.");
 
                 var columns = g.Columns;
                 if (ImGui.SliderInt("Columns", ref columns, 1, 12)) { g.Columns = columns; Config.Save(); }

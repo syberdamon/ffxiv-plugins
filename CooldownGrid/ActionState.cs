@@ -12,7 +12,7 @@ public readonly record struct AbilityStatus(
 
 public static unsafe class ActionState
 {
-    public static AbilityStatus Get(uint baseActionId)
+    public static AbilityStatus Get(uint baseActionId, ulong targetObjectId = 0xE000_0000)
     {
         var am = ActionManager.Instance();
         if (am == null) return default;
@@ -43,15 +43,34 @@ public static unsafe class ActionState
             onCooldown = am->IsRecastTimerActive(ActionType.Action, id) && remaining > 0;
         }
 
-        var usable = am->GetActionStatus(ActionType.Action, id) == 0;
+        var usable = am->GetActionStatus(ActionType.Action, id, targetObjectId) == 0;
         return new AbilityStatus(remaining, charges, max, onCooldown, usable);
     }
 
     /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
-    public static bool Use(uint baseActionId)
+    public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
+
+    /// <summary>Use on a specific target (OT Sent Mits: cast on the co-tank without targeting them).</summary>
+    public static bool Use(uint baseActionId, ulong targetObjectId)
     {
         var am = ActionManager.Instance();
         if (am == null) return false;
-        return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId));
+        return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId), targetObjectId);
+    }
+
+    // ClassJob row ids for tanks: GLA/PLD, MRD/WAR, DRK, GNB.
+    private static readonly System.Collections.Generic.HashSet<uint> TankJobs = new() { 1, 19, 3, 21, 32, 37 };
+
+    /// <summary>The other tank in the party, or null if there isn't one.</summary>
+    public static (ulong Id, string Name)? CoTank()
+    {
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me == null) return null;
+        foreach (var member in Plugin.PartyList)
+        {
+            if (member.EntityId == me.EntityId || !TankJobs.Contains(member.ClassJob.RowId)) continue;
+            if (Plugin.ObjectTable.SearchByEntityId(member.EntityId) is { } obj) return (obj.GameObjectId, obj.Name.TextValue);
+        }
+        return null;
     }
 }

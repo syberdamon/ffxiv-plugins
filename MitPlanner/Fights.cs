@@ -60,6 +60,23 @@ public static class Fights
         {
             ["Divide Et Impera"] = 0x00DA,
         }),
+
+        // ui/raidboss/data/05-shb/trial/diamond_weapon.txt + diamond_weapon.ts; ZoneId.TheCloudDeck = 950
+        // Tank buster: Auri Doomstead (cast on the tank, x2 in phase 2). Phase 3 loops.
+        new FightDefinition(950, "The Cloud Deck", "MitPlanner.Timelines.diamond_weapon.txt", new Dictionary<string, MechanicType>
+        {
+            ["Auri Doomstead"] = MechanicType.TankBuster,
+            ["Diamond Rain"] = MechanicType.Raidwide,
+            ["Outrage"] = MechanicType.Raidwide,
+            ["Diamond Flash"] = MechanicType.Stack,
+            ["Homing Laser"] = MechanicType.Mechanic,
+            ["Auri Cyclone 1"] = MechanicType.Mechanic,
+            ["Vertical Cleave"] = MechanicType.Mechanic,
+            ["Claw Swipe"] = MechanicType.Mechanic,
+            ["Adamant Purge"] = MechanicType.Mechanic,
+            ["Photon Burst"] = MechanicType.Mechanic,
+            ["Diamond Shrapnel"] = MechanicType.Mechanic,
+        }),
     };
 
     private static readonly Dictionary<uint, Timeline> Cache = new();

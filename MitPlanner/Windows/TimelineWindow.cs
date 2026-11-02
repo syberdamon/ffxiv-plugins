@@ -42,7 +42,14 @@ public sealed class TimelineWindow : Window
             : new System.Collections.Generic.Dictionary<System.Guid, PlanConflict>();
         var now = runner.Running ? runner.Now : 0;
 
-        // Quick toggles: run the plan at all, and let it press auto-use cooldowns.
+        // Quick toggles: MT/OT role, run the plan at all, auto-use, callouts.
+        if (ToggleButton(config.Role == TankRole.OffTank ? "Role: OT" : "Role: MT", true))
+        {
+            config.Role = config.Role == TankRole.OffTank ? TankRole.MainTank : TankRole.OffTank;
+            config.Save();
+        }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to switch between your MT and OT plans.");
+        ImGui.SameLine();
         if (ToggleButton(config.PlanEnabled ? "Plan: ON" : "Plan: OFF", config.PlanEnabled))
         {
             config.PlanEnabled = !config.PlanEnabled;

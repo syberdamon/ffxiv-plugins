@@ -48,10 +48,13 @@ public static unsafe class ActionState
     }
 
     /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
-    public static bool Use(uint baseActionId)
+    public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
+
+    /// <summary>Use on a specific target (OT Sent Mits: cast on the MT without targeting them).</summary>
+    public static bool Use(uint baseActionId, ulong targetObjectId)
     {
         var am = ActionManager.Instance();
         if (am == null) return false;
-        return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId));
+        return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId), targetObjectId);
     }
 }

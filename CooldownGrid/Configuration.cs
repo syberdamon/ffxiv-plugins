@@ -18,8 +18,11 @@ public class CooldownGroup
     public bool ShowTitleBar { get; set; } = true;
     public bool ShowBackground { get; set; } = true;
 
-    /// <summary>The three defaults can be renamed but not deleted.</summary>
+    /// <summary>The default groups can be renamed but not deleted.</summary>
     public bool IsDefault { get; set; } = false;
+
+    /// <summary>Clicking an icon casts it on the other tank in the party (OT Sent Mits).</summary>
+    public bool CastOnCoTank { get; set; } = false;
 }
 
 /// <summary>An ability placed in a group, for one job. List order is display order.</summary>
@@ -36,6 +39,7 @@ public class Configuration : IPluginConfiguration
     public static readonly Guid DefensiveSelfId = new("6f1c1d0a-0000-4000-8000-000000000001");
     public static readonly Guid DefensiveGroupId = new("6f1c1d0a-0000-4000-8000-000000000002");
     public static readonly Guid SupportId = new("6f1c1d0a-0000-4000-8000-000000000003");
+    public static readonly Guid OtSentMitsId = new("6f1c1d0a-0000-4000-8000-000000000004");
 
     public int Version { get; set; } = 1;
 
@@ -54,12 +58,13 @@ public class Configuration : IPluginConfiguration
         AddDefault(DefensiveSelfId, "Defensive (self)");
         AddDefault(DefensiveGroupId, "Defensive (group)");
         AddDefault(SupportId, "Support");
+        AddDefault(OtSentMitsId, "OT Sent Mits", castOnCoTank: true);
     }
 
-    private void AddDefault(Guid id, string name)
+    private void AddDefault(Guid id, string name, bool castOnCoTank = false)
     {
         if (Groups.Any(g => g.Id == id)) return;
-        Groups.Add(new CooldownGroup { Id = id, Name = name, IsDefault = true });
+        Groups.Add(new CooldownGroup { Id = id, Name = name, IsDefault = true, CastOnCoTank = castOnCoTank });
     }
 
     public List<Assignment> ForJob(uint jobId)
