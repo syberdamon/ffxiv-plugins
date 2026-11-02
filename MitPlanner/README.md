@@ -34,6 +34,7 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 - **Columns:** in both the Plan table and the timeline window, drag a column
   edge to resize and a header to reorder (timeline: right-click a header to
   hide a column). ImGui remembers the layout.
+- **Picking a fight:** the Plan tab's fight dropdown has a search box (name or zone ID).
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
 
