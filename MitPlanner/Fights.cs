@@ -10,8 +10,7 @@ public sealed record FightDefinition(
     string Name,
     string Resource,
     IReadOnlyDictionary<string, MechanicType> DefaultTags,
-    IReadOnlyDictionary<string, uint>? HeadMarkers = null,   // label -> head marker that marks the target
-    IReadOnlySet<string>? DefaultSwaps = null);               // event keys followed by a tank swap
+    IReadOnlyDictionary<string, uint>? HeadMarkers = null);  // label -> head marker that marks the target
 
 public static class Fights
 {
@@ -43,7 +42,6 @@ public static class Fights
 
         // ui/raidboss/data/05-shb/trial/emerald_weapon.txt + emerald_weapon.ts; ZoneId.CastrumMarinum = 934
         // Tank busters: Emerald Shot (cast on the tank), Divide Et Impera (head marker 00DA on the tank).
-        // No tank-swap responses in cactbot's triggers for this fight.
         new FightDefinition(934, "Castrum Marinum", "MitPlanner.Timelines.emerald_weapon.txt", new Dictionary<string, MechanicType>
         {
             ["Emerald Shot"] = MechanicType.TankBuster,

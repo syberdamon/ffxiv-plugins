@@ -22,7 +22,8 @@ public sealed class CalloutWindow : Window
         IsOpen = true;
     }
 
-    public override bool DrawConditions() => plugin.Tracker.Active.Count > 0 || plugin.ShowCalloutPlacement;
+    public override bool DrawConditions() =>
+        plugin.ShowCalloutPlacement || (plugin.Configuration.ShowCallouts && plugin.Tracker.Active.Count > 0);
 
     public override void PreDraw()
     {
