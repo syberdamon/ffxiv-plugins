@@ -1,6 +1,31 @@
 [
   {
     "Author": "Jay",
+    "Name": "Map Click Nav",
+    "InternalName": "MapClickNav",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Hold a modifier (Ctrl by default) and left-click a spot on your current zone's map. Map Click Nav places your flag there, mounts you with Mount Roulette, and has vnavmesh fly you there if flight is unlocked in the zone (or ride there if not). A Stop button appears while traveling. Requires vnavmesh.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "map",
+      "navigation",
+      "vnavmesh",
+      "flag"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Ctrl+click the map to travel there with vnavmesh, flying when you can.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.1.0.0/MapClickNav.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.1.0.0/MapClickNav.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.1.0.0/MapClickNav.zip"
+  },
+  {
+    "Author": "Jay",
     "Name": "Tank Stance Manager",
     "InternalName": "TankStanceManager",
     "AssemblyVersion": "0.2.0.0",
