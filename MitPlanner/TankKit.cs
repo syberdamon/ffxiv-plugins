@@ -17,11 +17,13 @@ public sealed record TankKit(
     uint Short,        // stacked on every buster
     uint Sent,         // the Short-style mit cast on the other tank (OT Sent Mits)
     uint Invuln,       // never auto-planned
+    uint PartyMit,     // raid-wide party mitigation (with Reprisal, on this tank's raid-wide turn)
     bool ShortUsesResource); // Sheltron (Oath gauge) / TBN (MP): QC can't see the resource
 
 public static class TankKits
 {
     private const uint RampartId = 7531;
+    public const uint ReprisalId = 7535; // role action, every tank
 
     // ClassJob row ids: GLA 1 / PLD 19, MRD 3 / WAR 21, DRK 32, GNB 37.
     private static readonly TankKit Paladin = new("Paladin",
@@ -31,6 +33,7 @@ public static class TankKits
         Short: 3542,      // Sheltron -> Holy Sheltron
         Sent: 7382,       // Intervention
         Invuln: 30,       // Hallowed Ground
+        PartyMit: 3540,   // Divine Veil
         ShortUsesResource: true);
 
     private static readonly TankKit Warrior = new("Warrior",
@@ -40,6 +43,7 @@ public static class TankKits
         Short: 3551,      // Raw Intuition -> Bloodwhetting
         Sent: 16464,      // Nascent Flash
         Invuln: 43,       // Holmgang
+        PartyMit: 7388,   // Shake It Off
         ShortUsesResource: false);
 
     private static readonly TankKit DarkKnight = new("Dark Knight",
@@ -49,6 +53,7 @@ public static class TankKits
         Short: 7393,      // The Blackest Night
         Sent: 7393,       // The Blackest Night, cast on the MT
         Invuln: 3638,     // Living Dead
+        PartyMit: 16471,  // Dark Missionary
         ShortUsesResource: true);
 
     private static readonly TankKit Gunbreaker = new("Gunbreaker",
@@ -58,6 +63,7 @@ public static class TankKits
         Short: 16161,     // Heart of Stone -> Heart of Corundum
         Sent: 16161,      // Heart of Corundum, cast on the MT
         Invuln: 16152,    // Superbolide
+        PartyMit: 16160,  // Heart of Light
         ShortUsesResource: false);
 
     private static readonly Dictionary<uint, TankKit> ByJob = new()

@@ -47,16 +47,18 @@ Plan tab > **Generate starter plan** builds one from these rules:
   otherwise Rampart + Secondary.
 - **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
   the MT), plus Short on yourself only if the buster targets you.
-- Invulns are never planned; raid-wides aren't planned yet.
+- **Raid-wides alternate between tanks**: MT covers #1, #3, #5...; OT covers
+  #2, #4... On its turn a tank uses Reprisal + its party mit, 5 s early.
+- Invulns are never planned.
 
-| | Big | Secondary | Short | OT Sent Mit |
-|---|---|---|---|---|
-| PLD | Sentinel/Guardian | Bulwark | (Holy) Sheltron | Intervention |
-| WAR | Vengeance/Damnation | Thrill of Battle | Raw Intuition/Bloodwhetting | Nascent Flash |
-| DRK | Shadow Wall/Shadowed Vigil | Oblation | The Blackest Night | TBN on the MT |
-| GNB | Nebula/Great Nebula | Camouflage | Heart of Stone/Corundum | HoC on the MT |
+| | Big | Secondary | Short | OT Sent Mit | Party mit |
+|---|---|---|---|---|---|
+| PLD | Sentinel/Guardian | Bulwark | (Holy) Sheltron | Intervention | Divine Veil |
+| WAR | Vengeance/Damnation | Thrill of Battle | Raw Intuition/Bloodwhetting | Nascent Flash | Shake It Off |
+| DRK | Shadow Wall/Shadowed Vigil | Oblation | The Blackest Night | TBN on the MT | Dark Missionary |
+| GNB | Nebula/Great Nebula | Camouflage | Heart of Stone/Corundum | HoC on the MT | Heart of Light |
 
-All use Rampart when Big isn't back. Sheltron (Oath gauge) and TBN (MP) cost
+All use Rampart when Big isn't back, and Reprisal on their raid-wide turns. Sheltron (Oath gauge) and TBN (MP) cost
 resources the cooldown check can't see.
 
 ## OT Sent Mits

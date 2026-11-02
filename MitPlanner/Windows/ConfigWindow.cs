@@ -112,7 +112,9 @@ public sealed class ConfigWindow : Window
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Tank busters: MT gets Short + Big (or Rampart + Secondary if Big isn't back);\n" +
-                             "OT sends its Short mit to whoever is targeted. No invulns. Edit freely afterwards.");
+                             "OT sends its Short mit to whoever is targeted.\n" +
+                             "Raid-wides alternate: MT takes #1, #3...; OT #2, #4... (Reprisal + party mit).\n" +
+                             "No invulns. Edit freely afterwards.");
         if (generatorNotes.Count > 0)
         {
             foreach (var n in generatorNotes) ImGui.TextDisabled("  " + n);
