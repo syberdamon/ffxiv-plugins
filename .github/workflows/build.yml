@@ -1,13 +1,12 @@
 name: Build
 
-# Every push to main: compile all plugins (a check that everything still builds).
-# Pushing a tag named <PluginFolder>-v<version> (e.g. TankStanceManager-v0.1.0):
-#   compile, publish a GitHub Release with <PluginFolder>.zip, and update repo.json
-#   so Dalamud on every PC offers the update.
+# Every push to main compiles all plugins. For each plugin whose <Version> in its
+# .csproj has no GitHub Release yet, the build creates the release
+# (<PluginFolder>-v<version>, with <PluginFolder>.zip) and updates repo.json so
+# Dalamud on every PC offers the update. To release: bump <Version> and push.
 on:
   push:
     branches: [main]
-    tags: ['*-v*']
   pull_request:
   workflow_dispatch:
 
@@ -41,7 +40,7 @@ jobs:
 
       - name: List build output
         shell: pwsh
-        run: Get-ChildItem -Recurse -File -Path */bin/Release | Select-Object -ExpandProperty FullName
+        run: Get-ChildItem -Recurse -File -Path . -Include latest.zip,*.json | Where-Object FullName -match '\\bin\\' | ForEach-Object { $_.FullName }
 
       - name: Upload builds
         uses: actions/upload-artifact@v4
@@ -50,33 +49,38 @@ jobs:
           path: '*/bin/Release/**'
           if-no-files-found: error
 
-      - name: Read release tag
-        if: startsWith(github.ref, 'refs/tags/')
-        id: tag
+      - name: Release new plugin versions
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          $plugin = $tag.Substring(0, $tag.LastIndexOf('-v'))
-          "plugin=$plugin" >> $env:GITHUB_OUTPUT
-          $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin/Release" -Filter latest.zip | Select-Object -First 1
-          if (-not $zip) { throw "No latest.zip found for $plugin" }
-          Copy-Item $zip.FullName "$plugin.zip"
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.tag.outputs.plugin }}.zip
-
-      - name: Update repo.json on main
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          git checkout main
-          git pull origin main
-          python .github/scripts/update_repo_json.py "${{ steps.tag.outputs.plugin }}" "${{ github.ref_name }}"
+          # Let us check exit codes ourselves (gh release view returns 1 for "not found").
+          $PSNativeCommandUseErrorActionPreference = $false
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add repo.json
-          git commit -m "repo.json: ${{ github.ref_name }}"
-          git push origin main
+          $changed = $false
+          foreach ($proj in Get-ChildItem -Path */*.csproj) {
+            $plugin = $proj.Directory.Name
+            $version = ([xml](Get-Content $proj.FullName)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            if (-not $version) { Write-Host "$plugin has no <Version>; skipping"; continue }
+            $tag = "$plugin-v$version"
+            gh release view $tag *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Host "$tag already released"; continue }
+
+            $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin" -Filter latest.zip | Select-Object -First 1
+            if (-not $zip) { throw "No latest.zip found for $plugin" }
+            Copy-Item $zip.FullName "$plugin.zip"
+            gh release create $tag "$plugin.zip" --title "$plugin $version" --notes "$plugin $version" --target $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw "Release failed for $tag" }
+
+            python .github/scripts/update_repo_json.py $plugin $tag
+            if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin" }
+            $changed = $true
+          }
+          if ($changed) {
+            git add repo.json
+            git commit -m "repo.json: publish new plugin versions [skip ci]"
+            git push origin HEAD:main
+          }
+          exit 0

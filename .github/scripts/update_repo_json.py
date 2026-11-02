@@ -12,7 +12,7 @@ OWNER_REPO = "syberdamon/ffxiv-plugins"
 
 plugin, tag = sys.argv[1], sys.argv[2]
 # DalamudPackager writes <plugin>.json next to latest.zip; find it wherever it landed.
-zip_path = next((Path(plugin) / "bin" / "Release").rglob("latest.zip"))
+zip_path = next((Path(plugin) / "bin").rglob("latest.zip"))
 manifest = json.loads((zip_path.parent / f"{plugin}.json").read_text(encoding="utf-8-sig"))
 
 link = f"https://github.com/{OWNER_REPO}/releases/download/{tag}/{plugin}.zip"

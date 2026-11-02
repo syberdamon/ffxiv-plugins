@@ -5,7 +5,7 @@
 2. Add it to `ffxiv-plugins.slnx`.
 3. Add a row to the table in the root README.
 4. Push to main and confirm the GitHub Actions build passes.
-5. Release with a `<PluginName>-v0.1.0` tag (see root README).
+5. The first green build on main publishes it automatically (see root README).
 
 ## Reusable prompt for Claude
 Paste and fill in:
@@ -16,5 +16,5 @@ Paste and fill in:
 > When it should be active (combat / duties / always): ___
 > Settings I want to control in the UI: ___
 > Does it press actions for me, or only display info? ___
-> Follow the repo conventions in docs/NEW_PLUGIN.md, open a branch, and get
-> the GitHub Actions build passing before tagging a release.
+> Follow the repo conventions in docs/NEW_PLUGIN.md, and get the
+> GitHub Actions build passing (a push to main publishes the release).
