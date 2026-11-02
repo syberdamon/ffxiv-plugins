@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.2.0.0</Version>
+    <Version>0.3.0.0</Version>
     <Author>syberdamon</Author>
     <Name>Cooldown Grid</Name>
     <Punchline>Clickable cooldown grids, grouped into Defensive (self), Defensive (group), Support, and your own groups.</Punchline>
-    <Description>Pick any of your job's cooldown abilities and sort them into groups. Each group gets its own window: a grid of ability icons showing time remaining and charges. Click an icon to use the ability, just like a hotbar button. Settings are saved per job; Warrior ships with a starter layout.</Description>
+    <Description>Pick any of your job's cooldown abilities and sort them into groups. Each group gets its own window: a grid of ability icons showing time remaining and charges. Click an icon to use the ability, just like a hotbar button. Settings are saved per job; All four tanks ship with a starter layout.</Description>
     <Tags>cooldowns;hotbar;tank;defensive;ui</Tags>
     <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
