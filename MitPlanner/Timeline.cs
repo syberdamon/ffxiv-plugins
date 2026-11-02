@@ -1,0 +1,162 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace MitPlanner;
+
+public enum MechanicType
+{
+    Other = 0,
+    TankBuster = 1,
+    Raidwide = 2,
+    Stack = 3,
+    Mechanic = 4,
+}
+
+public enum SyncKind
+{
+    None,
+    Ability,      // fires when the ability resolves (network "action effect")
+    StartsUsing,  // fires when the cast bar starts
+}
+
+/// <summary>One line of a cactbot timeline.</summary>
+public sealed class TimelineEvent
+{
+    public int Index { get; init; }
+    public float Time { get; init; }
+    public string Label { get; init; } = "";
+    public bool Hidden { get; set; }
+
+    /// <summary>1 for the first "Stamp", 2 for the second, ... (used to attach plans).</summary>
+    public int Occurrence { get; set; }
+
+    public SyncKind Sync { get; init; }
+    public Regex? IdPattern { get; init; }
+    public float WindowBefore { get; init; } = 2.5f;  // cactbot default
+    public float WindowAfter { get; init; } = 2.5f;
+    public float? Jump { get; init; }
+    public float Duration { get; init; }
+
+    /// <summary>Stable key for plans and tags: "Stamp#2".</summary>
+    public string Key => $"{Label}#{Occurrence}";
+}
+
+/// <summary>
+/// Parser for the subset of cactbot's timeline format the bundled fights use:
+///   time "label" [Ability|StartsUsing { id: "4AC7" | ["A","B"] | "4A9[67]", ... }] [window a,b] [jump t] [duration d]
+///   hideall "label"
+/// Format reference: cactbot docs/TimelineGuide.md (Apache-2.0).
+/// </summary>
+public sealed class Timeline
+{
+    public string Name { get; private init; } = "";
+    public IReadOnlyList<TimelineEvent> Events { get; private init; } = Array.Empty<TimelineEvent>();
+
+    private static readonly Regex LineRx = new(
+        @"^(?<time>\d+(?:\.\d+)?)\s+""(?<label>[^""]*)""(?<rest>.*)$", RegexOptions.Compiled);
+    private static readonly Regex SyncRx = new(
+        @"\b(?<kind>Ability|StartsUsing)\s*\{(?<body>[^}]*)\}", RegexOptions.Compiled);
+    private static readonly Regex IdRx = new(
+        @"\bid:\s*(?:""(?<one>[^""]+)""|\[(?<many>[^\]]+)\])", RegexOptions.Compiled);
+    private static readonly Regex WindowRx = new(@"\bwindow\s+(?<a>\d+(?:\.\d+)?)(?:\s*,\s*(?<b>\d+(?:\.\d+)?))?", RegexOptions.Compiled);
+    private static readonly Regex JumpRx = new(@"\bjump\s+(?<t>\d+(?:\.\d+)?)", RegexOptions.Compiled);
+    private static readonly Regex DurationRx = new(@"\bduration\s+(?<d>\d+(?:\.\d+)?)", RegexOptions.Compiled);
+    private static readonly Regex HideAllRx = new(@"^hideall\s+""(?<label>[^""]*)""", RegexOptions.Compiled);
+    private static readonly Regex QuotedRx = new(@"""([^""]+)""", RegexOptions.Compiled);
+
+    public static Timeline Parse(string name, string text)
+    {
+        var events = new List<TimelineEvent>();
+        var hidden = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = StripComment(raw).Trim();
+            if (line.Length == 0) continue;
+
+            var hide = HideAllRx.Match(line);
+            if (hide.Success) { hidden.Add(hide.Groups["label"].Value); continue; }
+
+            var m = LineRx.Match(line);
+            if (!m.Success) continue;
+
+            var rest = m.Groups["rest"].Value;
+            var sync = SyncRx.Match(rest);
+            Regex? pattern = null;
+            var kind = SyncKind.None;
+            if (sync.Success)
+            {
+                kind = sync.Groups["kind"].Value == "Ability" ? SyncKind.Ability : SyncKind.StartsUsing;
+                pattern = BuildIdPattern(sync.Groups["body"].Value);
+                if (pattern == null) kind = SyncKind.None;
+            }
+
+            var window = WindowRx.Match(rest);
+            float before = 2.5f, after = 2.5f;
+            if (window.Success)
+            {
+                before = F(window.Groups["a"].Value);
+                after = window.Groups["b"].Success ? F(window.Groups["b"].Value) : before;
+            }
+
+            var jump = JumpRx.Match(rest);
+            var duration = DurationRx.Match(rest);
+
+            events.Add(new TimelineEvent
+            {
+                Index = events.Count,
+                Time = F(m.Groups["time"].Value),
+                Label = m.Groups["label"].Value,
+                Sync = kind,
+                IdPattern = pattern,
+                WindowBefore = before,
+                WindowAfter = after,
+                Jump = jump.Success ? F(jump.Groups["t"].Value) : null,
+                Duration = duration.Success ? F(duration.Groups["d"].Value) : 0,
+            });
+        }
+
+        // Hidden: explicit hideall, plus cactbot's "--x--" helper lines.
+        var counts = new Dictionary<string, int>();
+        foreach (var e in events)
+        {
+            e.Hidden = hidden.Contains(e.Label) || e.Label == "Start" || (e.Label.StartsWith("--") && e.Label.EndsWith("--"));
+            counts[e.Label] = counts.GetValueOrDefault(e.Label) + 1;
+            e.Occurrence = counts[e.Label];
+        }
+
+        return new Timeline { Name = name, Events = events.OrderBy(e => e.Time).ThenBy(e => e.Index).ToList() };
+    }
+
+    /// <summary>cactbot ids are hex strings or small regexes ("4A9[67]"); match case-insensitively, whole id.</summary>
+    private static Regex? BuildIdPattern(string body)
+    {
+        var id = IdRx.Match(body);
+        if (!id.Success) return null;
+
+        var parts = id.Groups["one"].Success
+            ? new[] { id.Groups["one"].Value }
+            : QuotedRx.Matches(id.Groups["many"].Value).Select(q => q.Groups[1].Value).ToArray();
+        if (parts.Length == 0) return null;
+
+        try { return new Regex($"^(?:{string.Join("|", parts)})$", RegexOptions.IgnoreCase | RegexOptions.Compiled); }
+        catch (ArgumentException) { return null; }
+    }
+
+    private static string StripComment(string line)
+    {
+        // '#' starts a comment unless it's inside quotes.
+        var inQuotes = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            if (line[i] == '"') inQuotes = !inQuotes;
+            else if (line[i] == '#' && !inQuotes) return line[..i];
+        }
+        return line;
+    }
+
+    private static float F(string s) => float.Parse(s, CultureInfo.InvariantCulture);
+}

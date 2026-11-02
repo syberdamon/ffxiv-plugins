@@ -37,3 +37,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
+
+## cactbot (OverlayPlugin/cactbot)
+
+Mit Planner bundles fight timelines from cactbot, unmodified, under
+`MitPlanner/Timelines/` (currently `ruby_weapon.txt`, from
+`ui/raidboss/data/05-shb/trial/`, commit e79ea7f, 2026-10-08). Default mechanic
+tags are taken from cactbot's matching trigger files. The timeline parser follows
+cactbot's documented timeline format.
+
+Source: https://github.com/OverlayPlugin/cactbot
+License: Apache License 2.0. A full copy is included at
+`MitPlanner/Timelines/CACTBOT_LICENSE.txt`.
