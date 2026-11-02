@@ -117,8 +117,9 @@ public sealed class GroupWindow : Window
         {
             var state = status.OnCooldown ? $"{status.Remaining:0.0}s" : status.Usable ? "Ready" : "Can't use right now";
             var to = sendable ? (coTank is { } c ? $"\n-> {c.Name}" : "\nNo other tank in the party") : "";
+            var units = ActionCatalog.IsGeneralAction(entry.ActionId) ? "bars" : "charges";
             ImGui.SetTooltip(status.MaxCharges > 1
-                ? $"{entry.Name}\n{status.Charges}/{status.MaxCharges} charges - {state}{to}"
+                ? $"{entry.Name}\n{status.Charges}/{status.MaxCharges} {units} - {state}{to}"
                 : $"{entry.Name}\n{state}{to}");
         }
 

@@ -90,7 +90,7 @@ public sealed class ConfigWindow : Window
             ImGui.TextUnformatted(entry.Level.ToString());
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted(entry.RecastSeconds >= 60 ? $"{entry.RecastSeconds / 60:0.#}m" : $"{entry.RecastSeconds:0}s");
+            ImGui.TextUnformatted(entry.RecastSeconds <= 0 ? "-" : entry.RecastSeconds >= 60 ? $"{entry.RecastSeconds / 60:0.#}m" : $"{entry.RecastSeconds:0}s");
 
             // Main group
             ImGui.TableNextColumn();
