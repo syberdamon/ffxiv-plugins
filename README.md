@@ -4,6 +4,7 @@ Personal Dalamud plugins (API 15).
 
 | Plugin | What it does |
 |---|---|
+| [Cooldown Grid](CooldownGrid/README.md) | Clickable cooldown windows grouped into Defensive (self), Defensive (group), Support, and custom groups. |
 | [Map Click Nav](MapClickNav/README.md) | Ctrl+click any map: teleports if faster, mounts, and flies there with vnavmesh. |
 | [Tank Stance Manager](TankStanceManager/README.md) | MT: stance always on. OT: holds a configurable enmity band of the MT. |
 

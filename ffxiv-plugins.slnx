@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="CooldownGrid/CooldownGrid.csproj" />
   <Project Path="MapClickNav/MapClickNav.csproj" />
   <Project Path="TankStanceManager/TankStanceManager.csproj" />
 </Solution>
