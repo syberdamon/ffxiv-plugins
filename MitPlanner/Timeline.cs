@@ -40,6 +40,15 @@ public sealed class TimelineEvent
     public float? Jump { get; init; }
     public float Duration { get; init; }
 
+    /// <summary>
+    /// Estimated real fight time. cactbot parks later phases at placeholder times (phase 2 at
+    /// 1000s), so long empty gaps are collapsed to approximate elapsed time.
+    /// </summary>
+    public float FightTime { get; set; }
+
+    /// <summary>True once a gap has been collapsed: the fight time is an estimate.</summary>
+    public bool FightTimeEstimated { get; set; }
+
     /// <summary>Stable key for plans and tags: "Stamp#2".</summary>
     public string Key => $"{Label}#{Occurrence}";
 }
@@ -128,7 +137,41 @@ public sealed class Timeline
             e.Occurrence = counts[e.Label];
         }
 
-        return new Timeline { Name = name, Events = events.OrderBy(e => e.Time).ThenBy(e => e.Index).ToList() };
+        var ordered = events.OrderBy(e => e.Time).ThenBy(e => e.Index).ToList();
+        EstimateFightTimes(ordered);
+        return new Timeline { Name = name, Events = ordered };
+    }
+
+    /// <summary>Gaps longer than this with no timeline lines are phase jumps, not real time.</summary>
+    private const float PhaseGap = 30f;
+    /// <summary>[Estimate] Time assumed to pass across a collapsed jump (transition cast / targetable delay).</summary>
+    private const float CollapsedGap = 5f;
+
+    private static void EstimateFightTimes(List<TimelineEvent> events)
+    {
+        float fight = 0;
+        var estimated = false;
+        for (var i = 0; i < events.Count; i++)
+        {
+            if (i > 0)
+            {
+                var prev = events[i - 1];
+                var gap = events[i].Time - prev.Time;
+                if (gap > PhaseGap)
+                {
+                    // A line with a duration (e.g. the cutscene) really does take that long.
+                    gap = prev.Duration > 0 ? Math.Min(gap, prev.Duration) : CollapsedGap;
+                    estimated = true;
+                }
+                fight += gap;
+            }
+            else
+            {
+                fight = events[0].Time;
+            }
+            events[i].FightTime = fight;
+            events[i].FightTimeEstimated = estimated;
+        }
     }
 
     /// <summary>cactbot ids are hex strings or small regexes ("4A9[67]"); match case-insensitively, whole id.</summary>

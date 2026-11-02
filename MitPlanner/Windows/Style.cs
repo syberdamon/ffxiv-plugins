@@ -24,6 +24,20 @@ public static class Style
         _ => "",
     };
 
+    /// <summary>"1:23 (83s)" over a minute, "8.4s" under.</summary>
+    public static string ClockWithSeconds(float seconds)
+    {
+        if (seconds < 0) seconds = 0;
+        return seconds >= 60 ? $"{(int)seconds / 60}:{(int)seconds % 60:00} ({seconds:0}s)" : $"{seconds:0.0}s";
+    }
+
+    /// <summary>Plan-table fight time: "~6:47 (408s)", with "~" when estimated across a phase change.</summary>
+    public static string FightTime(TimelineEvent e) =>
+        $"{(e.FightTimeEstimated ? "~" : "")}{(int)e.FightTime / 60}:{(int)e.FightTime % 60:00} ({e.FightTime:0}s)";
+
+    public static readonly Vector4 Warning = new(1f, 0.35f, 0.30f, 1f);
+    public static readonly Vector4 Ok = new(0.45f, 0.85f, 0.45f, 1f);
+
     public static string Clock(float seconds)
     {
         if (seconds < 0) seconds = 0;

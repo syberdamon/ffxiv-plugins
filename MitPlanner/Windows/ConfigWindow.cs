@@ -11,6 +11,7 @@ public sealed class ConfigWindow : Window
 {
     private readonly Plugin plugin;
     private int fightIndex = -1;
+    private string? transferMessage;
     private Configuration Config => plugin.Configuration;
 
     public ConfigWindow(Plugin plugin) : base("Mit Planner - Options###MPConfig")
@@ -55,10 +56,38 @@ public sealed class ConfigWindow : Window
         var plan = Config.PlanFor(fight.TerritoryId, jobId);
         var catalog = ActionCatalog.ForCurrentJob();
 
+        // QC: every planned use must have its cooldown back by then.
+        var conflicts = PlanCheck.Run(timeline, plan, catalog);
+        if (plan.Count == 0) ImGui.TextDisabled("QC: no cooldowns planned yet.");
+        else if (conflicts.Count == 0) ImGui.TextColored(Style.Ok, $"QC: all {plan.Count} planned cooldowns will be ready.");
+        else ImGui.TextColored(Style.Warning, $"QC: {conflicts.Count} planned cooldown(s) won't be back in time (marked below).");
+        ImGui.SameLine();
+        ImGui.TextDisabled("  Times are fight time; '~' = estimated across a phase change.");
+
+        if (ImGui.SmallButton("Copy plan to clipboard"))
+        {
+            ImGui.SetClipboardText(PlanTransfer.Export(fight, jobId, plan));
+            transferMessage = $"Copied {plan.Count} entries.";
+        }
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Paste plan (replaces this job's plan for this fight)"))
+        {
+            var imported = PlanTransfer.Import(ImGui.GetClipboardText(), fight, jobId, out var error);
+            if (imported != null)
+            {
+                Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId)] = imported;
+                Config.Save();
+                plan = imported;
+                transferMessage = $"Pasted {imported.Count} entries.";
+            }
+            else transferMessage = error;
+        }
+        if (transferMessage != null) { ImGui.SameLine(); ImGui.TextDisabled(transferMessage); }
+
         if (!ImGui.BeginTable("##plan", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH,
                 new Vector2(0, ImGui.GetContentRegionAvail().Y))) return;
         ImGui.TableSetupScrollFreeze(0, 1);
-        ImGui.TableSetupColumn("Time", ImGuiTableColumnFlags.WidthFixed, 48);
+        ImGui.TableSetupColumn("Fight time", ImGuiTableColumnFlags.WidthFixed, 96);
         ImGui.TableSetupColumn("Mechanic", ImGuiTableColumnFlags.WidthFixed, 200);
         ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.WidthFixed, 110);
         ImGui.TableSetupColumn("Cooldowns (press N seconds early; Auto = plugin presses it)", ImGuiTableColumnFlags.WidthStretch);
@@ -74,7 +103,9 @@ public sealed class ConfigWindow : Window
 
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(Style.Clock(e.Time));
+            ImGui.TextUnformatted(Style.FightTime(e));
+            if (e.FightTimeEstimated && ImGui.IsItemHovered())
+                ImGui.SetTooltip($"Estimated: cactbot lists this at {e.Time:0.0}s on its own phase clock.\nPhase changes depend on your kill speed.");
 
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
@@ -90,14 +121,15 @@ public sealed class ConfigWindow : Window
             }
 
             ImGui.TableNextColumn();
-            DrawEntries(plan, e, catalog);
+            DrawEntries(plan, e, catalog, conflicts, timeline);
 
             ImGui.PopID();
         }
         ImGui.EndTable();
     }
 
-    private void DrawEntries(System.Collections.Generic.List<PlanEntry> plan, TimelineEvent e, System.Collections.Generic.IReadOnlyList<CatalogEntry> catalog)
+    private void DrawEntries(System.Collections.Generic.List<PlanEntry> plan, TimelineEvent e, System.Collections.Generic.IReadOnlyList<CatalogEntry> catalog,
+        System.Collections.Generic.Dictionary<Guid, PlanConflict> conflicts, Timeline timeline)
     {
         PlanEntry? remove = null;
         foreach (var p in plan.Where(p => p.EventKey == e.Key))
@@ -121,6 +153,19 @@ public sealed class ConfigWindow : Window
             if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Config.Save(); }
             ImGui.SameLine();
             if (ImGui.SmallButton("x")) remove = p;
+
+            if (conflicts.TryGetValue(p.Id, out var c))
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(Style.Warning, $"! not back until {Style.ClockWithSeconds(c.ReadyAt)}");
+                if (ImGui.IsItemHovered())
+                {
+                    var by = c.BlockedBy != null ? $"{c.BlockedBy.Label} #{c.BlockedBy.Occurrence}" : "an earlier use";
+                    var charges = c.MaxCharges > 1 ? $" ({c.MaxCharges} charges, {c.RecastSeconds:0}s each)" : $" ({c.RecastSeconds:0}s cooldown)";
+                    ImGui.SetTooltip($"Planned at {Style.ClockWithSeconds(c.PlannedAt)}, but it's still recharging from {by}{charges}.\n" +
+                                     $"Ready again at {Style.ClockWithSeconds(c.ReadyAt)}. Move it, lower the lead time, or pick another cooldown.");
+                }
+            }
             ImGui.PopID();
         }
         if (remove != null) { plan.Remove(remove); Config.Save(); }
