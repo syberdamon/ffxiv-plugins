@@ -48,7 +48,11 @@ Plan tab > **Generate starter plan** builds one from these rules:
 - **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
   the MT), plus Short on yourself only if the buster targets you.
 - **Raid-wides alternate between tanks**: MT covers #1, #3, #5...; OT covers
-  #2, #4... On its turn a tank uses Reprisal + its party mit, 5 s early.
+  #2, #4... On its turn a tank uses Reprisal + its party mit.
+- **Press timing** (seconds before the hit; 1.25 s between presses so they
+  don't collide on animation lock): Big 3.25 then Short 2.0; if Big isn't back,
+  Rampart 4.5, Secondary 3.25, Short 2.0; raid-wides Reprisal 5.0, party mit 3.75.
+  OT Sent Mits 2.0.
 - Invulns are never planned.
 
 | | Big | Secondary | Short | OT Sent Mit | Party mit |
