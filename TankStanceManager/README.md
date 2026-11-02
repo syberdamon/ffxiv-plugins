@@ -1,7 +1,11 @@
 # Tank Stance Manager
 
-Commands: `/tsm` (settings), `/tsm on`, `/tsm off`, `/tsm mt`, `/tsm ot`.
-Ships disabled. Tick "Enabled" in `/tsm` when ready.
+**Control panel** (`/tsm` shows/hides it): ON/OFF button, MT/OT buttons, an
+Options button, and a one-line status. It remembers whether it was open and can
+be locked in place (Options > Control panel).
+
+Commands: `/tsm` (panel), `/tsm options`, `/tsm on`, `/tsm off`, `/tsm mt`, `/tsm ot`.
+Ships disabled (OFF).
 
 **MT mode:** tank stance on at all times, in or out of combat. Re-applies after
 death or a job swap.
