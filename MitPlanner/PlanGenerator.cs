@@ -15,11 +15,18 @@ namespace MitPlanner;
 /// </summary>
 public static class PlanGenerator
 {
-    // [Assumption] Lead times: short mits last ~4-8s, so press 2s before; big ones 3s.
+    // Lead times (syberdamon): Short lands 2.0s before the buster; each heavier mit goes
+    // 1.25s before the one after it, so presses don't collide on animation lock.
+    //   Big available:  Big 3.25s -> Short 2.0s
+    //   Big not back:   Rampart 4.5s -> Secondary 3.25s -> Short 2.0s
+    //   Raid-wides:     Reprisal 5.0s -> party mit 3.75s
+    private const float Spacing = 1.25f;
     private const float ShortLead = 2f;
-    private const float BigLead = 3f;
-    // [Assumption] Reprisal and party shields need to be up before a raid-wide lands.
-    private const float RaidwideLead = 5f;
+    private const float BigLead = ShortLead + Spacing;            // 3.25
+    private const float SecondaryLead = ShortLead + Spacing;      // 3.25
+    private const float RampartLead = ShortLead + 2 * Spacing;    // 4.5
+    private const float ReprisalLead = 5f;
+    private const float PartyMitLead = ReprisalLead - Spacing;    // 3.75
 
     public sealed record Result(List<PlanEntry> Plan, List<string> Notes);
 
@@ -62,8 +69,8 @@ public static class PlanGenerator
                 var bigOk = hasBig && TryAdd(plan, timeline, catalog, null, Entry(ev, kit.Big, BigLead, TargetCondition.IfTargeted), ev, "Big");
                 if (!bigOk)
                 {
-                    var rampartOk = hasRampart && TryAdd(plan, timeline, catalog, null, Entry(ev, kit.Rampart, BigLead, TargetCondition.IfTargeted), ev, "Rampart");
-                    if (hasSecondary) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.Secondary, BigLead, TargetCondition.IfTargeted), ev, "Secondary");
+                    var rampartOk = hasRampart && TryAdd(plan, timeline, catalog, null, Entry(ev, kit.Rampart, RampartLead, TargetCondition.IfTargeted), ev, "Rampart");
+                    if (hasSecondary) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.Secondary, SecondaryLead, TargetCondition.IfTargeted), ev, "Secondary");
                     if (!rampartOk) notes.Add($"{Label(ev)}: neither Big nor Rampart will be back in time.");
                 }
             }
@@ -89,8 +96,8 @@ public static class PlanGenerator
         {
             if (i % 2 != myTurn) continue;
             var ev = raidwides[i];
-            if (hasReprisal) TryAdd(plan, timeline, catalog, notes, Entry(ev, TankKits.ReprisalId, RaidwideLead, TargetCondition.Always), ev, "Reprisal");
-            if (hasParty) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, RaidwideLead, TargetCondition.Always), ev, "Party mit");
+            if (hasReprisal) TryAdd(plan, timeline, catalog, notes, Entry(ev, TankKits.ReprisalId, ReprisalLead, TargetCondition.Always), ev, "Reprisal");
+            if (hasParty) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, PartyMitLead, TargetCondition.Always), ev, "Party mit");
         }
         if (raidwides.Count > 0)
             notes.Add($"Raid-wides: {Configuration.RoleCode(role)} covers #{string.Join(", #", Enumerable.Range(1, raidwides.Count).Where(n => (n - 1) % 2 == myTurn))} of {raidwides.Count}.");
