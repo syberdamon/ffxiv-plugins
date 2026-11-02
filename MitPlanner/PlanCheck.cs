@@ -35,7 +35,13 @@ public static unsafe class PlanCheck
             int maxCharges = Math.Max(1, (int)ActionManager.GetMaxCharges(live, 0));
             var recast = ability.RecastSeconds; // per charge for charge abilities
 
+            // Several entries for the same cooldown on the same mechanic are alternatives
+            // (e.g. OT: "Short on me if targeted" / "send Short to the MT if not"): only one
+            // can fire, so they count as a single use.
+            var groups = byAction.GroupBy(p => p.EventKey).ToDictionary(g => g.First().Id, g => g.ToList());
             var uses = byAction
+                .GroupBy(p => p.EventKey)
+                .Select(g => g.First())
                 .Select(p => (Entry: p, Event: timeline.Events.FirstOrDefault(e => e.Key == p.EventKey)))
                 .Where(u => u.Event != null)
                 .Select(u => (u.Entry, Event: u.Event!, At: u.Event!.FightTime - u.Entry.LeadSeconds))
@@ -55,7 +61,8 @@ public static unsafe class PlanCheck
                 if (charges == 0)
                 {
                     var readyAt = rechargeStart + recast;
-                    conflicts[use.Entry.Id] = new PlanConflict(use.Entry, t, readyAt, lastUse, recast, maxCharges);
+                    foreach (var alt in groups[use.Entry.Id])
+                        conflicts[alt.Id] = new PlanConflict(alt, t, readyAt, lastUse, recast, maxCharges);
                     // Assume it gets pressed as soon as it's back, so later checks stay realistic.
                     t = readyAt;
                     Advance(ref charges, ref rechargeStart, maxCharges, recast, t);

@@ -18,7 +18,7 @@ public enum TargetSource
     Aggro,        // nothing more specific yet: whoever the boss is attacking
 }
 
-public readonly record struct TargetCheck(bool IsMe, TargetSource Source)
+public readonly record struct TargetCheck(bool IsMe, TargetSource Source, ulong TargetObjectId = 0)
 {
     public string Describe() => Source switch
     {
@@ -82,6 +82,20 @@ public sealed unsafe class Targeting : IDisposable
         }
     }
 
+    /// <summary>The other tank in the party (fallback target for OT Sent Mits).</summary>
+    public static ulong CoTankObjectId()
+    {
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me == null) return 0;
+        foreach (var member in Plugin.PartyList)
+        {
+            if (member.EntityId == me.EntityId) continue;
+            if (TankKits.For(member.ClassJob.RowId) == null) continue;
+            if (Plugin.ObjectTable.SearchByEntityId(member.EntityId) is { } obj) return obj.GameObjectId;
+        }
+        return 0;
+    }
+
     public TargetCheck Check(FightDefinition fight, TimelineEvent ev)
     {
         var me = Plugin.ObjectTable.LocalPlayer;
@@ -91,7 +105,13 @@ public sealed unsafe class Targeting : IDisposable
         if (fight.HeadMarkers != null && fight.HeadMarkers.TryGetValue(ev.Label, out var markerId))
         {
             var recent = markers.Where(m => m.Marker == markerId && (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds).ToList();
-            if (recent.Count > 0) return new(recent.Any(m => m.Entity == me.EntityId), TargetSource.HeadMarker);
+            if (recent.Count > 0)
+            {
+                var isMe = recent.Any(m => m.Entity == me.EntityId);
+                var other = recent.Select(m => Plugin.ObjectTable.SearchByEntityId(m.Entity))
+                                  .FirstOrDefault(o => o != null && o.EntityId != me.EntityId);
+                return new(isMe, TargetSource.HeadMarker, isMe ? me.GameObjectId : other?.GameObjectId ?? 0);
+            }
         }
 
         // 2. A boss currently casting this ability at a player.
@@ -104,14 +124,14 @@ public sealed unsafe class Targeting : IDisposable
 
                 var target = Plugin.ObjectTable.SearchById(npc.CastTargetObjectId);
                 if (target is Dalamud.Game.ClientState.Objects.SubKinds.IPlayerCharacter)
-                    return new(target.EntityId == me.EntityId, TargetSource.CastTarget);
+                    return new(target.EntityId == me.EntityId, TargetSource.CastTarget, target.GameObjectId);
                 // Cast on itself / the ground (e.g. a cleave): fall through to aggro.
             }
         }
 
         // 3. Aggro: whoever the boss is attacking right now.
         if (runner.BossEntityId != 0 && Plugin.ObjectTable.SearchByEntityId(runner.BossEntityId) is { } boss)
-            return new(boss.TargetObjectId == me.GameObjectId, TargetSource.Aggro);
+            return new(boss.TargetObjectId == me.GameObjectId, TargetSource.Aggro, boss.TargetObjectId);
 
         return new(false, TargetSource.Unknown);
     }

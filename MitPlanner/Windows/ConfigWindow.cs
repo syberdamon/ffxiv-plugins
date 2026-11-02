@@ -13,6 +13,7 @@ public sealed class ConfigWindow : Window
     private int fightIndex = -1;
     private string? transferMessage;
     private string abilitySearch = "";
+    private System.Collections.Generic.List<string> generatorNotes = new();
     private Configuration Config => plugin.Configuration;
 
     public ConfigWindow(Plugin plugin) : base("Mit Planner - Options###MPConfig")
@@ -54,7 +55,18 @@ public sealed class ConfigWindow : Window
         ImGui.SameLine();
         ImGui.TextDisabled($"Plan for {jobName} (switch job to edit another job's plan)");
 
-        var plan = Config.PlanFor(fight.TerritoryId, jobId);
+        // MT and OT plans are separate; this also sets which one runs in the fight.
+        var role = (int)Config.Role;
+        ImGui.TextUnformatted("Role:");
+        ImGui.SameLine();
+        var roleChanged = ImGui.RadioButton("MT plan", ref role, (int)TankRole.MainTank);
+        ImGui.SameLine();
+        roleChanged |= ImGui.RadioButton("OT plan", ref role, (int)TankRole.OffTank);
+        if (roleChanged) { Config.Role = (TankRole)role; Config.Save(); }
+        ImGui.SameLine();
+        ImGui.TextDisabled("(the selected role's plan is the one that runs)");
+
+        var plan = Config.PlanFor(fight.TerritoryId, jobId, Config.Role);
         var catalog = ActionCatalog.ForCurrentJob();
 
         // QC: every planned use must have its cooldown back by then.
@@ -67,16 +79,16 @@ public sealed class ConfigWindow : Window
 
         if (ImGui.SmallButton("Copy plan to clipboard"))
         {
-            ImGui.SetClipboardText(PlanTransfer.Export(fight, jobId, plan));
+            ImGui.SetClipboardText(PlanTransfer.Export(fight, jobId, Config.Role, plan));
             transferMessage = $"Copied {plan.Count} entries.";
         }
         ImGui.SameLine();
-        if (ImGui.SmallButton("Paste plan (replaces this job's plan for this fight)"))
+        if (ImGui.SmallButton("Paste plan (replaces this role's plan for this fight)"))
         {
-            var imported = PlanTransfer.Import(ImGui.GetClipboardText(), fight, jobId, out var error);
+            var imported = PlanTransfer.Import(ImGui.GetClipboardText(), fight, jobId, Config.Role, out var error);
             if (imported != null)
             {
-                Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId)] = imported;
+                Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId, Config.Role)] = imported;
                 Config.Save();
                 plan = imported;
                 transferMessage = $"Pasted {imported.Count} entries.";
@@ -84,6 +96,28 @@ public sealed class ConfigWindow : Window
             else transferMessage = error;
         }
         if (transferMessage != null) { ImGui.SameLine(); ImGui.TextDisabled(transferMessage); }
+
+        // Rule-based starter plan for tanks (replaces this role's plan; Ctrl+click when one exists).
+        var replacing = plan.Count > 0;
+        if (ImGui.SmallButton(replacing ? "Generate starter plan (Ctrl+click: replaces this role's plan)" : "Generate starter plan") &&
+            (!replacing || ImGui.GetIO().KeyCtrl))
+        {
+            var result = PlanGenerator.Generate(Config, fight, timeline, jobId, Config.Role, catalog);
+            Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId, Config.Role)] = result.Plan;
+            Config.Save();
+            plan = result.Plan;
+            conflicts = PlanCheck.Run(timeline, plan, catalog);
+            generatorNotes = result.Notes;
+            generatorNotes.Insert(0, $"Generated {result.Plan.Count} entries for {Configuration.RoleCode(Config.Role)}.");
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Tank busters: MT gets Short + Big (or Rampart + Secondary if Big isn't back);\n" +
+                             "OT sends its Short mit to whoever is targeted. No invulns. Edit freely afterwards.");
+        if (generatorNotes.Count > 0)
+        {
+            foreach (var n in generatorNotes) ImGui.TextDisabled("  " + n);
+            if (ImGui.SmallButton("Hide notes")) generatorNotes.Clear();
+        }
 
         // Drag a header to reorder, drag a column edge to resize; ImGui remembers the layout.
         if (!ImGui.BeginTable("##plan", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH |
@@ -158,6 +192,17 @@ public sealed class ConfigWindow : Window
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Who this mechanic hits decides whether to call it out / auto-press.\n" +
                                  "Checked live: head marker, then the boss's cast target, then who the boss is attacking.");
+            ImGui.SameLine();
+            var send = p.SendToTarget;
+            if (ImGui.Checkbox("Send", ref send))
+            {
+                p.SendToTarget = send;
+                if (send && p.Condition == TargetCondition.Always) p.Condition = TargetCondition.IfNotTargeted;
+                Config.Save();
+            }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("OT Sent Mits: cast this on whoever the mechanic targets (normally the MT),\n" +
+                                 "without targeting them. Use with 'If I'm NOT targeted'.");
             ImGui.SameLine();
             var auto = p.AutoUse;
             if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Config.Save(); }

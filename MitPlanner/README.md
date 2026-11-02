@@ -8,7 +8,7 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 
 ## How it works
 - **Fight detection:** entering a supported duty loads its timeline
-  (bundled: **The Cinder Drift**, zone 897; **Castrum Marinum**, zone 934).
+  (bundled: **The Cinder Drift** 897, **Castrum Marinum** 934, **The Cloud Deck** 950).
 - **Clock:** starts on the pull and syncs to the boss's real abilities using the
   fight's cactbot timeline, so it stays accurate and follows phase changes.
 - **Timeline window:** next 5 mechanics (configurable) with countdowns, type
@@ -36,6 +36,33 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
   hide a column). ImGui remembers the layout.
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
+
+## MT / OT
+Plans are kept separately for MT and OT (per fight, per job). The **Role: MT/OT**
+button on the timeline window (or `/mitplan mt|ot`) picks which one runs.
+
+## Starter plans (tanks)
+Plan tab > **Generate starter plan** builds one from these rules:
+- **MT**, every tank buster: Short mit, plus Big if it'll be back in time;
+  otherwise Rampart + Secondary.
+- **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
+  the MT), plus Short on yourself only if the buster targets you.
+- Invulns are never planned; raid-wides aren't planned yet.
+
+| | Big | Secondary | Short | OT Sent Mit |
+|---|---|---|---|---|
+| PLD | Sentinel/Guardian | Bulwark | (Holy) Sheltron | Intervention |
+| WAR | Vengeance/Damnation | Thrill of Battle | Raw Intuition/Bloodwhetting | Nascent Flash |
+| DRK | Shadow Wall/Shadowed Vigil | Oblation | The Blackest Night | TBN on the MT |
+| GNB | Nebula/Great Nebula | Camouflage | Heart of Stone/Corundum | HoC on the MT |
+
+All use Rampart when Big isn't back. Sheltron (Oath gauge) and TBN (MP) cost
+resources the cooldown check can't see.
+
+## OT Sent Mits
+Tick **Send** on a plan entry to cast it on whoever the mechanic targets instead
+of your own target (falls back to the other tank). Pair it with "If I'm NOT
+targeted". Callouts read "Send Nascent Flash to <name>".
 
 ## "Only if targeted"
 Each planned cooldown has a condition: **Always**, **If I'm targeted**, or

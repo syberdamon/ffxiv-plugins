@@ -15,7 +15,8 @@ public sealed record Prompt(
     bool NotReady,          // still on cooldown, so it can't be pressed yet
     int AutoPresses,        // how many times auto-use has pressed it this pull
     bool Skipped,           // condition says this one isn't for you (e.g. buster on the other tank)
-    TargetCheck? Target);   // who the mechanic targets, when the entry has a condition
+    TargetCheck? Target,    // who the mechanic targets, when the entry has a condition
+    string? SendTo);        // OT Sent Mits: name of the player it'll be cast on
 
 /// <summary>
 /// Watches the plan against the running timeline: which cooldowns are coming due, whether you
@@ -112,6 +113,19 @@ public sealed class PlanTracker : IDisposable
             }
             var targetUnknown = target is { Source: TargetSource.Unknown };
 
+            // OT Sent Mits: cast on whoever the mechanic targets; fall back to the co-tank.
+            ulong sendTarget = 0;
+            string? sendName = null;
+            if (entry.SendToTarget)
+            {
+                var me = Plugin.ObjectTable.LocalPlayer;
+                sendTarget = target is { Source: not TargetSource.Unknown, TargetObjectId: not 0 } t2 && !t2.IsMe
+                    ? t2.TargetObjectId
+                    : Targeting.CoTankObjectId();
+                sendName = sendTarget != 0 ? Plugin.ObjectTable.SearchById(sendTarget)?.Name.TextValue : null;
+                if (sendTarget == 0 || sendTarget == me?.GameObjectId) applies = false; // nobody to send it to
+            }
+
             if (!st.Started)
             {
                 st.Started = true;
@@ -146,7 +160,8 @@ public sealed class PlanTracker : IDisposable
             {
                 st.LastAutoPress = DateTime.UtcNow;
                 st.AutoPresses++;
-                ActionState.Use(entry.ActionId);
+                if (entry.SendToTarget) ActionState.Use(entry.ActionId, sendTarget);
+                else ActionState.Use(entry.ActionId);
                 if (st.AutoPresses > 1)
                     Plugin.Log.Debug($"[MitPlanner] Auto-use retry #{st.AutoPresses - 1} for {entry.EventKey} / action {entry.ActionId}");
             }
@@ -156,7 +171,7 @@ public sealed class PlanTracker : IDisposable
 
             active.Add(new Prompt(entry, ev, ActionCatalog.Find(entry.ActionId),
                 pressAt - now, ev.Time - now, st.Done, status.OnCooldown && !st.Done, st.AutoPresses,
-                !applies && !targetUnknown && !st.Done, target));
+                !applies && !targetUnknown && !st.Done, target, sendName));
         }
 
         active.Sort((a, b) => a.SecondsToPress.CompareTo(b.SecondsToPress));

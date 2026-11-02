@@ -18,6 +18,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IGameInteropProvider GameInterop { get; private set; } = null!;
+    [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
@@ -37,6 +38,7 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.Migrate();
         Runner = new TimelineRunner();
         Targeting = new Targeting(Runner);
         Tracker = new PlanTracker(Configuration, Runner, Targeting);
@@ -48,7 +50,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open settings. /mitplan on | off (plan) | auto on | auto off | preview | stop | timeline",
+            HelpMessage = "Open settings. /mitplan mt | ot | on | off (plan) | auto on | auto off | preview | stop | timeline",
         });
 
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
@@ -89,6 +91,12 @@ public sealed class Plugin : IDalamudPlugin
                 Configuration.AllowAutoUse = args.Trim().ToLowerInvariant() == "auto on";
                 Configuration.Save();
                 ChatGui.Print($"[MitPlanner] Auto-use {(Configuration.AllowAutoUse ? "ON" : "OFF")}");
+                return;
+            case "mt":
+            case "ot":
+                Configuration.Role = args.Trim().ToLowerInvariant() == "ot" ? TankRole.OffTank : TankRole.MainTank;
+                Configuration.Save();
+                ChatGui.Print($"[MitPlanner] Role: {Configuration.RoleCode(Configuration.Role)}");
                 return;
             case "timeline":
                 Configuration.ShowTimeline = !Configuration.ShowTimeline;

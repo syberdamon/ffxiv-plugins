@@ -4,9 +4,9 @@ Personal Dalamud plugins (API 15).
 
 | Plugin | What it does |
 |---|---|
-| [Cooldown Grid](CooldownGrid/README.md) | Clickable cooldown windows grouped into Defensive (self), Defensive (group), Support, and custom groups. |
+| [Cooldown Grid](CooldownGrid/README.md) | Clickable cooldown windows: Defensive (self), Defensive (group), Support, OT Sent Mits (casts on the co-tank), plus custom groups. |
 | [Map Click Nav](MapClickNav/README.md) | Ctrl+click any map: teleports if faster, mounts, and flies there with vnavmesh. |
-| [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job cooldown plans with callouts (optional auto-use). |
+| [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job MT/OT cooldown plans with callouts, starter-plan generator, optional auto-use. |
 | [Tank Stance Manager](TankStanceManager/README.md) | MT: stance always on. OT: holds a configurable enmity band of the MT. |
 
 ## Install on any PC (one-time)

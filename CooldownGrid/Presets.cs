@@ -30,7 +30,10 @@ public static class Presets
             {
                 7388,  // Shake It Off
                 7535,  // Reprisal
-                16464, // Nascent Flash
+            }),
+            (Configuration.OtSentMitsId, new uint[]
+            {
+                16464, // Nascent Flash (cast on the co-tank)
             }),
             (Configuration.SupportId, new uint[]
             {

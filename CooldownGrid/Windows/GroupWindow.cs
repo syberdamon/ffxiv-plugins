@@ -70,7 +70,8 @@ public sealed class GroupWindow : Window
     private void DrawIcon(CatalogEntry entry, Vector2 size)
     {
         var config = plugin.Configuration;
-        var status = ActionState.Get(entry.ActionId);
+        var coTank = Group.CastOnCoTank ? ActionState.CoTank() : null;
+        var status = coTank is { } ct ? ActionState.Get(entry.ActionId, ct.Id) : ActionState.Get(entry.ActionId);
         var texture = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(entry.Icon)).GetWrapOrEmpty();
 
         var topLeft = ImGui.GetCursorScreenPos();
@@ -113,11 +114,17 @@ public sealed class GroupWindow : Window
         if (hovered && config.ShowTooltips)
         {
             var state = status.OnCooldown ? $"{status.Remaining:0.0}s" : status.Usable ? "Ready" : "Can't use right now";
+            var to = Group.CastOnCoTank ? (coTank is { } c ? $"\n-> {c.Name}" : "\nNo other tank in the party") : "";
             ImGui.SetTooltip(status.MaxCharges > 1
-                ? $"{entry.Name}\n{status.Charges}/{status.MaxCharges} charges - {state}"
-                : $"{entry.Name}\n{state}");
+                ? $"{entry.Name}\n{status.Charges}/{status.MaxCharges} charges - {state}{to}"
+                : $"{entry.Name}\n{state}{to}");
         }
 
-        if (clicked) ActionState.Use(entry.ActionId);
+        if (clicked)
+        {
+            if (!Group.CastOnCoTank) ActionState.Use(entry.ActionId);
+            else if (coTank is { } target) ActionState.Use(entry.ActionId, target.Id);
+            else Plugin.ChatGui.Print($"[CooldownGrid] {entry.Name}: no other tank in the party to send it to.");
+        }
     }
 }

@@ -10,13 +10,16 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
 1. `/cdgrid` > **Abilities**: every off-GCD ability with a cooldown that your
    current job can use at your level. Set each one's group, or leave it Hidden.
    Use the arrows to reorder within a group.
-2. **Groups**: three defaults (Defensive (self), Defensive (group), Support) plus
-   any you add. Each window has its own columns, icon size, lock, title bar and
+2. **Groups**: four defaults (Defensive (self), Defensive (group), Support,
+   **OT Sent Mits**) plus any you add. Icons in OT Sent Mits cast on the other
+   tank in your party without targeting them (any group can do this: "Cast on
+   the other tank"). Each window has its own columns, icon size, lock, title bar and
    background settings.
 3. Settings are saved **per job**. Warrior (and Marauder) start with a layout:
    - Defensive (self): Rampart, Vengeance/Damnation, Thrill of Battle,
      Raw Intuition/Bloodwhetting, Equilibrium, Holmgang
-   - Defensive (group): Shake It Off, Reprisal, Nascent Flash
+   - Defensive (group): Shake It Off, Reprisal
+   - OT Sent Mits: Nascent Flash
    - Support: Provoke, Shirk, Interject, Low Blow, Arm's Length
 
 ## How the icons read
