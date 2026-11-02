@@ -20,6 +20,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>Hold this and left-click the map to travel.</summary>
     public ModifierKey Modifier { get; set; } = ModifierKey.Ctrl;
 
+    /// <summary>Clicking another zone's map teleports there first (nearest attuned aetheryte).</summary>
+    public bool CrossZoneTeleport { get; set; } = true;
+
+    /// <summary>Within your zone, teleport to the nearest aetheryte when that's faster than traveling.</summary>
+    public bool TeleportIfFaster { get; set; } = true;
+
+    /// <summary>Teleport only if it saves at least this much distance (CBT's default: 300).</summary>
+    public int TeleportMargin { get; set; } = 300;
+
     /// <summary>Summon Mount Roulette before traveling (fly if the zone allows, otherwise ride).</summary>
     public bool AutoMount { get; set; } = true;
 

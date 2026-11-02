@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.2.0.0</Version>
-    <Author>Jay</Author>
+    <Version>0.2.1.0</Version>
+    <Author>syberdamon</Author>
     <Name>Tank Stance Manager</Name>
     <Punchline>Keeps tank stance on as MT, or holds an enmity band as OT.</Punchline>
     <Description>MT mode keeps tank stance on at all times. OT mode toggles tank stance to hold your enmity inside a configurable band of the main tank's enmity (default 75%-90%), and turns it on if you are pushed to #3. Supports PLD, WAR, DRK, GNB.</Description>

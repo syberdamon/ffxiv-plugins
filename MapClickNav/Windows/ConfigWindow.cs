@@ -34,6 +34,19 @@ public sealed class ConfigWindow : Window
         }
 
         ImGui.Separator();
+        var crossZone = config.CrossZoneTeleport;
+        if (ImGui.Checkbox("Clicking another zone's map teleports there first", ref crossZone)) { config.CrossZoneTeleport = crossZone; config.Save(); }
+
+        var tpFaster = config.TeleportIfFaster;
+        if (ImGui.Checkbox("In my zone, teleport when it's faster than traveling", ref tpFaster)) { config.TeleportIfFaster = tpFaster; config.Save(); }
+
+        if (config.TeleportIfFaster)
+        {
+            var margin = config.TeleportMargin;
+            if (ImGui.SliderInt("Teleport only if it saves (yalms)", ref margin, 0, 1000)) { config.TeleportMargin = margin; config.Save(); }
+        }
+
+        ImGui.Separator();
         var autoMount = config.AutoMount;
         if (ImGui.Checkbox("Mount with Mount Roulette before traveling", ref autoMount)) { config.AutoMount = autoMount; config.Save(); }
 
