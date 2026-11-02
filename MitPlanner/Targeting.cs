@@ -103,7 +103,7 @@ public sealed unsafe class Targeting : IDisposable
                 if (!ev.IdPattern.IsMatch(npc.CastActionId.ToString("X"))) continue;
 
                 var target = Plugin.ObjectTable.SearchById(npc.CastTargetObjectId);
-                if (target?.ObjectKind == ObjectKind.Player)
+                if (target is Dalamud.Game.ClientState.Objects.SubKinds.IPlayerCharacter)
                     return new(target.EntityId == me.EntityId, TargetSource.CastTarget);
                 // Cast on itself / the ground (e.g. a cleave): fall through to aggro.
             }
