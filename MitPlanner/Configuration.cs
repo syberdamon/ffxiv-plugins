@@ -23,6 +23,12 @@ public class PlanEntry
     public bool AutoUse { get; set; } = false;
 }
 
+public enum AbilitySort
+{
+    Cooldown = 0,
+    Name = 1,
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -45,6 +51,12 @@ public class Configuration : IPluginConfiguration
     public float CalloutHeadsUp { get; set; } = 3f;
 
     public bool ChatCallouts { get; set; } = false;
+
+    /// <summary>Master switch for the plan: callouts and auto-use. The timeline still shows when off.</summary>
+    public bool PlanEnabled { get; set; } = true;
+
+    /// <summary>Order of the "+ Add cooldown" list.</summary>
+    public AbilitySort AbilitySort { get; set; } = AbilitySort.Cooldown;
 
     /// <summary>Master switch for per-entry auto-use. Off by default.</summary>
     public bool AllowAutoUse { get; set; } = false;

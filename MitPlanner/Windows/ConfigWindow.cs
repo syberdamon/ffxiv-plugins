@@ -12,6 +12,7 @@ public sealed class ConfigWindow : Window
     private readonly Plugin plugin;
     private int fightIndex = -1;
     private string? transferMessage;
+    private string abilitySearch = "";
     private Configuration Config => plugin.Configuration;
 
     public ConfigWindow(Plugin plugin) : base("Mit Planner - Options###MPConfig")
@@ -171,16 +172,40 @@ public sealed class ConfigWindow : Window
         if (remove != null) { plan.Remove(remove); Config.Save(); }
 
         ImGui.SetNextItemWidth(180);
-        if (ImGui.BeginCombo("##add", "+ Add cooldown"))
+        if (ImGui.BeginCombo("##add", "+ Add cooldown", ImGuiComboFlags.HeightLarge))
         {
-            foreach (var c in catalog)
+            // Search box at the top; focused when the list opens.
+            if (ImGui.IsWindowAppearing())
             {
-                if (ImGui.Selectable($"{c.Name}  ({c.RecastSeconds:0}s)##{c.ActionId}"))
+                abilitySearch = "";
+                ImGui.SetKeyboardFocusHere();
+            }
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextWithHint("##search", "Search...", ref abilitySearch, 64);
+
+            var sort = (int)Config.AbilitySort;
+            var sortChanged = ImGui.RadioButton("By cooldown", ref sort, (int)AbilitySort.Cooldown);
+            ImGui.SameLine();
+            sortChanged |= ImGui.RadioButton("A-Z", ref sort, (int)AbilitySort.Name);
+            if (sortChanged) { Config.AbilitySort = (AbilitySort)sort; Config.Save(); }
+            ImGui.Separator();
+
+            var list = catalog.Where(c => abilitySearch.Length == 0 || c.Name.Contains(abilitySearch, StringComparison.OrdinalIgnoreCase));
+            list = Config.AbilitySort == AbilitySort.Name
+                ? list.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                : list.OrderBy(c => c.RecastSeconds).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase);
+
+            var any = false;
+            foreach (var c in list)
+            {
+                any = true;
+                if (ImGui.Selectable($"{c.Name}  ({Style.ClockWithSeconds(c.RecastSeconds)})##{c.ActionId}"))
                 {
                     plan.Add(new PlanEntry { EventKey = e.Key, ActionId = c.ActionId });
                     Config.Save();
                 }
             }
+            if (!any) ImGui.TextDisabled("No matching abilities.");
             ImGui.EndCombo();
         }
     }
@@ -215,6 +240,10 @@ public sealed class ConfigWindow : Window
         if (ImGui.Checkbox("Show callout area (to move it)", ref place)) plugin.ShowCalloutPlacement = place;
 
         ImGui.Separator();
+        var planOn = Config.PlanEnabled;
+        if (ImGui.Checkbox("Run the plan (callouts and auto-use)", ref planOn)) { Config.PlanEnabled = planOn; Config.Save(); }
+        ImGui.TextDisabled("Off = timeline only. Also on the timeline window and /mitplan on|off.");
+
         var allowAuto = Config.AllowAutoUse;
         if (ImGui.Checkbox("Allow auto-use (only for plan entries ticked 'Auto')", ref allowAuto)) { Config.AllowAutoUse = allowAuto; Config.Save(); }
         ImGui.TextDisabled("Auto-use presses combat actions for you. That's automation: same risk category as Tank Stance Manager.");

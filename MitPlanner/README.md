@@ -3,7 +3,8 @@
 Boss timelines with countdowns, plus a per-job plan of which cooldowns to use on
 which mechanics.
 
-Commands: `/mitplan` (settings), `/mitplan preview`, `/mitplan stop`, `/mitplan timeline`.
+Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan auto on` / `auto off`,
+`/mitplan preview`, `/mitplan stop`, `/mitplan timeline`.
 
 ## How it works
 - **Fight detection:** entering a supported duty loads its timeline
@@ -22,7 +23,13 @@ Commands: `/mitplan` (settings), `/mitplan preview`, `/mitplan stop`, `/mitplan 
   isn't back yet you get a red "still on cooldown!" warning.
 - **Auto-use (optional):** tick "Auto" on a plan entry and turn on "Allow
   auto-use" under Display; the plugin then presses it at the planned time.
-  Off by default.
+  Off by default. If the cooldown hasn't started within 0.25 s it presses again,
+  every 0.25 s, until it goes off or the mechanic lands (the game queues
+  off-GCD presses during animation lock, so repeats are harmless).
+- **On/off:** "Plan: ON/OFF" and "Auto: ON/OFF" buttons on the timeline window.
+  Plan off = timeline only, no callouts, no auto-use.
+- **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
+  sorted by cooldown length or A-Z (remembered).
 
 ## Plan QC
 The Plan tab checks every planned cooldown against its recharge time (including
