@@ -37,6 +37,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>Minimum time between stance presses, to prevent flip-flopping.</summary>
     public int MinToggleIntervalMs { get; set; } = 2500;
 
+    /// <summary>Show the small ON/OFF + MT/OT control panel (remembered across sessions).</summary>
+    public bool ShowControlWindow { get; set; } = true;
+
+    /// <summary>Stop the control panel from being dragged.</summary>
+    public bool LockControlWindow { get; set; } = false;
+
+    /// <summary>Show a one-line status under the control panel buttons.</summary>
+    public bool ShowStatusLine { get; set; } = true;
+
     /// <summary>Echo each toggle to chat.</summary>
     public bool ChatFeedback { get; set; } = true;
 
