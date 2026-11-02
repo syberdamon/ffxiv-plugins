@@ -34,8 +34,14 @@ public sealed unsafe class TimelineRunner : IDisposable
     public float Now => clockBase + (float)clock.Elapsed.TotalSeconds;
     public string LastSync { get; private set; } = "none";
 
+    /// <summary>Entity that last used a timeline sync ability: the boss, for aggro checks.</summary>
+    public uint BossEntityId { get; private set; }
+
     /// <summary>Raised when a new pull starts (plans reset their "already prompted" state).</summary>
     public event Action? PullStarted;
+
+    /// <summary>Raised when a sync sends the clock backwards (fight loops); arg = new time.</summary>
+    public event Action<float>? JumpedBack;
 
     public TimelineRunner()
     {
@@ -78,6 +84,7 @@ public sealed unsafe class TimelineRunner : IDisposable
         clock.Reset();
         clockBase = 0;
         castsSeen.Clear();
+        BossEntityId = 0;
         if (Preview)
         {
             Preview = false;
@@ -134,7 +141,7 @@ public sealed unsafe class TimelineRunner : IDisposable
             if (!npc.IsCasting) { castsSeen.RemoveWhere(c => c.Entity == npc.EntityId); continue; }
 
             if (castsSeen.Add((npc.EntityId, npc.CastActionId)))
-                TrySync(npc.CastActionId, SyncKind.StartsUsing);
+                TrySync(npc.CastActionId, SyncKind.StartsUsing, npc.EntityId);
         }
     }
 
@@ -147,7 +154,7 @@ public sealed unsafe class TimelineRunner : IDisposable
         {
             if (Timeline == null || !Running || Preview || header == null) return;
             if (Plugin.ObjectTable.SearchByEntityId(casterEntityId) is not { ObjectKind: ObjectKind.BattleNpc }) return;
-            TrySync(header->ActionId, SyncKind.Ability);
+            TrySync(header->ActionId, SyncKind.Ability, casterEntityId);
         }
         catch (Exception ex)
         {
@@ -155,7 +162,7 @@ public sealed unsafe class TimelineRunner : IDisposable
         }
     }
 
-    private void TrySync(uint actionId, SyncKind kind)
+    private void TrySync(uint actionId, SyncKind kind, uint casterEntityId)
     {
         if (Timeline == null || !Running) return;
 
@@ -173,7 +180,19 @@ public sealed unsafe class TimelineRunner : IDisposable
 
         var target = best.Jump ?? best.Time;
         LastSync = $"{best.Label} ({id}) {now:0.0}s -> {target:0.0}s";
+        UpdateBoss(casterEntityId);
         Restart(target);
+        if (target < now - 1) JumpedBack?.Invoke(target);
+    }
+
+    /// <summary>Adds (mines, bits, images) also sync; the boss is the sync caster with the most max HP.</summary>
+    private void UpdateBoss(uint casterEntityId)
+    {
+        if (casterEntityId == BossEntityId) return;
+        if (Plugin.ObjectTable.SearchByEntityId(casterEntityId) is not IBattleChara caster) return;
+        if (BossEntityId == 0 || Plugin.ObjectTable.SearchByEntityId(BossEntityId) is not IBattleChara current ||
+            caster.MaxHp >= current.MaxHp)
+            BossEntityId = casterEntityId;
     }
 
     // ================================================================ queries

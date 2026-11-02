@@ -21,6 +21,16 @@ public class PlanEntry
 
     /// <summary>Let the plugin press it at the planned time (also needs the global switch).</summary>
     public bool AutoUse { get; set; } = false;
+
+    /// <summary>Only call it out / press it depending on who the mechanic targets.</summary>
+    public TargetCondition Condition { get; set; } = TargetCondition.Always;
+}
+
+public enum TargetCondition
+{
+    Always = 0,
+    IfTargeted = 1,
+    IfNotTargeted = 2,
 }
 
 public enum AbilitySort
@@ -39,6 +49,9 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
     public Dictionary<string, MechanicType> TagOverrides { get; set; } = new();
+
+    /// <summary>"territoryId:eventKey" -> tank swap after this mechanic (overrides bundled data).</summary>
+    public Dictionary<string, bool> SwapOverrides { get; set; } = new();
 
     // Display
     public bool ShowTimeline { get; set; } = true;
@@ -75,6 +88,12 @@ public class Configuration : IPluginConfiguration
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
         : fight.DefaultTags.TryGetValue(label, out var d) ? d
         : MechanicType.Other;
+
+    public static string SwapKey(uint territory, string eventKey) => $"{territory}:{eventKey}";
+
+    public bool SwapAfter(FightDefinition fight, TimelineEvent e) =>
+        SwapOverrides.TryGetValue(SwapKey(fight.TerritoryId, e.Key), out var v) ? v
+        : fight.DefaultSwaps?.Contains(e.Key) == true;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

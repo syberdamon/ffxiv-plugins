@@ -26,6 +26,7 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Configuration { get; }
     public TimelineRunner Runner { get; }
     public PlanTracker Tracker { get; }
+    public Targeting Targeting { get; }
 
     /// <summary>Show the callout window's background so it can be dragged into place.</summary>
     public bool ShowCalloutPlacement { get; set; }
@@ -37,7 +38,8 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Runner = new TimelineRunner();
-        Tracker = new PlanTracker(Configuration, Runner);
+        Targeting = new Targeting(Runner);
+        Tracker = new PlanTracker(Configuration, Runner, Targeting);
 
         configWindow = new ConfigWindow(this);
         windowSystem.AddWindow(configWindow);
@@ -61,6 +63,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfig;
         windowSystem.RemoveAllWindows();
         Tracker.Dispose();
+        Targeting.Dispose();
         Runner.Dispose();
         CommandManager.RemoveHandler(CommandName);
     }
