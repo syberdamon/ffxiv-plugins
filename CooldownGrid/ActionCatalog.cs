@@ -9,7 +9,8 @@ using Action = Lumina.Excel.Sheets.Action;
 namespace CooldownGrid;
 
 /// <summary>An ability the current job can use that has its own cooldown.</summary>
-public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Level, float RecastSeconds);
+/// <param name="CanTargetAlly">The game lets this target a party member, so it can be sent (OT Sent Mits).</param>
+public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Level, float RecastSeconds, bool CanTargetAlly);
 
 /// <summary>
 /// Builds the list of cooldown abilities for a job straight from game data, so every combat job
@@ -75,7 +76,8 @@ public static unsafe class ActionCatalog
                 live.Name.ExtractText(),
                 live.Icon,
                 baseRow.ClassJobLevel,
-                live.Recast100ms / 10f));
+                live.Recast100ms / 10f,
+                live.CanTargetParty));
         }
 
         return entries.OrderBy(e => e.Level).ThenBy(e => e.Name).ToList();

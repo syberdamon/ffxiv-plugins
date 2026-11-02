@@ -40,7 +40,7 @@ public sealed class ConfigWindow : Window
         var catalog = ActionCatalog.ForCurrentJob();
         var assignments = Config.ForJob(jobId);
 
-        ImGui.TextWrapped($"Abilities for {jobName} (level {player.Level}). Pick a group for each one you want on screen. Saved per job.");
+        ImGui.TextWrapped($"Abilities for {jobName} (level {player.Level}). Pick a group for each one you want on screen; tick Send to also show it in OT Sent Mits (cast on the other tank). Saved per job.");
         if (Presets.For(jobId).Count > 0 && ImGui.SmallButton("Reset this job to the starter layout"))
         {
             Config.Jobs[jobId] = Presets.For(jobId);
@@ -49,10 +49,15 @@ public sealed class ConfigWindow : Window
         }
         ImGui.Spacing();
 
-        var groupNames = new[] { "Hidden" }.Concat(Config.Groups.Select(g => g.Name)).ToArray();
+        // Main group: any group except the "cast on co-tank" ones; those are set with the Send box.
+        var mainGroups = Config.Groups.Where(g => !g.CastOnCoTank).ToList();
+        var sendGroup = Config.Groups.FirstOrDefault(g => g.Id == Configuration.OtSentMitsId && g.CastOnCoTank)
+                        ?? Config.Groups.FirstOrDefault(g => g.CastOnCoTank);
+        var groupNames = new[] { "Hidden" }.Concat(mainGroups.Select(g => g.Name)).ToArray();
+        bool IsSendGroup(Guid id) => Config.Groups.Any(g => g.Id == id && g.CastOnCoTank);
 
-        if (!ImGui.BeginTable("##abilities", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH,
-                new Vector2(0, ImGui.GetContentRegionAvail().Y))) return;
+        if (!ImGui.BeginTable("##abilities", 7, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.BordersInnerH |
+                ImGuiTableFlags.Resizable, new Vector2(0, ImGui.GetContentRegionAvail().Y))) return;
 
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("##icon", ImGuiTableColumnFlags.WidthFixed, 28);
@@ -60,11 +65,12 @@ public sealed class ConfigWindow : Window
         ImGui.TableSetupColumn("Lv", ImGuiTableColumnFlags.WidthFixed, 28);
         ImGui.TableSetupColumn("CD", ImGuiTableColumnFlags.WidthFixed, 44);
         ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthFixed, 160);
+        ImGui.TableSetupColumn("Send", ImGuiTableColumnFlags.WidthFixed, 40);
         ImGui.TableSetupColumn("Order", ImGuiTableColumnFlags.WidthFixed, 52);
         ImGui.TableHeadersRow();
 
         // Placed abilities first, in display order; then the rest by level.
-        var placed = assignments.Select(a => catalog.FirstOrDefault(e => e.ActionId == a.ActionId)).Where(e => e != null).Cast<CatalogEntry>();
+        var placed = assignments.Select(a => catalog.FirstOrDefault(e => e.ActionId == a.ActionId)).Where(e => e != null).Cast<CatalogEntry>().Distinct();
         var rest = catalog.Where(e => assignments.All(a => a.ActionId != e.ActionId));
 
         foreach (var entry in placed.Concat(rest).ToList())
@@ -86,16 +92,38 @@ public sealed class ConfigWindow : Window
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(entry.RecastSeconds >= 60 ? $"{entry.RecastSeconds / 60:0.#}m" : $"{entry.RecastSeconds:0}s");
 
+            // Main group
             ImGui.TableNextColumn();
-            var index = assignments.FindIndex(a => a.ActionId == entry.ActionId);
-            var current = index < 0 ? 0 : Config.Groups.FindIndex(g => g.Id == assignments[index].GroupId) + 1;
+            var index = assignments.FindIndex(a => a.ActionId == entry.ActionId && !IsSendGroup(a.GroupId));
+            var current = index < 0 ? 0 : mainGroups.FindIndex(g => g.Id == assignments[index].GroupId) + 1;
             if (current < 0) current = 0; // group was deleted
             ImGui.SetNextItemWidth(-1);
             if (ImGui.Combo("##group", ref current, groupNames, groupNames.Length))
             {
                 if (current == 0) { if (index >= 0) assignments.RemoveAt(index); }
-                else if (index >= 0) assignments[index].GroupId = Config.Groups[current - 1].Id;
-                else assignments.Add(new Assignment { ActionId = entry.ActionId, GroupId = Config.Groups[current - 1].Id });
+                else if (index >= 0) assignments[index].GroupId = mainGroups[current - 1].Id;
+                else assignments.Add(new Assignment { ActionId = entry.ActionId, GroupId = mainGroups[current - 1].Id });
+                Config.Save();
+                index = assignments.FindIndex(a => a.ActionId == entry.ActionId && !IsSendGroup(a.GroupId));
+            }
+
+            // Send: only for abilities the game lets you cast on a party member.
+            ImGui.TableNextColumn();
+            var sendIndex = assignments.FindIndex(a => a.ActionId == entry.ActionId && IsSendGroup(a.GroupId));
+            if (entry.CanTargetAlly && sendGroup != null)
+            {
+                var send = sendIndex >= 0;
+                if (ImGui.Checkbox("##send", ref send))
+                {
+                    if (send) assignments.Add(new Assignment { ActionId = entry.ActionId, GroupId = sendGroup.Id });
+                    else assignments.RemoveAt(sendIndex);
+                    Config.Save();
+                }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Also show in '{sendGroup.Name}', where clicking casts it on the other tank.");
+            }
+            else if (sendIndex >= 0)
+            {
+                assignments.RemoveAt(sendIndex); // self-only ability can't be sent (older layout)
                 Config.Save();
             }
 

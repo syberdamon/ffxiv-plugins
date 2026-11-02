@@ -15,12 +15,21 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
    tank in your party without targeting them (any group can do this: "Cast on
    the other tank"). Each window has its own columns, icon size, lock, title bar and
    background settings.
-3. Settings are saved **per job**. Warrior (and Marauder) start with a layout:
-   - Defensive (self): Rampart, Vengeance/Damnation, Thrill of Battle,
-     Raw Intuition/Bloodwhetting, Equilibrium, Holmgang
-   - Defensive (group): Shake It Off, Reprisal
-   - OT Sent Mits: Nascent Flash
-   - Support: Provoke, Shirk, Interject, Low Blow, Arm's Length
+3. **Send** column: abilities the game lets you cast on a party member get a
+   Send box. Ticking it also shows the ability in **OT Sent Mits**, where
+   clicking casts it on the other tank. Self-only abilities (Guardian, Rampart,
+   ...) have no Send box.
+4. Settings are saved **per job**. Every tank starts with a layout (use
+   "Reset this job to the starter layout" to apply it to a job you've already set up):
+
+| | Defensive (self) | Defensive (group) | OT Sent Mits |
+|---|---|---|---|
+| PLD | Rampart, Sentinel/Guardian, Bulwark, (Holy) Sheltron, Hallowed Ground | Reprisal, Divine Veil, Passage of Arms | Intervention |
+| WAR | Rampart, Vengeance/Damnation, Thrill of Battle, Raw Intuition/Bloodwhetting, Equilibrium, Holmgang | Reprisal, Shake It Off | Nascent Flash |
+| DRK | Rampart, Shadow Wall/Shadowed Vigil, Oblation, Dark Mind, The Blackest Night, Living Dead | Reprisal, Dark Missionary | The Blackest Night |
+| GNB | Rampart, Nebula/Great Nebula, Camouflage, Heart of Stone/Corundum, Aurora, Superbolide | Reprisal, Heart of Light | Heart of Corundum |
+
+   Support for all: Provoke, Shirk, Interject, Low Blow, Arm's Length.
 
 ## How the icons read
 - Dark with a number: on cooldown (for charge abilities: out of charges; the
@@ -30,8 +39,8 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
 - Yellow number bottom-right: current charges.
 
 ## Notes
-- The ability list comes from game data, so every combat job works; only Warrior
-  has a starter layout so far.
+- The ability list comes from game data, so every combat job works; the four
+  tanks have starter layouts so far.
 - Targeting works like a hotbar: self abilities hit you; targeted ones (Nascent
   Flash, Provoke, Shirk) use your current target.
 - Not yet included: items (potions) and other non-action buttons.
