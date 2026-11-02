@@ -4,6 +4,7 @@ Personal Dalamud plugins (API 15).
 
 | Plugin | What it does |
 |---|---|
+| [Map Click Nav](MapClickNav/README.md) | Ctrl+click the map to travel there with vnavmesh, flying when possible. |
 | [Tank Stance Manager](TankStanceManager/README.md) | MT: stance always on. OT: holds a configurable enmity band of the MT. |
 
 ## Install on any PC (one-time)
