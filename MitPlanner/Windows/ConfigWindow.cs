@@ -218,17 +218,26 @@ public sealed class ConfigWindow : Window
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Who this mechanic hits decides whether to call it out / auto-press.\n" +
                                  "Checked live: head marker, then the boss's cast target, then who the boss is attacking.");
-            ImGui.SameLine();
-            var send = p.SendToTarget;
-            if (ImGui.Checkbox("Send", ref send))
+            // Send only exists for abilities the game lets you cast on a party member.
+            if (ability?.CanTargetAlly == true)
             {
-                p.SendToTarget = send;
-                if (send && p.Condition == TargetCondition.Always) p.Condition = TargetCondition.IfNotTargeted;
+                ImGui.SameLine();
+                var send = p.SendToTarget;
+                if (ImGui.Checkbox("Send", ref send))
+                {
+                    p.SendToTarget = send;
+                    if (send && p.Condition == TargetCondition.Always) p.Condition = TargetCondition.IfNotTargeted;
+                    Config.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("OT Sent Mits: cast this on whoever the mechanic targets (normally the MT),\n" +
+                                     "without targeting them. Use with 'If I'm NOT targeted'.");
+            }
+            else if (ability != null && p.SendToTarget)
+            {
+                p.SendToTarget = false; // self-only ability: can't be sent (e.g. from an older plan)
                 Config.Save();
             }
-            if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("OT Sent Mits: cast this on whoever the mechanic targets (normally the MT),\n" +
-                                 "without targeting them. Use with 'If I'm NOT targeted'.");
             ImGui.SameLine();
             var auto = p.AutoUse;
             if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Config.Save(); }

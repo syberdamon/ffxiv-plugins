@@ -18,13 +18,15 @@ public static class PlanGenerator
     // Lead times (syberdamon): Short lands 2.0s before the buster; each heavier mit goes
     // 1.25s before the one after it, so presses don't collide on animation lock.
     //   Big available:  Big 3.25s -> Short 2.0s
-    //   Big not back:   Rampart 4.5s -> Secondary 3.25s -> Short 2.0s
+    //   Big not back:   Secondary 4.0s -> Rampart 3.25s -> Short 2.0s
+    //                   (Rampart takes Big's slot; Secondary goes 0.75s ahead of Rampart)
     //   Raid-wides:     Reprisal 5.0s -> party mit 3.75s
     private const float Spacing = 1.25f;
+    private const float SecondaryAhead = 0.75f;
     private const float ShortLead = 2f;
     private const float BigLead = ShortLead + Spacing;            // 3.25
-    private const float SecondaryLead = ShortLead + Spacing;      // 3.25
-    private const float RampartLead = ShortLead + 2 * Spacing;    // 4.5
+    private const float RampartLead = BigLead;                    // 3.25
+    private const float SecondaryLead = RampartLead + SecondaryAhead; // 4.0
     private const float ReprisalLead = 5f;
     private const float PartyMitLead = ReprisalLead - Spacing;    // 3.75
 

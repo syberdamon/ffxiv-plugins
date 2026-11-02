@@ -52,8 +52,8 @@ Plan tab > **Generate starter plan** builds one from these rules:
   #2, #4... On its turn a tank uses Reprisal + its party mit.
 - **Press timing** (seconds before the hit; 1.25 s between presses so they
   don't collide on animation lock): Big 3.25 then Short 2.0; if Big isn't back,
-  Rampart 4.5, Secondary 3.25, Short 2.0; raid-wides Reprisal 5.0, party mit 3.75.
-  OT Sent Mits 2.0.
+  Rampart takes Big's slot with Secondary 0.75 s ahead of it: Secondary 4.0,
+  Rampart 3.25, Short 2.0. Raid-wides: Reprisal 5.0, party mit 3.75. OT Sent Mits 2.0.
 - Invulns are never planned.
 
 | | Big | Secondary | Short | OT Sent Mit | Party mit |
@@ -67,7 +67,9 @@ All use Rampart when Big isn't back, and Reprisal on their raid-wide turns. Shel
 resources the cooldown check can't see.
 
 ## OT Sent Mits
-Tick **Send** on a plan entry to cast it on whoever the mechanic targets instead
+Abilities the game lets you cast on a party member (Intervention, Nascent Flash,
+TBN, Heart of Corundum, ...) get a **Send** box; self-only ones (Guardian,
+Rampart, ...) don't. Tick **Send** to cast it on whoever the mechanic targets instead
 of your own target (falls back to the other tank). Pair it with "If I'm NOT
 targeted". Callouts read "Send Nascent Flash to <name>".
 
