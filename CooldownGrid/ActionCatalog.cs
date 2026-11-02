@@ -18,6 +18,17 @@ public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Lev
 /// </summary>
 public static unsafe class ActionCatalog
 {
+    /// <summary>
+    /// Limit Break isn't a cooldown action: it's GeneralAction row 3, the same button the hotbar
+    /// uses (fires whatever LB level the gauge allows). Stored with a high bit so it can't collide
+    /// with a real action ID. [Assumption] GeneralAction 3 = Limit Break.
+    /// </summary>
+    public const uint GeneralActionFlag = 0x8000_0000;
+    public const uint LimitBreakGeneralAction = 3;
+    public const uint LimitBreakId = GeneralActionFlag | LimitBreakGeneralAction;
+
+    public static bool IsGeneralAction(uint id) => (id & GeneralActionFlag) != 0;
+
     // Cooldown group 58 is the shared GCD; everything else is a real cooldown.
     private const byte GcdGroup = 58;
 
@@ -79,6 +90,10 @@ public static unsafe class ActionCatalog
                 live.Recast100ms / 10f,
                 live.CanTargetParty));
         }
+
+        // Limit Break for combat jobs (Role 0 = crafters/gatherers).
+        if (job.Value.Role != 0 && Plugin.DataManager.GetExcelSheet<GeneralAction>().GetRowOrDefault(LimitBreakGeneralAction) is { } lb)
+            entries.Add(new CatalogEntry(LimitBreakId, lb.Name.ExtractText(), (uint)lb.Icon, 1, 0, false));
 
         return entries.OrderBy(e => e.Level).ThenBy(e => e.Name).ToList();
     }

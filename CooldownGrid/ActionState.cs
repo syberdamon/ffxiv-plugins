@@ -1,4 +1,5 @@
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
 namespace CooldownGrid;
 
@@ -16,6 +17,8 @@ public static unsafe class ActionState
     {
         var am = ActionManager.Instance();
         if (am == null) return default;
+
+        if (ActionCatalog.IsGeneralAction(baseActionId)) return GetLimitBreak(am);
 
         var id = am->GetAdjustedActionId(baseActionId);
         var total = am->GetRecastTime(ActionType.Action, id);
@@ -47,6 +50,19 @@ public static unsafe class ActionState
         return new AbilityStatus(remaining, charges, max, onCooldown, usable);
     }
 
+    /// <summary>
+    /// Limit Break: filled bars show as "charges" (bottom-right number), max = bars available
+    /// in this content; dimmed while the gauge has no full bar.
+    /// </summary>
+    private static AbilityStatus GetLimitBreak(ActionManager* am)
+    {
+        var lb = &UIState.Instance()->LimitBreakController;
+        int bars = lb->BarUnits > 0 ? lb->CurrentUnits / lb->BarUnits : 0;
+        int max = lb->BarCount;
+        var usable = am->GetActionStatus(ActionType.GeneralAction, ActionCatalog.LimitBreakGeneralAction) == 0;
+        return new AbilityStatus(0, bars, max > 1 ? max : 1, bars == 0, usable);
+    }
+
     /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
     public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
 
@@ -55,6 +71,8 @@ public static unsafe class ActionState
     {
         var am = ActionManager.Instance();
         if (am == null) return false;
+        if (ActionCatalog.IsGeneralAction(baseActionId))
+            return am->UseAction(ActionType.GeneralAction, baseActionId & ~ActionCatalog.GeneralActionFlag);
         return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId), targetObjectId);
     }
 

@@ -11,7 +11,8 @@ namespace CooldownGrid;
 ///   Defensive (self):  Rampart, Big, Secondary, Short, Invuln (+ job extras)
 ///   Defensive (group): Reprisal + party mit(s)
 ///   OT Sent Mits:      the job's "sent" ability, cast on the other tank
-///   Support:           Provoke, Shirk, Interject, Low Blow, Arm's Length
+///   Support:           Provoke, Shirk, Interject, Low Blow, Arm's Length, Sprint, Limit Break
+/// Every other class gets Sprint + Limit Break in Support.
 /// DRK's TBN and GNB's Heart of Corundum are both their Short and their sent ability, so they
 /// appear in Defensive (self) and in OT Sent Mits.
 /// [Assumption] Action IDs are from memory. A wrong ID simply won't appear (it won't match any
@@ -27,7 +28,10 @@ public static class Presets
     private const uint Rampart = 7531, Reprisal = 7535, Provoke = 7533, Shirk = 7537,
                        Interject = 7538, LowBlow = 7540, ArmsLength = 7548;
 
-    private static readonly uint[] Support = { Provoke, Shirk, Interject, LowBlow, ArmsLength };
+    // Every class: Sprint (action 3) and Limit Break, in Support.
+    private const uint Sprint = 3;
+    private static readonly uint[] Everyone = { Sprint, ActionCatalog.LimitBreakId };
+    private static readonly uint[] Support = { Provoke, Shirk, Interject, LowBlow, ArmsLength, Sprint, ActionCatalog.LimitBreakId };
 
     public static List<Assignment> For(uint jobId) => jobId switch
     {
@@ -111,7 +115,8 @@ public static class Presets
                 16161, // Heart of Corundum, cast on the other tank
             }),
 
-        _ => new List<Assignment>(),
+        // Everyone else: Sprint + Limit Break in Support (LB is skipped for crafters/gatherers).
+        _ => Everyone.Select(a => new Assignment { ActionId = a, GroupId = Configuration.SupportId }).ToList(),
     };
 
     private static List<Assignment> Build(uint[] self, uint[] group, uint[] sent) =>

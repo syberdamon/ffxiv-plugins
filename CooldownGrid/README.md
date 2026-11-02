@@ -29,14 +29,15 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
 | DRK | Rampart, Shadow Wall/Shadowed Vigil, Oblation, Dark Mind, The Blackest Night, Living Dead | Reprisal, Dark Missionary | The Blackest Night |
 | GNB | Rampart, Nebula/Great Nebula, Camouflage, Heart of Stone/Corundum, Aurora, Superbolide | Reprisal, Heart of Light | Heart of Corundum |
 
-   Support for all: Provoke, Shirk, Interject, Low Blow, Arm's Length.
+   Support for tanks: Provoke, Shirk, Interject, Low Blow, Arm's Length, Sprint,
+   Limit Break. Every other class starts with Sprint + Limit Break in Support.
 
 ## How the icons read
 - Dark with a number: on cooldown (for charge abilities: out of charges; the
   number is time to the next charge).
 - Faint red: off cooldown but the game would reject it right now (no target, out
   of range, wrong state). Can be turned off under Display.
-- Yellow number bottom-right: current charges.
+- Yellow number bottom-right: current charges (for Limit Break: filled bars).
 
 ## Notes
 - The ability list comes from game data, so every combat job works; the four
