@@ -39,11 +39,16 @@ jobs:
       - name: Build all plugins
         run: dotnet build ffxiv-plugins.slnx -c Release
 
+      - name: List build output
+        shell: pwsh
+        run: Get-ChildItem -Recurse -File -Path */bin/Release | Select-Object -ExpandProperty FullName
+
       - name: Upload builds
         uses: actions/upload-artifact@v4
         with:
           name: plugins
-          path: '*/bin/x64/Release/*/'
+          path: '*/bin/Release/**'
+          if-no-files-found: error
 
       - name: Read release tag
         if: startsWith(github.ref, 'refs/tags/')
@@ -53,7 +58,9 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $plugin = $tag.Substring(0, $tag.LastIndexOf('-v'))
           "plugin=$plugin" >> $env:GITHUB_OUTPUT
-          Copy-Item "$plugin/bin/x64/Release/$plugin/latest.zip" "$plugin.zip"
+          $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin/Release" -Filter latest.zip | Select-Object -First 1
+          if (-not $zip) { throw "No latest.zip found for $plugin" }
+          Copy-Item $zip.FullName "$plugin.zip"
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
