@@ -77,7 +77,7 @@ public static unsafe class ActionCatalog
                 live.Icon,
                 baseRow.ClassJobLevel,
                 live.Recast100ms / 10f,
-                live.CanTargetParty || live.CanTargetFriendly));
+                live.CanTargetParty));
         }
 
         return entries.OrderBy(e => e.Level).ThenBy(e => e.Name).ToList();
