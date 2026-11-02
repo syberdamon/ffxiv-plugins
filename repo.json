@@ -54,8 +54,8 @@
     "Author": "syberdamon",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
-    "AssemblyVersion": "0.3.0.0",
-    "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with The Cinder Drift.",
+    "AssemblyVersion": "0.4.0.0",
+    "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with The Cinder Drift and Castrum Marinum.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
     "Tags": [
@@ -72,9 +72,9 @@
     "LoadPriority": 0,
     "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.3.0.0/MitPlanner.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.3.0.0/MitPlanner.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.3.0.0/MitPlanner.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.4.0.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.4.0.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.4.0.0/MitPlanner.zip"
   },
   {
     "Author": "syberdamon",
