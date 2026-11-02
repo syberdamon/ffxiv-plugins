@@ -52,6 +52,32 @@
   },
   {
     "Author": "syberdamon",
+    "Name": "Mit Planner",
+    "InternalName": "MitPlanner",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with The Cinder Drift.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "timeline",
+      "mitigation",
+      "cooldowns",
+      "raid",
+      "tank"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.1.0.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.1.0.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.1.0.0/MitPlanner.zip"
+  },
+  {
+    "Author": "syberdamon",
     "Name": "Tank Stance Manager",
     "InternalName": "TankStanceManager",
     "AssemblyVersion": "0.2.1.0",
