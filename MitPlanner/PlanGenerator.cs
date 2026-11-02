@@ -8,7 +8,9 @@ namespace MitPlanner;
 ///   MT, every tank buster: Short, plus Big if it'll be back in time, otherwise Rampart + Secondary.
 ///   OT, every tank buster: send the Short-style mit to whoever it targets; also Short on yourself
 ///       if it targets you.
-///   Invulns are never planned. Raid-wides aren't planned yet.
+///   Raid-wides alternate between tanks: MT takes #1, #3, #5...; OT takes #2, #4...
+///       On its turn a tank uses Reprisal + its party mitigation.
+///   Invulns are never planned.
 /// Availability is decided by the same cooldown QC the Plan tab uses.
 /// </summary>
 public static class PlanGenerator
@@ -16,6 +18,8 @@ public static class PlanGenerator
     // [Assumption] Lead times: short mits last ~4-8s, so press 2s before; big ones 3s.
     private const float ShortLead = 2f;
     private const float BigLead = 3f;
+    // [Assumption] Reprisal and party shields need to be up before a raid-wide lands.
+    private const float RaidwideLead = 5f;
 
     public sealed record Result(List<PlanEntry> Plan, List<string> Notes);
 
@@ -45,12 +49,8 @@ public static class PlanGenerator
         var hasSecondary = Has(kit.Secondary, "Secondary mit");
         var hasSent = role == TankRole.OffTank && Has(kit.Sent, "OT Sent Mit");
 
-        var busters = FirstPassBusters(config, fight, timeline);
-        if (busters.Count == 0)
-        {
-            notes.Add("This fight has no mechanics tagged as tank busters.");
-            return new(plan, notes);
-        }
+        var busters = FirstPass(config, fight, timeline, MechanicType.TankBuster);
+        if (busters.Count == 0) notes.Add("This fight has no mechanics tagged as tank busters.");
 
         foreach (var ev in busters)
         {
@@ -80,6 +80,21 @@ public static class PlanGenerator
             }
         }
 
+        // Raid-wides: alternate MT / OT so one tank always has its party mits back.
+        var hasReprisal = Has(TankKits.ReprisalId, "Reprisal");
+        var hasParty = Has(kit.PartyMit, "Party mit");
+        var raidwides = FirstPass(config, fight, timeline, MechanicType.Raidwide);
+        var myTurn = role == TankRole.MainTank ? 0 : 1;
+        for (var i = 0; i < raidwides.Count; i++)
+        {
+            if (i % 2 != myTurn) continue;
+            var ev = raidwides[i];
+            if (hasReprisal) TryAdd(plan, timeline, catalog, notes, Entry(ev, TankKits.ReprisalId, RaidwideLead, TargetCondition.Always), ev, "Reprisal");
+            if (hasParty) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, RaidwideLead, TargetCondition.Always), ev, "Party mit");
+        }
+        if (raidwides.Count > 0)
+            notes.Add($"Raid-wides: {Configuration.RoleCode(role)} covers #{string.Join(", #", Enumerable.Range(1, raidwides.Count).Where(n => (n - 1) % 2 == myTurn))} of {raidwides.Count}.");
+
         if (kit.ShortUsesResource)
             notes.Add($"{kit.Job}'s Short mit costs a resource (gauge/MP) that the cooldown check can't see; make sure you'll have it.");
 
@@ -107,10 +122,10 @@ public static class PlanGenerator
     }
 
     /// <summary>
-    /// Tank busters in fight order, first pass only: lines after a loop's jump-back are
-    /// display copies of earlier mechanics, so they're skipped until the next phase.
+    /// Mechanics of one type in fight order, first pass only: lines after a loop's jump-back
+    /// are display copies of earlier mechanics, so they're skipped until the next phase.
     /// </summary>
-    private static List<TimelineEvent> FirstPassBusters(Configuration config, FightDefinition fight, Timeline timeline)
+    private static List<TimelineEvent> FirstPass(Configuration config, FightDefinition fight, Timeline timeline, MechanicType type)
     {
         var result = new List<TimelineEvent>();
         var skipping = false;
@@ -118,7 +133,7 @@ public static class PlanGenerator
         foreach (var e in timeline.Events)
         {
             if (prev != null && e.Time - prev.Time > 30) skipping = false; // new phase
-            if (!skipping && !e.Hidden && config.TagFor(fight, e.Label) == MechanicType.TankBuster) result.Add(e);
+            if (!skipping && !e.Hidden && config.TagFor(fight, e.Label) == type) result.Add(e);
             if (e.Jump is { } j && j < e.Time) skipping = true;
             prev = e;
         }
