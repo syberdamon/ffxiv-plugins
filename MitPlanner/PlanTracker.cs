@@ -116,7 +116,7 @@ public sealed class PlanTracker : IDisposable
             // OT Sent Mits: cast on whoever the mechanic targets; fall back to the co-tank.
             ulong sendTarget = 0;
             string? sendName = null;
-            if (entry.SendToTarget)
+            if (entry.SendToTarget && ActionCatalog.Find(entry.ActionId)?.CanTargetAlly == true)
             {
                 var me = Plugin.ObjectTable.LocalPlayer;
                 sendTarget = target is { Source: not TargetSource.Unknown, TargetObjectId: not 0 } t2 && !t2.IsMe
@@ -160,7 +160,7 @@ public sealed class PlanTracker : IDisposable
             {
                 st.LastAutoPress = DateTime.UtcNow;
                 st.AutoPresses++;
-                if (entry.SendToTarget) ActionState.Use(entry.ActionId, sendTarget);
+                if (sendTarget != 0) ActionState.Use(entry.ActionId, sendTarget);
                 else ActionState.Use(entry.ActionId);
                 if (st.AutoPresses > 1)
                     Plugin.Log.Debug($"[MitPlanner] Auto-use retry #{st.AutoPresses - 1} for {entry.EventKey} / action {entry.ActionId}");
