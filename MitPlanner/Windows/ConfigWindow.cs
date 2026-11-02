@@ -13,6 +13,7 @@ public sealed class ConfigWindow : Window
     private int fightIndex = -1;
     private string? transferMessage;
     private string abilitySearch = "";
+    private string fightSearch = "";
     private System.Collections.Generic.List<string> generatorNotes = new();
     private Configuration Config => plugin.Configuration;
 
@@ -44,9 +45,32 @@ public sealed class ConfigWindow : Window
             var here = plugin.Runner.Fight;
             fightIndex = here != null ? Math.Max(0, Fights.All.ToList().IndexOf(here)) : 0;
         }
-        var names = Fights.All.Select(f => f.Name).ToArray();
+        // Fight picker with a search box (matches name or zone ID).
         ImGui.SetNextItemWidth(260);
-        ImGui.Combo("Fight", ref fightIndex, names, names.Length);
+        if (ImGui.BeginCombo("Fight", Fights.All[fightIndex].Name, ImGuiComboFlags.HeightLarge))
+        {
+            if (ImGui.IsWindowAppearing())
+            {
+                fightSearch = "";
+                ImGui.SetKeyboardFocusHere();
+            }
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextWithHint("##fightsearch", "Search fights...", ref fightSearch, 64);
+            ImGui.Separator();
+
+            var any = false;
+            for (var i = 0; i < Fights.All.Count; i++)
+            {
+                var f = Fights.All[i];
+                if (fightSearch.Length > 0 &&
+                    !f.Name.Contains(fightSearch, StringComparison.OrdinalIgnoreCase) &&
+                    !f.TerritoryId.ToString().Contains(fightSearch)) continue;
+                any = true;
+                if (ImGui.Selectable($"{f.Name}  (zone {f.TerritoryId})##fight{i}", i == fightIndex)) fightIndex = i;
+            }
+            if (!any) ImGui.TextDisabled("No matching fights.");
+            ImGui.EndCombo();
+        }
         var fight = Fights.All[fightIndex];
         var timeline = Fights.Load(fight);
 
