@@ -37,6 +37,9 @@ public sealed class TimelineWindow : Window
         var runner = plugin.Runner;
         var fight = runner.Fight!;
         var plan = plugin.Tracker.CurrentPlan();
+        var conflicts = plan != null && runner.Timeline != null
+            ? PlanCheck.Run(runner.Timeline, plan, ActionCatalog.ForCurrentJob())
+            : new System.Collections.Generic.Dictionary<System.Guid, PlanConflict>();
         var now = runner.Running ? runner.Now : 0;
 
         if (!runner.Running) ImGui.TextDisabled("Waiting for the pull...");
@@ -45,7 +48,7 @@ public sealed class TimelineWindow : Window
             config.ShowOnlyTagged ? (System.Func<TimelineEvent, bool>)(e => config.TagFor(fight, e.Label) != MechanicType.Other) : null);
 
         if (!ImGui.BeginTable("##upcoming", 4, ImGuiTableFlags.SizingFixedFit)) return;
-        ImGui.TableSetupColumn("in", ImGuiTableColumnFlags.WidthFixed, 44);
+        ImGui.TableSetupColumn("in", ImGuiTableColumnFlags.WidthFixed, 80);
         ImGui.TableSetupColumn("type", ImGuiTableColumnFlags.WidthFixed, 40);
         ImGui.TableSetupColumn("name", ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("plan", ImGuiTableColumnFlags.WidthFixed);
@@ -57,7 +60,7 @@ public sealed class TimelineWindow : Window
             ImGui.TableNextRow();
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted(Style.Clock(e.Time - now));
+            ImGui.TextUnformatted(Style.ClockWithSeconds(e.Time - now));
 
             ImGui.TableNextColumn();
             ImGui.TextColored(color, Style.Badge(type));
@@ -75,7 +78,11 @@ public sealed class TimelineWindow : Window
                 first = false;
                 var tex = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(ability.Icon)).GetWrapOrEmpty();
                 ImGui.Image(tex.Handle, new Vector2(ImGui.GetTextLineHeight() + 2));
-                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"{ability.Name} ({p.LeadSeconds:0.#}s early{(p.AutoUse && config.AllowAutoUse ? ", auto" : "")})");
+                var conflict = conflicts.ContainsKey(p.Id);
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip($"{ability.Name} ({p.LeadSeconds:0.#}s early{(p.AutoUse && config.AllowAutoUse ? ", auto" : "")})" +
+                                     (conflict ? "\nPlan conflict: won't be off cooldown in time" : ""));
+                if (conflict) { ImGui.SameLine(0, 1); ImGui.TextColored(Style.Warning, "!"); }
             }
         }
         ImGui.EndTable();

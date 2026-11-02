@@ -24,6 +24,23 @@ Commands: `/mitplan` (settings), `/mitplan preview`, `/mitplan stop`, `/mitplan 
   auto-use" under Display; the plugin then presses it at the planned time.
   Off by default.
 
+## Plan QC
+The Plan tab checks every planned cooldown against its recharge time (including
+abilities with charges, which recharge one at a time). If a use comes before the
+cooldown is back, e.g. Rampart twice inside 90 s, it's flagged in red with the time
+it's actually ready, and the timeline window shows a red "!" next to its icon.
+
+## Times
+The Plan tab shows **fight time** as `m:ss (Ns)`. cactbot puts later phases on
+placeholder clocks (phase 2 starts at 1000 s), so long empty gaps are collapsed;
+times after a phase change are marked `~` because they depend on kill speed.
+QC uses the same fight time.
+
+## Saving and moving plans
+Plans and tags save automatically, per fight and per job, in Dalamud's plugin
+settings on that PC. To move a plan to another PC (or share it): Plan tab >
+**Copy plan to clipboard**, then **Paste plan** on the other PC (same fight, same job).
+
 ## Testing without a duty
 Display > **Preview** runs the timeline from 0 anywhere (no syncing, no auto-use),
 so you can check plans and callout placement before queueing.
