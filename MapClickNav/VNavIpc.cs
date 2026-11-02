@@ -11,6 +11,7 @@ namespace MapClickNav;
 public sealed class VNavIpc
 {
     private readonly ICallGateSubscriber<bool> isReady;
+    private readonly ICallGateSubscriber<float> buildProgress;
     private readonly ICallGateSubscriber<Vector3?> flagToPoint;
     private readonly ICallGateSubscriber<Vector3, bool, bool> pathfindAndMoveTo;
     private readonly ICallGateSubscriber<bool> pathfindInProgress;
@@ -21,6 +22,7 @@ public sealed class VNavIpc
     {
         var pi = Plugin.PluginInterface;
         isReady = pi.GetIpcSubscriber<bool>("vnavmesh.Nav.IsReady");
+        buildProgress = pi.GetIpcSubscriber<float>("vnavmesh.Nav.BuildProgress");
         flagToPoint = pi.GetIpcSubscriber<Vector3?>("vnavmesh.Query.Mesh.FlagToPoint");
         pathfindAndMoveTo = pi.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo");
         pathfindInProgress = pi.GetIpcSubscriber<bool>("vnavmesh.SimpleMove.PathfindInProgress");
@@ -30,6 +32,12 @@ public sealed class VNavIpc
 
     /// <summary>True when vnavmesh is loaded and has a navmesh for the current zone.</summary>
     public bool IsReady => Try(() => isReady.InvokeFunc(), false);
+
+    /// <summary>True when vnavmesh is installed and answering IPC calls.</summary>
+    public bool IsLoaded => Try(() => { isReady.InvokeFunc(); return true; }, false);
+
+    /// <summary>True while vnavmesh is building (or loading) the current zone's mesh.</summary>
+    public bool IsBuilding => Try(() => buildProgress.InvokeFunc(), -1f) >= 0;
 
     public Vector3? FlagToPoint() => Try(() => flagToPoint.InvokeFunc(), null);
 
