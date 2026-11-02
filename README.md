@@ -12,10 +12,9 @@ Personal Dalamud plugins (API 15).
 3. Tick Enabled, Save. The plugins now show up in `/xlplugins` and auto-update.
 
 ## Release a new version
-1. Bump `<Version>` in the plugin's .csproj and push to main.
-2. Tag it `<PluginFolder>-v<version>` and push the tag, e.g.
-   `git tag TankStanceManager-v0.1.1 && git push origin TankStanceManager-v0.1.1`
-3. GitHub Actions builds it, publishes a Release, and updates `repo.json`.
+1. Bump `<Version>` in the plugin's .csproj (e.g. 0.1.0.0 -> 0.1.1.0).
+2. Push to main. GitHub Actions builds it, publishes a Release, and updates
+   `repo.json`. Dalamud picks up the update on each PC.
 
 ## Adding a plugin
 See [docs/NEW_PLUGIN.md](docs/NEW_PLUGIN.md).
