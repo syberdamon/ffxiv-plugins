@@ -56,6 +56,7 @@ Turn-In Manager's knowledge of the game's Grand Company, materia-retrieval and c
 (callback values, data layouts, button nodes) was learned from reading these open-source projects.
 Our code is our own; credit to their authors:
 - Deliveroo (Liza Carvelli / VeraNala fork): expert delivery flow, tab and filter callbacks.
+- XA-Slave (xa-io): where the Expert Delivery window keeps its full ordered item list, and checking it against the 40 rows the window exposes before trusting it.
 - DailyRoutines, AutoExpertDelivery module: supply list data layout, hand-in callback, seal-cap logic.
 - AutoRetainer (PunishXIV): Grand Company exchange data layout, purchase callback, rank/category tabs, venture dialog.
 - Questionable (PunishXIV) and Pandora's Box (PunishXIV): exchange tab selection.
