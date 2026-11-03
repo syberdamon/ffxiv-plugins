@@ -172,7 +172,7 @@ public sealed unsafe class Runner : IDisposable
     {
         Phase.Teleporting => 90,
         Phase.WaitingForMesh => 90,
-        Phase.Walking => 45,
+        Phase.Walking => 60,
         _ => 15,
     };
 
@@ -206,14 +206,39 @@ public sealed unsafe class Runner : IDisposable
     }
 
     private IGameObject? FindNpc() =>
-        Plugin.ObjectTable.FirstOrDefault(o => o.ObjectKind == ObjectKind.EventNpc && o.Name.TextValue == CurrentVendor.NpcName);
+        Plugin.ObjectTable.FirstOrDefault(o => o.ObjectKind == ObjectKind.EventNpc &&
+                                               o.Name.TextValue.Equals(CurrentVendor.NpcName, StringComparison.OrdinalIgnoreCase));
+
+    private static void LogNearbyNpcs()
+    {
+        var player = Plugin.ObjectTable.LocalPlayer;
+        if (player == null) return;
+        foreach (var o in Plugin.ObjectTable.Where(o => o.ObjectKind == ObjectKind.EventNpc)
+                     .OrderBy(o => Vector3.Distance(o.Position, player.Position)).Take(15))
+            Plugin.Log.Info($"nearby npc: '{o.Name.TextValue}' at {Vector3.Distance(o.Position, player.Position):0.0}y");
+    }
 
     private void TickWalking()
     {
         var player = Plugin.ObjectTable.LocalPlayer;
         var npc = FindNpc();
         if (player == null) return;
-        if (npc == null) { Status = $"Looking for {CurrentVendor.NpcName}..."; return; }
+        if (npc == null)
+        {
+            // Not loaded yet (NPCs only appear when you're near): walk to where game data says they stand.
+            var spot = NpcLocator.Find(CurrentVendor.NpcName, Soils.IdyllshireTerritory, player.Position.Y);
+            if (spot == null) { Fail($"Don't know where {CurrentVendor.NpcName} is."); return; }
+            Status = $"Walking to {CurrentVendor.NpcName}'s spot...";
+            if (Vector3.Distance(player.Position, spot.Value) < 2f)
+            {
+                LogNearbyNpcs();
+                Fail($"Reached {CurrentVendor.NpcName}'s spot but can't see them (nearby NPC names are in /xllog).");
+                return;
+            }
+            if (!vnav.IsBusy) vnav.MoveTo(spot.Value);
+            nextAction = DateTime.UtcNow.AddSeconds(0.5);
+            return;
+        }
 
         if (Vector3.Distance(player.Position, npc.Position) <= InteractRange)
         {
