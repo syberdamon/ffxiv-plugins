@@ -184,7 +184,7 @@ public sealed unsafe partial class Navigator : IDisposable
         if (agent->SelectedMapId != sampleMapId) { samples.Clear(); sampleMapId = agent->SelectedMapId; }
 
         var map = addon->MouseCoords;
-        if (map.X <= 0 || map.Y <= 0 || map == lastMap) return;
+        if (map.X <= 0 || map.Y <= 0 || map.Equals(lastMap)) return;
         var screen = ImGui.GetMousePos();
         lastMap = map;
         lastChangeScreen = screen;
@@ -198,7 +198,7 @@ public sealed unsafe partial class Navigator : IDisposable
     private Vector2? ExtrapolateFromSamples(AddonAreaMap* addon)
     {
         var mouse = ImGui.GetMousePos();
-        if (Vector2.Distance(mouse, lastChangeScreen) < 4 || addon->MouseCoords != lastMap) return null; // readout is live
+        if (Vector2.Distance(mouse, lastChangeScreen) < 4 || !addon->MouseCoords.Equals(lastMap)) return null; // readout is live
         if (!Fit(out var fx, out var fy)) return null;
         return new Vector2(fx.A * mouse.X + fx.B, fy.A * mouse.Y + fy.B);
     }
