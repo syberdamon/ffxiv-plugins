@@ -155,7 +155,7 @@
     "Author": "syberdamon",
     "Name": "Turn-In Manager",
     "InternalName": "TurnInManager",
-    "AssemblyVersion": "0.1.12.0",
+    "AssemblyVersion": "0.1.13.0",
     "Description": "Turns in gear for Grand Company seals with guardrails: never items in a gearset, a maximum item level, rarity (green/blue) and HQ/NQ filters, optional armoury chest. Retrieves materia from qualifying gear first (gear turned in with materia loses it). Before seals would cap, it buys items you choose up to a stock target (e.g. Ventures up to 65,000), then keeps delivering. Preview shows exactly what would be turned in. Uses vnavmesh to walk, and Lifestream (if installed) to travel to your Grand Company. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -173,8 +173,8 @@
     "LoadPriority": 0,
     "Punchline": "Grand Company expert delivery with guardrails, materia retrieval first, and seal spending by stock targets.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.12.0/TurnInManager.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.12.0/TurnInManager.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.12.0/TurnInManager.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.13.0/TurnInManager.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.13.0/TurnInManager.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.13.0/TurnInManager.zip"
   }
 ]
