@@ -122,6 +122,22 @@ public sealed unsafe class GcRunner : IDisposable
             Set(GcPhase.Retrieving, $"Retrieving materia from {retrieveQueue.Count} item(s)...");
             return;
         }
+        GoToDeliverOrBuyFirst();
+    }
+
+    /// <summary>Seals already at/near the cap: go to the Quartermaster first instead of the Personnel Officer.</summary>
+    private void GoToDeliverOrBuyFirst()
+    {
+        if (GcData.Seals() + NearCapMargin > GcData.SealCap())
+        {
+            if (config.BuyBeforeCap && NeedsAnyPurchase())
+            {
+                Log($"Seals near the cap ({GcData.Seals()}/{GcData.SealCap()}): buying first.");
+                GoTo(gc.Quartermaster, GcPhase.Buying);
+                return;
+            }
+            if (GcData.Seals() >= GcData.SealCap()) { Fail($"Seals are full ({GcData.Seals()}/{GcData.SealCap()}) and nothing on the purchase list needs buying."); return; }
+        }
         GoTo(gc.Personnel, GcPhase.Delivering);
     }
 
@@ -177,7 +193,7 @@ public sealed unsafe class GcRunner : IDisposable
             if (retrieveQueue.Count == 0)
             {
                 if (mode == GcMode.StripOnly) { Finish(); return; }
-                GoTo(gc.Personnel, GcPhase.Delivering);
+                GoToDeliverOrBuyFirst();
                 return;
             }
             retrieving = retrieveQueue.Dequeue();
@@ -276,7 +292,7 @@ public sealed unsafe class GcRunner : IDisposable
                 var nothing = rows.FindIndex(r => r.StartsWith("Nothing", StringComparison.OrdinalIgnoreCase) || r.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase));
                 if (nothing >= 0) a->FireCallbackInt(nothing); else a->FireCallbackInt(-1);
             }
-            else if (name == "Talk") a->FireCallbackInt(0);
+            else if (name == "Talk") GameUi.ClickTalk(a);
             else a->FireCallbackInt(-1);
             nextAction = DateTime.UtcNow.AddSeconds(0.6);
             return;
@@ -367,7 +383,8 @@ public sealed unsafe class GcRunner : IDisposable
             nextAction = DateTime.UtcNow.AddSeconds(1);
             return;
         }
-        if (GameUi.IsOpen("Talk")) { GameUi.Get("Talk")->FireCallbackInt(0); nextAction = DateTime.UtcNow.AddSeconds(0.5); return; }
+        var talk = GameUi.Get("Talk");
+        if (talk != null) { GameUi.ClickTalk(talk); nextAction = DateTime.UtcNow.AddSeconds(0.5); return; }
 
         if (++tries > 3) { Fail($"The {npcName} didn't open a menu."); return; }
         var npc = FindNpc();
@@ -488,10 +505,22 @@ public sealed unsafe class GcRunner : IDisposable
     {
         var shop = GameUi.Get("GrandCompanyExchange");
 
-        // Purchase dialogs.
-        var currency = GameUi.Get("ShopExchangeCurrencyDialog");
-        if (currency != null && awaitingPurchase)
+        // 1. Confirmation ("Exchange 64,200 seals for 321 ventures?") always first: the quantity
+        //    window stays open underneath it.
+        var yesNo = GameUi.Get("SelectYesno");
+        if (yesNo != null)
         {
+            Log($"  Yes/No during purchase: \"{GameUi.YesNoText()}\" -> Yes");
+            yesNo->FireCallbackInt(0);
+            nextAction = DateTime.UtcNow.AddSeconds(0.8);
+            return;
+        }
+
+        // 2. Quantity window (Ventures): fill it in and press Exchange once per purchase.
+        var currency = GameUi.Get("ShopExchangeCurrencyDialog");
+        if (currency != null && awaitingPurchase && !currencyHandled)
+        {
+            currencyHandled = true;
             var rule = config.Purchases[ruleIndex];
             var cost = Math.Max(1, lastCost);
             var dialogQty = Math.Min(rule.Target - GcData.Count(rule.ItemId), (GcData.Seals() - config.SealReserve) / cost);
@@ -500,14 +529,6 @@ public sealed unsafe class GcRunner : IDisposable
             if (numeric != null) numeric->SetValue(dialogQty);
             GameUi.ClickNode(currency, 17); // Exchange
             Log($"  quantity dialog: {dialogQty}");
-            nextAction = DateTime.UtcNow.AddSeconds(0.8);
-            return;
-        }
-        var yesNo = GameUi.Get("SelectYesno");
-        if (yesNo != null)
-        {
-            Log($"  Yes/No during purchase: \"{GameUi.YesNoText()}\" -> Yes");
-            yesNo->FireCallbackInt(0);
             nextAction = DateTime.UtcNow.AddSeconds(0.8);
             return;
         }
@@ -524,6 +545,7 @@ public sealed unsafe class GcRunner : IDisposable
                 Bought.Add($"{got} x {rule.Name}");
                 Log($"  bought {got} x {rule.Name} (-{sealsBeforeBuy - GcData.Seals()} seals)");
                 awaitingPurchase = false;
+                if (currency != null) currency->FireCallbackInt(-1); // close the leftover quantity window
                 phaseStarted = DateTime.UtcNow;
                 nextAction = DateTime.UtcNow.AddSeconds(0.6);
                 return;
@@ -578,6 +600,7 @@ public sealed unsafe class GcRunner : IDisposable
         countBefore = GcData.Count(rule2.ItemId);
         sealsBeforeBuy = GcData.Seals();
         awaitingPurchase = true;
+        currencyHandled = false;
         purchaseAt = DateTime.UtcNow;
         // Ventures and similar open a quantity dialog; others take the quantity here.
         GameUi.Fire(shop, 0, row, opensDialog ? 1 : qty, GameUi.V.ZeroValue, rankOk, opensDialog, GameUi.V.ZeroValue, GameUi.V.ZeroValue, GameUi.V.ZeroValue);
@@ -585,6 +608,10 @@ public sealed unsafe class GcRunner : IDisposable
     }
 
     private int lastCost;
+    private bool currencyHandled;
+
+    /// <summary>[Estimate] An expert delivery at high level is worth up to ~3,000 seals.</summary>
+    private const int NearCapMargin = 3000;
 
     private bool pendingDeliveries() =>
         GcData.Scan(config).Any(c => c.Allowed);
