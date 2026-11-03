@@ -100,7 +100,7 @@ public sealed class TimelineWindow : Window
             ImGui.TableNextColumn();
             ImGui.TextColored(color, e.Label);
             // Tank busters coming up soon: who's it on?
-            if (type == MechanicType.TankBuster && runner.Running && e.Time - now <= 12)
+            if (type.IsBuster() && runner.Running && e.Time - now <= 12)
             {
                 var t = plugin.Targeting.Check(fight, e);
                 if (t.Source != TargetSource.Unknown)

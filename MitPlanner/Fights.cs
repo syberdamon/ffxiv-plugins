@@ -146,7 +146,7 @@ public static class Fights
                 {
                     var name = actions.GetRowOrDefault(id)?.Name.ExtractText();
                     if (string.IsNullOrWhiteSpace(name)) continue;
-                    if (!byName.TryGetValue(name, out var have) || type < have) byName[name] = type; // TB < Raidwide < Stack < Mechanic
+                    if (!byName.TryGetValue(name, out var have) || type.Rank() < have.Rank()) byName[name] = type;
                 }
 
             var added = 0;

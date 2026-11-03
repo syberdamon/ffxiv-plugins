@@ -45,6 +45,9 @@ public sealed unsafe class Targeting : IDisposable
     private readonly Configuration config;
     private readonly List<(uint Entity, uint Marker, DateTime At)> markers = new();
 
+    /// <summary>A head marker appeared: (entity id, marker id).</summary>
+    public event Action<uint, uint>? MarkerPlaced;
+
     public Targeting(TimelineRunner runner, Configuration config)
     {
         this.runner = runner;
@@ -79,6 +82,7 @@ public sealed unsafe class Targeting : IDisposable
             if (category != HeadMarkerCategory) return;
             markers.RemoveAll(m => (DateTime.UtcNow - m.At).TotalSeconds > MarkerLifetimeSeconds);
             markers.Add((entityId, arg1, DateTime.UtcNow));
+            MarkerPlaced?.Invoke(entityId, arg1);
         }
         catch (Exception ex)
         {
@@ -99,7 +103,7 @@ public sealed unsafe class Targeting : IDisposable
         var recent = markers.Where(m => (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds &&
                                         targets.Contains(m.Entity) && fight.MarkerKinds.ContainsKey(m.Marker)).ToList();
         if (recent.Count == 0) return;
-        var kind = recent.Select(m => fight.MarkerKinds[m.Marker]).Min(); // TB before stack
+        var kind = recent.Select(m => fight.MarkerKinds[m.Marker]).OrderBy(k => k.Rank()).First();
 
         var ev = runner.EventForAbility(actionId);
         if (ev == null) return;
@@ -112,7 +116,16 @@ public sealed unsafe class Targeting : IDisposable
         config.Save();
         // Markers that fired with this ability now count as "this mechanic targets them" too.
         markers.RemoveAll(m => recent.Contains(m));
-        Plugin.ChatGui.Print($"[MitPlanner] Learned: {ev.Label} = {(kind == MechanicType.TankBuster ? "tank buster" : kind.ToString().ToLowerInvariant())} (cactbot head marker). Change it in the Plan tab if that's wrong.");
+        Plugin.ChatGui.Print($"[MitPlanner] Learned: {ev.Label} = {Windows.Style.TypeNames[(int)kind].ToLowerInvariant()} (cactbot head marker). Change it in the Plan tab if that's wrong.");
+
+        // Slot mits for it into your plan for the next pull (around what's already planned).
+        if (kind.IsBuster() && config.AutoPlanLearned && runner.Timeline != null && Plugin.ObjectTable.LocalPlayer is { } me)
+        {
+            var added = PlanGenerator.AddForLearnedBuster(config, fight, runner.Timeline, me.ClassJob.RowId,
+                ActionCatalog.ForCurrentJob(), ev.Label);
+            if (added.Count > 0)
+                Plugin.ChatGui.Print($"[MitPlanner] Added to your {Configuration.RoleCode(config.Role)} plan: {string.Join(", ", added)}");
+        }
     }
 
     /// <summary>The other tank in the party (fallback target for OT Sent Mits).</summary>
@@ -153,7 +166,7 @@ public sealed unsafe class Targeting : IDisposable
             var type = config.TagFor(fight, ev.Label);
             var recent = markers.Where(m => kinds.TryGetValue(m.Marker, out var k) && k == type &&
                                             (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds).ToList();
-            if (recent.Count > 0 && type is MechanicType.TankBuster or MechanicType.Stack)
+            if (recent.Count > 0 && (type.IsBuster() || type == MechanicType.Stack))
             {
                 var isMe = recent.Any(m => m.Entity == me.EntityId);
                 var other = recent.Select(m => Plugin.ObjectTable.SearchByEntityId(m.Entity))

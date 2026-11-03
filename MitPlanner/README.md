@@ -53,6 +53,10 @@ Plan tab > **Generate starter plan** builds one from these rules:
   otherwise Rampart + Secondary.
 - **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
   the MT), plus Short on yourself only if the buster targets you.
+- **OT and tank busters:** the OT sends its Sent mit to the MT when the buster isn't on
+  it, and uses the full set (Short + Big, or Rampart + Secondary) when it is: many busters hit
+  both tanks or swap. **Shared tank busters** (cactbot's "shared tank buster", badge "TB x2")
+  get the full set from both tanks, always.
 - **Raid-wides: one Reprisal + one party mit on every hit, from different
   tanks.** #1: MT Reprisal + OT party mit. #2: MT party mit + OT Reprisal. Then
   repeat. Both tanks' cooldowns are simulated together, so the MT's and the OT's
@@ -133,6 +137,12 @@ Three layers, later ones win:
    enemy ability hits someone who had cactbot's tank-buster (or stack) marker, that line is
    tagged and a chat line says so ("Learned: X = tank buster"). Learned tags sit below your
    own edits; change any of them in the Plan tab. They also make "if targeted" conditions work.
+   When a tank buster is learned, mits for each hit are **added to your plan** (current role),
+   slotted around what's already planned by the cooldown check; chat lists what was added.
+   **Safety net:** when cactbot's tank-buster marker lands on you (or its shared-buster marker
+   on a tank) and nothing planned or just used covers it, the plugin calls out the best mits
+   off cooldown right now (Big, else Rampart + Secondary; plus Short) and presses them if
+   auto-use is allowed. Both are on by default (Display tab).
 2. **Curated list** (`MitPlanner/CuratedFights.cs`): hand-checked tags and head
    markers. Currently The Cinder Drift, Castrum Marinum and The Cloud Deck.
 3. **Your edits** in the Plan tab's type column.

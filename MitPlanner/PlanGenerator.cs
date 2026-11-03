@@ -6,8 +6,9 @@ namespace MitPlanner;
 /// <summary>
 /// Builds a starter tank plan from rules (agreed with syberdamon):
 ///   MT, every tank buster: Short, plus Big if it'll be back in time, otherwise Rampart + Secondary.
-///   OT, every tank buster: send the Short-style mit to whoever it targets; also Short on yourself
-///       if it targets you.
+///   OT, every tank buster: send the Sent mit to the MT if it isn't on you; if it IS on you
+///       (busters on both tanks, swaps), the same set as the MT.
+///   Shared tank busters: both tanks use their set, always.
 ///   Raid-wides: each gets Reprisal from one tank and party mit from the other.
 ///       #1 MT Reprisal + OT party mit, #2 MT party mit + OT Reprisal, and so on.
 ///   Invulns are never planned.
@@ -52,42 +53,17 @@ public static class PlanGenerator
             return false;
         }
 
-        var hasShort = Has(kit.Short, "Short mit");
-        var hasBig = Has(kit.Big, "Big mit");
-        var hasRampart = Has(kit.Rampart, "Rampart");
-        var hasSecondary = Has(kit.Secondary, "Secondary mit");
-        var hasSent = role == TankRole.OffTank && Has(kit.Sent, "OT Sent Mit");
+        var tools = new BusterTools(kit, role,
+            Has(kit.Short, "Short mit"), Has(kit.Big, "Big mit"), Has(kit.Rampart, "Rampart"),
+            Has(kit.Secondary, "Secondary mit"), role == TankRole.OffTank && Has(kit.Sent, "OT Sent Mit"));
 
-        var busters = FirstPass(config, fight, timeline, MechanicType.TankBuster);
-        if (busters.Count == 0) notes.Add("This fight has no mechanics tagged as tank busters.");
+        var busters = FirstPass(config, fight, timeline, MechanicType.TankBuster)
+            .Concat(FirstPass(config, fight, timeline, MechanicType.SharedTankBuster))
+            .OrderBy(e => e.FightTime).ToList();
+        if (busters.Count == 0) notes.Add("This fight has no mechanics tagged as tank busters (yet: head-marker busters are learned in the first pull).");
 
         foreach (var ev in busters)
-        {
-            if (role == TankRole.MainTank)
-            {
-                if (hasShort) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.Short, ShortLead, TargetCondition.IfTargeted), ev, "Short");
-
-                // Big if it'll be back in time; otherwise Rampart + Secondary.
-                var bigOk = hasBig && TryAdd(plan, timeline, catalog, null, Entry(ev, kit.Big, BigLead, TargetCondition.IfTargeted), ev, "Big");
-                if (!bigOk)
-                {
-                    var rampartOk = hasRampart && TryAdd(plan, timeline, catalog, null, Entry(ev, kit.Rampart, RampartLead, TargetCondition.IfTargeted), ev, "Rampart");
-                    if (hasSecondary) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.Secondary, SecondaryLead, TargetCondition.IfTargeted), ev, "Secondary");
-                    if (!rampartOk) notes.Add($"{Label(ev)}: neither Big nor Rampart will be back in time.");
-                }
-            }
-            else
-            {
-                // OT: help the MT; cover yourself only if the buster turns out to be on you.
-                if (hasSent)
-                {
-                    var sent = Entry(ev, kit.Sent, ShortLead, TargetCondition.IfNotTargeted);
-                    sent.SendToTarget = true;
-                    TryAdd(plan, timeline, catalog, notes, sent, ev, "OT Sent Mit");
-                }
-                if (hasShort) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.Short, ShortLead, TargetCondition.IfTargeted), ev, "Short");
-            }
-        }
+            AddBusterMits(plan, timeline, catalog, notes, tools, ev, config.TagFor(fight, ev.Label) == MechanicType.SharedTankBuster);
 
         // Raid-wides: every one gets one Reprisal and one party mit, from different tanks.
         //   #1: MT Reprisal + OT party mit;  #2: MT party mit + OT Reprisal;  then repeat.
@@ -144,6 +120,69 @@ public static class PlanGenerator
             notes.Add($"{kit.Job}'s Short mit costs a resource (gauge/MP) that the cooldown check can't see; make sure you'll have it.");
 
         return new(plan, notes);
+    }
+
+    private sealed record BusterTools(TankKit Kit, TankRole Role, bool Short, bool Big, bool Rampart, bool Secondary, bool Sent);
+
+    /// <summary>
+    /// Mits for one tank buster.
+    ///   MT: Short + (Big, or Rampart + Secondary), if targeted.
+    ///   OT: send the Sent mit to the MT if not targeted; the same set as the MT if targeted
+    ///       (many busters hit both tanks, or swap).
+    ///   Shared buster (both tanks take it): both tanks use their set, always; no send.
+    /// </summary>
+    private static void AddBusterMits(List<PlanEntry> plan, Timeline timeline, IReadOnlyList<CatalogEntry> catalog,
+        List<string>? notes, BusterTools t, TimelineEvent ev, bool shared)
+    {
+        var self = shared ? TargetCondition.Always : TargetCondition.IfTargeted;
+
+        if (t.Role == TankRole.OffTank && !shared && t.Sent)
+        {
+            var sent = Entry(ev, t.Kit.Sent, ShortLead, TargetCondition.IfNotTargeted);
+            sent.SendToTarget = true;
+            TryAdd(plan, timeline, catalog, notes, sent, ev, "OT Sent Mit");
+        }
+
+        if (t.Short) TryAdd(plan, timeline, catalog, notes, Entry(ev, t.Kit.Short, ShortLead, self), ev, "Short");
+
+        // Big if it'll be back in time; otherwise Rampart + Secondary.
+        var bigOk = t.Big && TryAdd(plan, timeline, catalog, null, Entry(ev, t.Kit.Big, BigLead, self), ev, "Big");
+        if (bigOk) return;
+        var rampartOk = t.Rampart && TryAdd(plan, timeline, catalog, null, Entry(ev, t.Kit.Rampart, RampartLead, self), ev, "Rampart");
+        if (t.Secondary) TryAdd(plan, timeline, catalog, notes, Entry(ev, t.Kit.Secondary, SecondaryLead, self), ev, "Secondary");
+        if (!rampartOk) notes?.Add($"{Label(ev)}: neither Big nor Rampart will be back in time.");
+    }
+
+    /// <summary>
+    /// A tank buster was just learned in game: add mits for each hit of it to your current
+    /// role's plan, skipping hits that already have something planned. Cooldown QC runs against
+    /// your whole plan, so it slots in around what's already there. Returns what was added.
+    /// </summary>
+    public static List<string> AddForLearnedBuster(Configuration config, FightDefinition fight, Timeline timeline,
+        uint jobId, IReadOnlyList<CatalogEntry> catalog, string label)
+    {
+        var added = new List<string>();
+        var kit = TankKits.For(jobId);
+        if (kit == null) return added;
+
+        bool Has(uint id) => catalog.Any(c => c.ActionId == id);
+        var role = config.Role;
+        var tools = new BusterTools(kit, role, Has(kit.Short), Has(kit.Big), Has(kit.Rampart), Has(kit.Secondary),
+            role == TankRole.OffTank && Has(kit.Sent));
+        var shared = config.TagFor(fight, label) == MechanicType.SharedTankBuster;
+
+        var plan = config.PlanFor(fight.TerritoryId, jobId, role);
+        var types = new[] { MechanicType.TankBuster, MechanicType.SharedTankBuster };
+        foreach (var ev in types.SelectMany(ty => FirstPass(config, fight, timeline, ty)).Where(e => e.Label == label))
+        {
+            if (plan.Any(p => p.EventKey == ev.Key)) continue;
+            var before = plan.Count;
+            AddBusterMits(plan, timeline, catalog, null, tools, ev, shared);
+            foreach (var entry in plan.Skip(before))
+                added.Add($"{catalog.FirstOrDefault(c => c.ActionId == entry.ActionId)?.Name ?? entry.ActionId.ToString()} @ {Label(ev)}");
+        }
+        if (added.Count > 0) config.Save();
+        return added;
     }
 
     private static PlanEntry Entry(TimelineEvent ev, uint actionId, float lead, TargetCondition condition) => new()

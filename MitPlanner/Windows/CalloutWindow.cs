@@ -23,7 +23,8 @@ public sealed class CalloutWindow : Window
     }
 
     public override bool DrawConditions() =>
-        plugin.ShowCalloutPlacement || (plugin.Configuration.ShowCallouts && plugin.Tracker.Active.Count > 0);
+        plugin.ShowCalloutPlacement ||
+        (plugin.Configuration.ShowCallouts && (plugin.Tracker.Active.Count > 0 || plugin.Guard.ShowCallout));
 
     public override void PreDraw()
     {
@@ -38,7 +39,10 @@ public sealed class CalloutWindow : Window
     {
         ImGui.SetWindowFontScale(plugin.Configuration.CalloutScale);
 
-        if (plugin.Tracker.Active.Count == 0)
+        if (plugin.Guard.ShowCallout)
+            ImGui.TextColored(Late, plugin.Guard.Callout!);
+
+        if (plugin.Tracker.Active.Count == 0 && !plugin.Guard.ShowCallout)
         {
             ImGui.TextColored(Soon, "Callouts appear here (drag to place)");
             ImGui.SetWindowFontScale(1f);
