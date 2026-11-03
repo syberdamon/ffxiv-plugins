@@ -180,7 +180,8 @@ Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
   with 2+ mobs, even while moving.
 - **Rotation:** Short every time it's back. Reprisal every pack. One big mit at a time:
   Rampart, or the 40% first on 5+ mob pulls; the 40% only if the pull lasts 12 s+.
-  WAR's Rampart waits for Bloodwhetting to wear off. Refill when it expires
+  WAR's Rampart waits for Bloodwhetting to wear off. **WAR at Bloodwhetting level (82+):**
+  Bloodwhetting only; other mits and heals wait until HP drops below 50% (configurable). Refill when it expires
   (Rampart / 40% / Arm's Length), Secondary to fill gaps, heals under 70% (party mits as
   heals allowed; Shake It Off never consumes WAR's buffs). No new big mits with under 6 s left.
 - **Emergency** (also while moving): under 35% HP, or a big HP drop rate. **Invuln** when
@@ -189,5 +190,7 @@ Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
 - **Bosses:** emergencies only (Mit Planner's plan and tank-buster safety net handle bosses).
 - Presses only with **Allow auto-use**; otherwise callouts.
 - **Run log** for tuning: `%AppData%\XIVLauncher\pluginConfigs\MitPlanner\trashlog\`,
-  one file per dungeon. It records each pull, a once-a-second snapshot, every press and why,
+  one file per dungeon, with the party (healer) noted. It records each pull, a once-a-second snapshot, every press and why,
   what you pressed yourself, skips (and why), emergencies, deaths, and a pull summary.
+  `tools/trashlog_report.py <folder>` summarises them and flags wasted, late, overlapping and
+  end-of-pull mits.

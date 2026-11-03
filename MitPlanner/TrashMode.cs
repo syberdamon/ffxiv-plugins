@@ -246,6 +246,14 @@ public sealed class TrashMode : IDisposable
         // 1. Short: every time it's back.
         if (!Active(kit.Short) && TryPress(kit.Short, "opener/short", "set, short back", me, kit, sig)) return;
 
+        // WAR with Bloodwhetting: it heals on every weaponskill and usually caps HP on AoE pulls,
+        // so nothing else goes out unless HP actually drops (emergencies are separate).
+        if (kit.Job == "Warrior" && S.WarBloodwhettingOnly && me.Level >= S.WarBloodwhettingLevel && hp >= S.WarOtherMitsBelowHp)
+        {
+            Skip("bwonly", $"WAR Bloodwhetting-only: holding other mits (HP {hp:0}% >= {S.WarOtherMitsBelowHp:0}%)");
+            return;
+        }
+
         // 2. Reprisal every pack.
         if (sig.MobsOnMe >= S.MinMobs && !Active(TankKits.ReprisalId) &&
             TryPress(TankKits.ReprisalId, "reprisal", "every pack", me, kit, sig)) return;
@@ -433,7 +441,9 @@ public sealed class TrashMode : IDisposable
         loggedTerritory = territory;
         var zone = Plugin.DataManager.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory)?.ContentFinderCondition.ValueNullable?.Name.ExtractText();
         var job = Plugin.DataManager.GetExcelSheet<ClassJob>().GetRowOrDefault(me!.ClassJob.RowId)?.Abbreviation.ExtractText() ?? "?";
-        log.Open(string.IsNullOrWhiteSpace(zone) ? $"zone{territory}" : zone, $"{job}{me.Level}");
+        var jobs = Plugin.DataManager.GetExcelSheet<ClassJob>();
+        var party = string.Join(",", Plugin.PartyList.Select(m => jobs.GetRowOrDefault(m.ClassJob.RowId)?.Abbreviation.ExtractText() ?? "?"));
+        log.Open(string.IsNullOrWhiteSpace(zone) ? $"zone{territory}" : zone, $"{job}{me.Level}", party);
     }
 
     /// <summary>Dungeons only ([Assumption] ContentType 2 = Dungeons in the ContentType sheet).</summary>

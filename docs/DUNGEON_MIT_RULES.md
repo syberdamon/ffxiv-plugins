@@ -162,6 +162,27 @@ layers automatically.
    kill you and no major mit is up or ready. Per-job switches (PLD/WAR on, DRK/GNB off).
 5. **Run log** for tuning: `pluginConfigs/MitPlanner/trashlog/`, one file per dungeon.
 
+## Warrior: Bloodwhetting-only (syberdamon, 2026-11-02)
+
+At Bloodwhetting level (default 82, configurable), Bloodwhetting's heal on every weaponskill
+usually caps a WAR's HP on AoE pulls. So in trash, Trash mode uses **only Bloodwhetting** (every
+time it's back). Everything else (Reprisal, Rampart, the 40%, Thrill, heals) waits until HP is
+**below 50%** (configurable). The emergency and invuln rules still apply.
+
+## Direction: adaptive mitigation
+
+The goal is a plan that adapts on the fly to the healer, the tank job, and possibly the dungeon,
+with thresholds that still hold up with weak healers. How we get there:
+
+1. **Logs first.** Each run records the party (healer job), the dungeon, every press and its
+   reason, what was held back, and once-a-second HP, damage taken and pull-length estimates.
+2. **Review on request.** `tools/trashlog_report.py` flags mits pressed while HP stayed full
+   (UNNEEDED), mits wasted at the end of a pull (PULL-END), big mits stacked on each other
+   (OVERLAP), low HP with nothing pressed (LATE), emergencies, invulns and deaths.
+3. **Then profiles.** Once there's data, add per-healer, per-job and per-dungeon threshold
+   profiles (e.g. a lighter touch with a strong healer, an earlier escalate HP with a weak one).
+   Possibly adjusted live from how fast HP comes back after hits.
+
 ## Sources
 
 - Icy Veins, Introduction to Tanking in FFXIV: https://www.icy-veins.com/ffxiv/introduction-to-tanking

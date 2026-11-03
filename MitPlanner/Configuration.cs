@@ -176,6 +176,14 @@ public class TrashSettings
     public bool PartyMitsAsHeals { get; set; } = true;
     public float WarRampartAfterBloodwhettingHp { get; set; } = 70f; // WAR: Rampart waits for Bloodwhetting unless HP below this
 
+    /// <summary>
+    /// WAR at Bloodwhetting level: its per-weaponskill heal usually caps your HP on AoE pulls, so
+    /// Bloodwhetting alone carries the pull; other mits/heals only below <see cref="WarOtherMitsBelowHp"/>.
+    /// </summary>
+    public bool WarBloodwhettingOnly { get; set; } = true;
+    public int WarBloodwhettingLevel { get; set; } = 82;   // [Assumption] Bloodwhetting unlock; Raw Intuition below
+    public float WarOtherMitsBelowHp { get; set; } = 50f;
+
     // ---- emergency / invuln
     public float EmergencyHpPercent { get; set; } = 35f;
     /// <summary>Invuln when this many seconds of the current incoming damage (no heals) would kill you and no major mit is available.</summary>
