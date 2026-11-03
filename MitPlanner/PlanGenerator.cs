@@ -8,8 +8,8 @@ namespace MitPlanner;
 ///   MT, every tank buster: Short, plus Big if it'll be back in time, otherwise Rampart + Secondary.
 ///   OT, every tank buster: send the Short-style mit to whoever it targets; also Short on yourself
 ///       if it targets you.
-///   Raid-wides alternate between tanks: MT takes #1, #3, #5...; OT takes #2, #4...
-///       On its turn a tank uses Reprisal + its party mitigation.
+///   Raid-wides: each gets Reprisal from one tank and party mit from the other.
+///       #1 MT Reprisal + OT party mit, #2 MT party mit + OT Reprisal, and so on.
 ///   Invulns are never planned.
 /// Availability is decided by the same cooldown QC the Plan tab uses.
 /// </summary>
@@ -89,20 +89,56 @@ public static class PlanGenerator
             }
         }
 
-        // Raid-wides: alternate MT / OT so one tank always has its party mits back.
+        // Raid-wides: every one gets one Reprisal and one party mit, from different tanks.
+        //   #1: MT Reprisal + OT party mit;  #2: MT party mit + OT Reprisal;  then repeat.
+        // Both tanks' cooldowns are simulated together (Reprisal and every tank's party mit
+        // share the same recasts), so the MT's and the OT's generated plans dovetail.
         var hasReprisal = Has(TankKits.ReprisalId, "Reprisal");
         var hasParty = Has(kit.PartyMit, "Party mit");
         var raidwides = FirstPass(config, fight, timeline, MechanicType.Raidwide);
-        var myTurn = role == TankRole.MainTank ? 0 : 1;
-        for (var i = 0; i < raidwides.Count; i++)
+        var reprisalRecast = catalog.FirstOrDefault(c => c.ActionId == TankKits.ReprisalId)?.RecastSeconds ?? 60f;
+        var partyRecast = catalog.FirstOrDefault(c => c.ActionId == kit.PartyMit)?.RecastSeconds ?? 90f;
+        var me = role == TankRole.MainTank ? 0 : 1;
+        var repReady = new[] { float.MinValue, float.MinValue };   // [MT, OT]
+        var partyReady = new[] { float.MinValue, float.MinValue };
+        var reprisalTank = 0;                                       // who has Reprisal on the next one
+        var gaps = new List<string>();
+
+        foreach (var ev in raidwides)
         {
-            if (i % 2 != myTurn) continue;
-            var ev = raidwides[i];
-            if (hasReprisal) TryAdd(plan, timeline, catalog, notes, Entry(ev, TankKits.ReprisalId, ReprisalLead, TargetCondition.Always), ev, "Reprisal");
-            if (hasParty) TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, PartyMitLead, TargetCondition.Always), ev, "Party mit");
+            var repAt = ev.FightTime - ReprisalLead;
+            var partyAt = ev.FightTime - PartyMitLead;
+            bool RepOk(int tank) => repReady[tank] <= repAt;
+            bool PartyOk(int tank) => partyReady[tank] <= partyAt;
+
+            // Planned split, else the swapped split, else whatever is back.
+            int? rep = null, party = null;
+            var other = 1 - reprisalTank;
+            if (RepOk(reprisalTank) && PartyOk(other)) { rep = reprisalTank; party = other; }
+            else if (RepOk(other) && PartyOk(reprisalTank)) { rep = other; party = reprisalTank; }
+            else
+            {
+                rep = RepOk(reprisalTank) ? reprisalTank : RepOk(other) ? other : (int?)null;
+                party = rep is { } r && PartyOk(1 - r) ? 1 - r : PartyOk(reprisalTank) ? reprisalTank : PartyOk(other) ? other : (int?)null;
+                var missing = new List<string>();
+                if (rep == null) missing.Add("no Reprisal");
+                if (party == null) missing.Add("no party mit");
+                if (rep != null && rep == party) missing.Add($"{Configuration.RoleCode(rep == 0 ? TankRole.MainTank : TankRole.OffTank)} covers both");
+                gaps.Add($"{Label(ev)}: {string.Join(", ", missing)}");
+            }
+
+            if (rep is { } rt) { repReady[rt] = repAt + reprisalRecast; reprisalTank = 1 - rt; }
+            if (party is { } pt) partyReady[pt] = partyAt + partyRecast;
+
+            if (rep == me && hasReprisal)
+                TryAdd(plan, timeline, catalog, notes, Entry(ev, TankKits.ReprisalId, ReprisalLead, TargetCondition.Always), ev, "Reprisal");
+            if (party == me && hasParty)
+                TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, PartyMitLead, TargetCondition.Always), ev, "Party mit");
         }
         if (raidwides.Count > 0)
-            notes.Add($"Raid-wides: {Configuration.RoleCode(role)} covers #{string.Join(", #", Enumerable.Range(1, raidwides.Count).Where(n => (n - 1) % 2 == myTurn))} of {raidwides.Count}.");
+            notes.Add($"Raid-wides: {raidwides.Count}, each with one tank's Reprisal and the other's party mit (MT Reprisal first, then they swap).");
+        if (gaps.Count > 0)
+            notes.Add("Raid-wides too close together for full cover: " + string.Join("; ", gaps) + ".");
 
         if (kit.ShortUsesResource)
             notes.Add($"{kit.Job}'s Short mit costs a resource (gauge/MP) that the cooldown check can't see; make sure you'll have it.");
