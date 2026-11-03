@@ -67,6 +67,9 @@ public sealed unsafe class Runner : IDisposable
     private string confirmKey = "";
     private int countBefore;
     private bool yesNoAnswered;
+    private bool dialogAnswered;
+    private int soilsGot;
+    private int buyRounds;
     private int interactTries;
     private DateTime phaseStarted;
     private DateTime nextAction;
@@ -113,6 +116,8 @@ public sealed unsafe class Runner : IDisposable
         soil = Soils.Options[Math.Clamp(config.SoilIndex, 0, Soils.Options.Count - 1)];
         step = 0;
         bought = 0;
+        soilsGot = 0;
+        buyRounds = 0;
         quantity = Soils.Affordable();
         Notify($"Buying {quantity} x {soil.SoilName} with {quantity * Soils.PoeticsPrice} Poetics.");
 
@@ -328,7 +333,7 @@ public sealed unsafe class Runner : IDisposable
     {
         buyItemId = Soils.ItemId(step == 0 ? soil.TokenName : soil.SoilName);
         buyItemName = Soils.LocalName(buyItemId);
-        if (step == 1) quantity = Math.Min(bought, Soils.Count(Soils.ItemId(soil.TokenName)));
+        if (step == 1) quantity = Math.Min(bought - soilsGot, Soils.Count(Soils.ItemId(soil.TokenName)));
         if (quantity <= 0) { Finish(); return; }
 
         shopRow = GameUi.FindShopRow(shop, buyItemName, out var evidence);
@@ -350,6 +355,7 @@ public sealed unsafe class Runner : IDisposable
 
         countBefore = Soils.Count(buyItemId);
         yesNoAnswered = false;
+        dialogAnswered = false;
         Plugin.Log.Info($"Buying {quantity} x {buyItemName} (row {shopRow}) from {CurrentVendor.NpcName}; have {countBefore}");
         GameUi.FireInts(shop, 0, shopRow, quantity);
         Set(Phase.Buying, $"Buying {quantity} x {buyItemName}...");
@@ -379,11 +385,24 @@ public sealed unsafe class Runner : IDisposable
             return;
         }
 
-        foreach (var dialog in new[] { "ShopExchangeCurrencyDialog", "ShopExchangeItemDialog", "InputNumeric" })
+        // Quantity dialog (Bertana's item exchange opens one). [Assumption] callback 0 = "Exchange",
+        // the pattern community scripts use. The row was already confirmed by you, and the result
+        // is checked against your inventory; a short exchange is topped up below.
+        foreach (var dialogName in new[] { "ShopExchangeItemDialog", "ShopExchangeCurrencyDialog" })
         {
-            if (!GameUi.IsOpen(dialog)) continue;
-            GameUi.Dump(dialog);
-            Fail($"The game opened '{dialog}', which isn't handled yet. Nothing more was bought; details in /xllog.");
+            var dialog = GameUi.Get(dialogName);
+            if (dialog == null || dialogAnswered) continue;
+            dialogAnswered = true;
+            GameUi.Dump(dialogName);
+            GameUi.FireInts(dialog, 0);
+            phaseStarted = DateTime.UtcNow;
+            nextAction = DateTime.UtcNow.AddSeconds(0.5);
+            return;
+        }
+        if (GameUi.IsOpen("InputNumeric"))
+        {
+            GameUi.Dump("InputNumeric");
+            Fail("The game asked for a number (InputNumeric), which isn't handled yet. Details in /xllog.");
             return;
         }
 
@@ -414,18 +433,30 @@ public sealed unsafe class Runner : IDisposable
     private void Bought(int got)
     {
         Plugin.Log.Info($"Got {got} x {buyItemName}");
-        if (step == 0) bought = got;
-        GameUi.Close(CurrentVendor.ShopAddon);
+        if (step == 1)
+        {
+            soilsGot += got;
+            quantity -= got;
+            // The exchange dialog may hand over fewer than asked (e.g. it defaulted to 1): buy the rest.
+            if (quantity > 0 && ++buyRounds < 15 && GameUi.IsOpen(CurrentVendor.ShopAddon))
+            {
+                Set(Phase.Menu, $"Exchanging the rest ({quantity} more)...");  // shop still open -> Detect -> Buy
+                nextAction = DateTime.UtcNow.AddSeconds(0.8);
+                return;
+            }
+            GameUi.Close(CurrentVendor.ShopAddon);
+            Finish(soilsGot);
+            return;
+        }
 
-        if (step == 0)
+        bought = got;
+        GameUi.Close(CurrentVendor.ShopAddon);
         {
             if (got < quantity) Notify($"Only got {got} of {quantity} {buyItemName}.");
             step = 1;
             EnterWalking();
             nextAction = DateTime.UtcNow.AddSeconds(1);
-            return;
         }
-        Finish(got);
     }
 
     private void Finish(int soils = 0)
