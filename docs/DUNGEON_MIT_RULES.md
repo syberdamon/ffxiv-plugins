@@ -164,10 +164,11 @@ layers automatically.
 
 ## Warrior: Bloodwhetting-only (syberdamon, 2026-11-02)
 
-At Bloodwhetting level (default 82, configurable), Bloodwhetting's heal on every weaponskill
-usually caps a WAR's HP on AoE pulls. So in trash, Trash mode uses **only Bloodwhetting** (every
-time it's back). Everything else (Reprisal, Rampart, the 40%, Thrill, heals) waits until HP is
-**below 50%** (configurable). The emergency and invuln rules still apply.
+Once WAR's short cooldown heals on hit (Raw Intuition, later Bloodwhetting; default level 56,
+configurable), that heal caps HP on multi-mob AoE pulls. So in trash, Trash mode uses **only that
+short cooldown** (every time it's back). Everything else (Reprisal, Rampart, the 40%, Thrill,
+heals) waits until it has **worn off and HP is below 70%** (configurable). Emergency and invuln
+rules still apply.
 
 ## Direction: adaptive mitigation
 
