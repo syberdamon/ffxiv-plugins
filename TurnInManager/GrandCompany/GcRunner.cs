@@ -300,6 +300,7 @@ public sealed unsafe class GcRunner : IDisposable
     }
 
     private DateTime talkedAt = DateTime.MinValue;
+    private int wrongMenus;
     private GcMode mode;
 
     private static readonly string[] MenuAddons =
@@ -424,7 +425,25 @@ public sealed unsafe class GcRunner : IDisposable
                 ? new[] { "Undertake supply and provisioning", "supply and provisioning missions" }
                 : new[] { "Purchase", "Exchange" };
             var row = rows.FindIndex(r => want.Any(w => r.Contains(w, StringComparison.OrdinalIgnoreCase)));
-            if (row < 0) { Fail($"Menu has none of [{string.Join(", ", want)}]: {string.Join(" | ", rows)}"); return; }
+            if (row < 0)
+            {
+                // Usually the previous NPC's menu reappearing after its window closed (e.g. the Personnel
+                // Officer's menu on the way to the Quartermaster): dismiss it and talk again.
+                var nothing = rows.FindIndex(r => r.StartsWith("Nothing", StringComparison.OrdinalIgnoreCase) || r.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase));
+                if (nothing >= 0 && ++wrongMenus <= 3)
+                {
+                    Log($"  not the {npcName}'s menu; dismissing it and talking again");
+                    menu->FireCallbackInt(nothing);
+                    talkedAt = DateTime.MinValue;
+                    tries = 0;
+                    phaseStarted = DateTime.UtcNow;
+                    nextAction = DateTime.UtcNow.AddSeconds(1.5);
+                    return;
+                }
+                Fail($"Menu has none of [{string.Join(", ", want)}]: {string.Join(" | ", rows)}");
+                return;
+            }
+            wrongMenus = 0;
             menu->FireCallbackInt(row);
             nextAction = DateTime.UtcNow.AddSeconds(1);
             return;
