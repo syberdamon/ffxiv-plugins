@@ -177,12 +177,14 @@ public class TrashSettings
     public float WarRampartAfterBloodwhettingHp { get; set; } = 70f; // WAR: Rampart waits for Bloodwhetting unless HP below this
 
     /// <summary>
-    /// WAR at Bloodwhetting level: its per-weaponskill heal usually caps your HP on AoE pulls, so
-    /// Bloodwhetting alone carries the pull; other mits/heals only below <see cref="WarOtherMitsBelowHp"/>.
+    /// WAR: once its short cooldown heals on hit (Raw Intuition, later Bloodwhetting), that heal
+    /// caps HP on multi-mob AoE pulls, so it alone carries the pull. Other mits/heals only once it
+    /// has worn off AND HP is below <see cref="WarOtherMitsBelowHpPct"/>. (Renamed from the
+    /// 0.9.1 settings so the new defaults apply.)
     /// </summary>
     public bool WarBloodwhettingOnly { get; set; } = true;
-    public int WarBloodwhettingLevel { get; set; } = 82;   // [Assumption] Bloodwhetting unlock; Raw Intuition below
-    public float WarOtherMitsBelowHp { get; set; } = 50f;
+    public int WarShortHealLevel { get; set; } = 56;       // [Verify] Raw Intuition (56) heals on hit
+    public float WarOtherMitsBelowHpPct { get; set; } = 70f;
 
     // ---- emergency / invuln
     public float EmergencyHpPercent { get; set; } = 35f;

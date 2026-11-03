@@ -424,9 +424,9 @@ public sealed class ConfigWindow : Window
             t.HealHpPercent = F("Heal below HP %", t.HealHpPercent, 0, 100, "%.0f");
             t.PartyMitsAsHeals = B("Use party mits as heals (Shake It Off, Divine Veil, ...)", t.PartyMitsAsHeals, out _);
             t.WarRampartAfterBloodwhettingHp = F("WAR: Rampart waits for Bloodwhetting unless HP below %", t.WarRampartAfterBloodwhettingHp, 0, 100, "%.0f");
-            t.WarBloodwhettingOnly = B("WAR: Bloodwhetting only (its heal carries pulls)", t.WarBloodwhettingOnly, out _);
-            t.WarBloodwhettingLevel = I("  ...from level", t.WarBloodwhettingLevel, 1, 100);
-            t.WarOtherMitsBelowHp = F("  ...other mits only below HP %", t.WarOtherMitsBelowHp, 0, 100, "%.0f");
+            t.WarBloodwhettingOnly = B("WAR: short heal only (Raw Intuition / Bloodwhetting carries pulls)", t.WarBloodwhettingOnly, out _);
+            t.WarShortHealLevel = I("  ...from level (its heal-on-hit unlocked)", t.WarShortHealLevel, 1, 100);
+            t.WarOtherMitsBelowHpPct = F("  ...other mits only after it wears off and HP below %", t.WarOtherMitsBelowHpPct, 0, 100, "%.0f");
         }
         if (ImGui.CollapsingHeader("Emergency and invulns", ImGuiTreeNodeFlags.DefaultOpen))
         {

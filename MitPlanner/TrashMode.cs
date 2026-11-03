@@ -246,11 +246,15 @@ public sealed class TrashMode : IDisposable
         // 1. Short: every time it's back.
         if (!Active(kit.Short) && TryPress(kit.Short, "opener/short", "set, short back", me, kit, sig)) return;
 
-        // WAR with Bloodwhetting: it heals on every weaponskill and usually caps HP on AoE pulls,
-        // so nothing else goes out unless HP actually drops (emergencies are separate).
-        if (kit.Job == "Warrior" && S.WarBloodwhettingOnly && me.Level >= S.WarBloodwhettingLevel && hp >= S.WarOtherMitsBelowHp)
+        // WAR: Raw Intuition / Bloodwhetting heal on hit and usually cap HP on AoE pulls, so
+        // nothing else goes out while it's up, or while HP is still high after it falls off.
+        // (Emergency and invuln rules are separate.)
+        if (kit.Job == "Warrior" && S.WarBloodwhettingOnly && me.Level >= S.WarShortHealLevel &&
+            (Active(kit.Short) || hp >= S.WarOtherMitsBelowHpPct))
         {
-            Skip("bwonly", $"WAR Bloodwhetting-only: holding other mits (HP {hp:0}% >= {S.WarOtherMitsBelowHp:0}%)");
+            Skip("bwonly", Active(kit.Short)
+                ? "WAR short-heal only: Bloodwhetting/Raw Intuition up, holding other mits"
+                : $"WAR short-heal only: HP {hp:0}% >= {S.WarOtherMitsBelowHpPct:0}%, holding other mits");
             return;
         }
 
