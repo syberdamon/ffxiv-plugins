@@ -25,7 +25,7 @@ public sealed class TrashLog : IDisposable
     public TrashLog(Configuration config) => this.config = config;
 
     /// <summary>Start a new file (on entering a duty).</summary>
-    public void Open(string zone, string job)
+    public void Open(string zone, string job, string party)
     {
         Close();
         if (!config.Trash.Log) return;
@@ -35,7 +35,7 @@ public sealed class TrashLog : IDisposable
             var safe = string.Concat(zone.Split(Path.GetInvalidFileNameChars()));
             path = Path.Combine(Folder, $"{DateTime.Now:yyyy-MM-dd_HHmm}_{safe}_{job}.log");
             writer = new StreamWriter(path, append: true, Encoding.UTF8) { AutoFlush = true };
-            Write("ZONE", $"zone={zone} job={job} plugin={typeof(TrashLog).Assembly.GetName().Version}");
+            Write("ZONE", $"zone={zone}\tjob={job}\tparty={(party.Length > 0 ? party : "solo/trust?")}\tplugin={typeof(TrashLog).Assembly.GetName().Version}");
         }
         catch (Exception ex)
         {
