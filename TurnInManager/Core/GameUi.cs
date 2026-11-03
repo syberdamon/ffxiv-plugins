@@ -1,0 +1,134 @@
+using System;
+using System.Collections.Generic;
+using Dalamud.Memory;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+
+namespace TurnInManager.Core;
+
+/// <summary>
+/// Reading and clicking game windows ("addons"). Callback layouts are the ones community
+/// automation uses for these windows (sources in README / THIRD_PARTY_NOTICES); anything that
+/// spends something is verified against inventory/seals afterwards.
+/// </summary>
+public static unsafe class GameUi
+{
+    public static AtkUnitBase* Get(string name)
+    {
+        var mgr = RaptureAtkUnitManager.Instance();
+        if (mgr == null) return null;
+        var addon = mgr->GetAddonByName(name);
+        return addon != null && addon->IsVisible ? addon : null;
+    }
+
+    public static bool IsOpen(string name) => Get(name) != null;
+
+    public static void Close(string name)
+    {
+        var a = Get(name);
+        if (a != null) a->FireCallbackInt(-1);
+    }
+
+    /// <summary>Rows of a SelectString / SelectIconString menu.</summary>
+    public static List<string> MenuEntries(AtkUnitBase* addon, bool icon)
+    {
+        var result = new List<string>();
+        PopupMenu* menu = icon
+            ? &((AddonSelectIconString*)addon)->PopupMenu.PopupMenu
+            : &((AddonSelectString*)addon)->PopupMenu.PopupMenu;
+        var names = (byte**)menu->EntryNames;
+        for (var i = 0; i < menu->EntryCount; i++)
+            result.Add(names[i] == null ? "" : MemoryHelper.ReadSeStringNullTerminated((nint)names[i]).TextValue);
+        return result;
+    }
+
+    /// <summary>A callback value: int, bool, or the "zero" placeholder (type 0).</summary>
+    public readonly record struct V(int Int, bool? Bool = null, bool Zero = false)
+    {
+        public static implicit operator V(int i) => new(i);
+        public static implicit operator V(bool b) => new(0, b);
+        public static readonly V ZeroValue = new(0, null, true);
+    }
+
+    public static void Fire(AtkUnitBase* addon, params V[] args)
+    {
+        var values = stackalloc AtkValue[args.Length];
+        for (var i = 0; i < args.Length; i++)
+        {
+            values[i] = default;
+            if (args[i].Zero) { values[i].Type = 0; values[i].Int = 0; }
+            else if (args[i].Bool is { } b) { values[i].Type = AtkValueType.Bool; values[i].Int = b ? 1 : 0; }
+            else { values[i].Type = AtkValueType.Int; values[i].Int = args[i].Int; }
+        }
+        addon->FireCallback((uint)args.Length, values);
+    }
+
+    /// <summary>
+    /// Click a button/radio button node the way the game does: send the node's own registered
+    /// event to the addon (same technique as ECommons' ClickAddonButton).
+    /// </summary>
+    public static bool ClickNode(AtkUnitBase* addon, uint nodeId)
+    {
+        var node = addon->GetNodeById(nodeId);
+        if (node == null) return false;
+        var comp = (AtkComponentNode*)node;
+        if (comp->Component == null) return false;
+        var res = comp->Component->OwnerNode;
+        if (res == null) return false;
+        var evt = res->AtkResNode.AtkEventManager.Event;
+        if (evt == null) return false;
+        addon->ReceiveEvent(evt->State.EventType, (int)evt->Param, evt);
+        return true;
+    }
+
+    public static bool ClickButton(AtkUnitBase* addon, AtkComponentButton* button)
+    {
+        if (button == null) return false;
+        var res = button->AtkComponentBase.OwnerNode;
+        if (res == null) return false;
+        var evt = res->AtkResNode.AtkEventManager.Event;
+        if (evt == null) return false;
+        addon->ReceiveEvent(evt->State.EventType, (int)evt->Param, evt);
+        return true;
+    }
+
+    public static string Str(AtkUnitBase* addon, int index)
+    {
+        if (index < 0 || index >= addon->AtkValuesCount) return "";
+        var v = &addon->AtkValues[index];
+        if (!v->Type.ToString().Contains("String")) return "";
+        var ptr = *(nint*)((byte*)v + 8);
+        return ptr == 0 ? "" : MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue;
+    }
+
+    public static int Int(AtkUnitBase* addon, int index) =>
+        index >= 0 && index < addon->AtkValuesCount ? addon->AtkValues[index].Int : 0;
+
+    public static uint UInt(AtkUnitBase* addon, int index) =>
+        index >= 0 && index < addon->AtkValuesCount ? addon->AtkValues[index].UInt : 0;
+
+    public static bool Bool(AtkUnitBase* addon, int index) =>
+        index >= 0 && index < addon->AtkValuesCount && (byte)addon->AtkValues[index].Int != 0;
+
+    public static string YesNoText()
+    {
+        var a = (AddonSelectYesno*)Get("SelectYesno");
+        if (a == null || a->PromptText == null) return "";
+        var ptr = *(nint*)&a->PromptText->NodeText;
+        return ptr == 0 ? "" : MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue;
+    }
+
+    /// <summary>Write an addon's values to the log (for fixing a wrong layout guess).</summary>
+    public static void Dump(string name)
+    {
+        var a = Get(name);
+        if (a == null) { Plugin.Log.Info($"[dump] {name} not open"); return; }
+        Plugin.Log.Info($"[dump] {name}: {a->AtkValuesCount} values");
+        for (var i = 0; i < a->AtkValuesCount; i++)
+        {
+            var v = &a->AtkValues[i];
+            var text = v->Type.ToString().Contains("String") ? Str(a, i) : v->Int.ToString();
+            Plugin.Log.Info($"[dump]   {i,3} {v->Type,-14} {text}");
+        }
+    }
+}
