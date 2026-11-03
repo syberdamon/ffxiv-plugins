@@ -108,7 +108,7 @@ public sealed unsafe class GcRunner : IDisposable
         if (Blocker() is { } why) { Notify(why); return; }
         gc = GcData.Current()!;
         Delivered = 0; SealsEarned = 0; Bought.Clear();
-        probing = false; refreshAfterDelivery = false; sortTries = 0;
+        probing = false; refreshAfterDelivery = false;
         spendAfterDeliveries = config.SpendAtEnd;
 
         var candidates = GcData.Scan(config).Where(c => c.Allowed).ToList();
@@ -397,57 +397,46 @@ public sealed unsafe class GcRunner : IDisposable
 
     // ================================================================ 3. expert delivery
 
-    // Expert Delivery list (Expert Delivery tab, in the game's current sort/filter order):
-    //   [6] number of rows; the window's values only carry the first 40 rows:
-    //   row i < 40: name [105+i], seals [265+i], container [345+i], slot [385+i], item id [425+i]
-    //   rows 40+ live only in the window's ordered item array (GrandCompanyItem[], pointer at
-    //   addon + 0x288). Selecting row i is callback (1, i, <zero>); filter is (5, filter, <zero>).
-    // References: Deliveroo (select/filter callbacks), XA-Slave (ordered array location and
-    // checking it against the 40 exposed rows before trusting it). No code copied.
-    private const int ExposedRows = 40;
+    // Expert Delivery list. [6] = number of rows. The order on screen (and what "select row i",
+    // callback (1, i, <zero>), picks) is the window's ordered item array: GrandCompanyItem[] at
+    // addon + 0x288. Its item id and seal reward are live; its bag/slot fields read as 0.
+    // The window's own values (name [105+i], seals [265+i], bag [345+i], slot [385+i], id [425+i])
+    // only cover 40 rows and are NOT refreshed when the sort changes (dump 2026-11-03 15:46: values
+    // still in seals-descending order while the screen and the array were ascending), so they
+    // aren't used for picking. Filter is (5, filter, <zero>), sort (4, sort, <zero>).
+    // References: Deliveroo (select/filter callbacks), XA-Slave (array location). No code copied.
     private const int OrderedArrayOffset = 0x288;
 
-    private readonly record struct ListRow(int Row, uint ItemId, InventoryType Container, int Slot, int Seals, string Name);
+    private readonly record struct ListRow(int Row, uint ItemId, int Seals, string Name);
 
-    /// <summary>Every row of the list, or null when rows past 40 exist but can't be read safely.</summary>
-    private static List<ListRow> ReadList(AtkUnitBase* list, out int total, out bool complete, out string why)
+    /// <summary>The list in on-screen order, or null (with the reason) when it can't be read safely.</summary>
+    private static List<ListRow>? ReadList(AtkUnitBase* list, out int total, out string why)
     {
         total = (int)GameUi.UInt(list, 6);
-        complete = false; why = "";
-        if (total is < 0 or > 1024) { why = $"row count {total}"; total = 0; return new(); }
-        var exposed = Math.Min(total, ExposedRows);
+        why = "";
+        if (total is < 0 or > 1024) { why = $"row count {total}"; return null; }
         var rows = new List<ListRow>(total);
-        for (var i = 0; i < exposed; i++)
-            rows.Add(new ListRow(i, GameUi.UInt(list, 425 + i), (InventoryType)GameUi.UInt(list, 345 + i),
-                (int)GameUi.UInt(list, 385 + i), (int)GameUi.UInt(list, 265 + i), GameUi.Str(list, 105 + i)));
-        if (total <= ExposedRows) { complete = true; return rows; }
-
+        if (total == 0) return rows;
         var ptr = *(nint*)((byte*)list + OrderedArrayOffset);
-        if (!Memory.IsReadable(ptr, total * sizeof(GrandCompanyItem))) { why = $"ordered array 0x{ptr:X} not readable"; return rows; }
+        if (!Memory.IsReadable(ptr, total * sizeof(GrandCompanyItem))) { why = $"ordered array 0x{ptr:X} not readable"; return null; }
         var ordered = (GrandCompanyItem*)ptr;
-        for (var i = 0; i < exposed; i++)   // must agree with every exposed row, or we don't trust it
-        {
-            var o = ordered[i]; var r = rows[i];
-            if (o.ItemId != r.ItemId || (InventoryType)o.Inventory != r.Container || o.Slot != r.Slot || o.SealReward != r.Seals)
-            {
-                why = $"ordered array 0x{ptr:X} row {i}: {o.ItemId}/{o.Inventory}/{o.Slot}/{o.SealReward} vs {r.ItemId}/{r.Container}/{r.Slot}/{r.Seals}";
-                return rows;
-            }
-        }
         var items = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
-        for (var i = exposed; i < total; i++)
+        for (var i = 0; i < total; i++)
         {
             var o = ordered[i];
-            rows.Add(new ListRow(i, o.ItemId, (InventoryType)o.Inventory, o.Slot, o.SealReward,
-                items.GetRowOrDefault(o.ItemId)?.Name.ExtractText() ?? $"item {o.ItemId}"));
+            var row = items.GetRowOrDefault(o.ItemId);
+            if (o.ItemId == 0 || o.SealReward <= 0 || row == null || row.Value.EquipSlotCategory.RowId == 0)
+            {
+                why = $"ordered array 0x{ptr:X} row {i}: item {o.ItemId}, seals {o.SealReward} doesn't look like gear";
+                return null;
+            }
+            rows.Add(new ListRow(i, o.ItemId, o.SealReward, row.Value.Name.ExtractText()));
         }
-        complete = true;
         return rows;
     }
 
     private bool probing;
     private bool refreshAfterDelivery;
-    private int sortTries;
     private int countBeforeDeliver;
 
     private void TickDeliver()
@@ -501,7 +490,7 @@ public sealed unsafe class GcRunner : IDisposable
                 Delivered++; SealsEarned += Math.Max(0, gained);
                 Log($"  delivered {p.Name}: +{gained} seals ({GcData.Seals()}/{GcData.SealCap()})");
                 pending = null;
-                refreshAfterDelivery = true; sortTries = 0;
+                refreshAfterDelivery = true;
                 phaseStarted = DateTime.UtcNow;
                 nextAction = DateTime.UtcNow.AddSeconds(0.6);
                 return;
@@ -526,32 +515,19 @@ public sealed unsafe class GcRunner : IDisposable
             return;
         }
 
-        // ---- first row whose exact item + bag + slot passes the guardrails
-        var rows = ReadList(list, out var total, out var complete, out var why);
-        var allowed = GcData.Scan(config).Where(c => c.Allowed && c.MateriaCount == 0).ToDictionary(c => (c.Container, c.Slot));
-        var pick = rows.FirstOrDefault(r => r.ItemId != 0 && allowed.TryGetValue((r.Container, r.Slot), out var c) && c.ItemId == r.ItemId);
-
-        if (pick.ItemId == 0 && !complete)
+        // ---- first row (on-screen order) whose item may be turned in. The array doesn't say which
+        //      bag/slot a row is, so an item id only counts when EVERY copy you hold passes the
+        //      guardrails (e.g. an NQ and a blocked HQ copy of the same item: skipped).
+        var rows = ReadList(list, out var total, out var why);
+        if (rows == null)
         {
-            // Only the first 40 rows are readable and none of them may go. Your filters mostly block
-            // the high-seal (high ilvl / blue) items, so sort the game's list lowest seals first: the
-            // items you allow come to the top. Sort options: 0 seals desc, 1 seals asc, 2 type, 3 storage.
-            if (gl->SelectedSortBy != 1 && sortTries < 3)
-            {
-                sortTries++;
-                Log($"  none of the first {ExposedRows} of {total} rows may be turned in; sorting the list by seals (ascending)");
-                GameUi.Fire(list, 4, 1, GameUi.V.ZeroValue);
-                nextAction = DateTime.UtcNow.AddSeconds(0.8);
-                return;
-            }
-            var lowest = rows.Count == 0 ? 0 : rows.Min(r => r.Seals);
-            var highest = rows.Count == 0 ? 0 : rows.Max(r => r.Seals);
-            GameUi.Dump("GrandCompanySupplyList", $"{total} rows, sort {gl->SelectedSortBy}, filter {gl->SelectedFilter}, sortTries {sortTries}; {why}");
-            Fail(gl->SelectedSortBy == 1
-                ? $"None of the {ExposedRows} lowest-seal items ({lowest}-{highest} seals) pass your filters, and the rest of the list ({total}) can't be read; dump saved."
-                : $"Couldn't sort the delivery list and none of the first {ExposedRows} of {total} items pass your filters; dump saved.");
+            GameUi.Dump("GrandCompanySupplyList", $"{total} rows, sort {gl->SelectedSortBy}, filter {gl->SelectedFilter}; {why}");
+            Fail($"Couldn't read the delivery list safely ({why}); dump saved.");
             return;
         }
+        var scan = GcData.Scan(config);
+        var okIds = scan.GroupBy(c => c.ItemId).Where(g => g.All(c => c.Allowed && c.MateriaCount == 0)).Select(g => g.Key).ToHashSet();
+        var pick = rows.FirstOrDefault(r => okIds.Contains(r.ItemId));
 
         if (pick.ItemId == 0)
         {
@@ -572,7 +548,8 @@ public sealed unsafe class GcRunner : IDisposable
             return;
         }
 
-        var key = new GrandCompanyItemKey(pick.ItemId, pick.Container, pick.Slot, pick.Seals, allowed[(pick.Container, pick.Slot)].Name);
+        var src = scan.First(c => c.ItemId == pick.ItemId);
+        var key = new GrandCompanyItemKey(pick.ItemId, src.Container, src.Slot, pick.Seals, src.Name);
         Status = $"Delivering {key.Name} (+{reward2} seals)...";
         Log($"  {key.Name}: row {pick.Row} of {total}");
         pending = key;
