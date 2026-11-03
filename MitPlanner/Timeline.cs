@@ -37,6 +37,7 @@ public enum SyncKind
     None,
     Ability,      // fires when the ability resolves (network "action effect")
     StartsUsing,  // fires when the cast bar starts
+    SystemLog,    // a system message, e.g. "The Shattered Lair will be sealed off" (dungeon boss start)
 }
 
 /// <summary>One line of a cactbot timeline.</summary>
@@ -52,6 +53,10 @@ public sealed class TimelineEvent
 
     public SyncKind Sync { get; init; }
     public Regex? IdPattern { get; init; }
+
+    /// <summary>SystemLogMessage syncs: LogMessage row id and first parameter (e.g. a PlaceName id).</summary>
+    public uint LogId { get; init; }
+    public uint? LogParam1 { get; init; }
     public float WindowBefore { get; init; } = 2.5f;  // cactbot default
     public float WindowAfter { get; init; } = 2.5f;
     /// <summary>Where a sync on this line sends the clock (a time, or a resolved "label").</summary>
@@ -93,6 +98,9 @@ public sealed class Timeline
 
     private static readonly Regex LineRx = new(
         @"^(?<time>\d+(?:\.\d+)?)\s+""(?<label>[^""]*)""(?<rest>.*)$", RegexOptions.Compiled);
+    private static readonly Regex LogSyncRx = new(@"\bSystemLogMessage\s*\{(?<body>[^}]*)\}", RegexOptions.Compiled);
+    private static readonly Regex LogIdRx = new(@"\bid:\s*""(?<v>[0-9A-Fa-f]+)""", RegexOptions.Compiled);
+    private static readonly Regex LogParamRx = new(@"\bparam1:\s*""(?<v>[0-9A-Fa-f]+)""", RegexOptions.Compiled);
     private static readonly Regex SyncRx = new(
         @"\b(?<kind>Ability|StartsUsing)\s*\{(?<body>[^}]*)\}", RegexOptions.Compiled);
     private static readonly Regex IdRx = new(
@@ -129,11 +137,22 @@ public sealed class Timeline
             var sync = SyncRx.Match(rest);
             Regex? pattern = null;
             var kind = SyncKind.None;
+            uint logId = 0;
+            uint? logParam = null;
             if (sync.Success)
             {
                 kind = sync.Groups["kind"].Value == "Ability" ? SyncKind.Ability : SyncKind.StartsUsing;
                 pattern = BuildIdPattern(sync.Groups["body"].Value);
                 if (pattern == null) kind = SyncKind.None;
+            }
+            else if (LogSyncRx.Match(rest) is { Success: true } log &&
+                     LogIdRx.Match(log.Groups["body"].Value) is { Success: true } lid &&
+                     uint.TryParse(lid.Groups["v"].Value, NumberStyles.HexNumber, null, out logId))
+            {
+                kind = SyncKind.SystemLog;
+                if (LogParamRx.Match(log.Groups["body"].Value) is { Success: true } lp &&
+                    uint.TryParse(lp.Groups["v"].Value, NumberStyles.HexNumber, null, out var p1))
+                    logParam = p1;
             }
 
             var window = WindowRx.Match(rest);
@@ -154,6 +173,8 @@ public sealed class Timeline
                 Label = m.Groups["label"].Value,
                 Sync = kind,
                 IdPattern = pattern,
+                LogId = logId,
+                LogParam1 = logParam,
                 WindowBefore = before,
                 WindowAfter = after,
                 Jump = jump.Success && jump.Groups["t"].Success ? F(jump.Groups["t"].Value) : null,

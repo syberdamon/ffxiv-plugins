@@ -29,7 +29,8 @@ namespace CombatRecorder;
 ///   head  zone, duty, level sync, your job/level, party jobs by slot, versions
 ///   def   first time an action/status id is seen: name, cooldown group (58 = GCD), cast, recast
 ///   ent   first time an enemy is seen: id, name, max HP
-///   act   an action resolved: who, action, targets with damage/heal amounts (crit/direct hit flags)
+///   act   an action resolved: who, action, targets with damage/heal amounts (crit/direct hit flags;
+///         "self": true = lands on the caster, e.g. Bloodwhetting heals riding on weaponskill hits)
 ///   cast  someone started a cast: who, action, target, cast time
 ///   st    status gained (+) or lost (-) on you, your party, or enemies you're fighting
 ///   snap  every 0.5 s in combat: your HP/MP/position/cast/target, party HP, target HP/distance
@@ -332,7 +333,12 @@ public sealed unsafe class Recorder : IDisposable
                     if ((eff[5] & 0x40) != 0) value += (long)eff[4] << 16;
                     var kind = type switch { 1 => "miss", 3 => "dmg", 4 => "heal", 5 => "block", _ => "parry" };
                     var flags = (type == 3 && (eff[1] & 0x20) != 0 ? "c" : "") + (type == 3 && (eff[1] & 0x40) != 0 ? "d" : "");
-                    parts.Add($"{{\"k\":\"{kind}\",\"v\":{value}{(flags.Length > 0 ? $",\"f\":\"{flags}\"" : "")}}}");
+                    // [Assumption] param4 & 0x80 = "effect on the source": e.g. Bloodwhetting's heal rides on each
+                    // weaponskill hit but heals the caster (first logs showed these as heals on enemies).
+                    var onSource = (eff[5] & 0x80) != 0 ||
+                                   (type == 4 && Who(targetId).StartsWith('e') && !Who(casterEntityId).StartsWith('e'));
+                    var self = onSource ? ",\"self\":true" : "";
+                    parts.Add($"{{\"k\":\"{kind}\",\"v\":{value}{(flags.Length > 0 ? $",\"f\":\"{flags}\"" : "")}{self}}}");
                 }
                 sb.Append(first ? "" : ",");
                 first = false;

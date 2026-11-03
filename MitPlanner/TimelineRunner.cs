@@ -61,6 +61,7 @@ public sealed unsafe class TimelineRunner : IDisposable
 
         Plugin.Framework.Update += OnUpdate;
         Plugin.ClientState.TerritoryChanged += OnTerritoryChanged;
+        Plugin.ChatGui.ChatMessage += OnChatMessage;
         OnTerritoryChanged(Plugin.ClientState.TerritoryType);
     }
 
@@ -68,6 +69,7 @@ public sealed unsafe class TimelineRunner : IDisposable
     {
         Plugin.Framework.Update -= OnUpdate;
         Plugin.ClientState.TerritoryChanged -= OnTerritoryChanged;
+        Plugin.ChatGui.ChatMessage -= OnChatMessage;
         actionEffectHook?.Dispose();
     }
 
@@ -124,6 +126,7 @@ public sealed unsafe class TimelineRunner : IDisposable
     {
         if (Preview) return;
         Stop();
+        usedLogSyncs.Clear();
         Fight = Fights.ForTerritory(territory);
         Timeline = Fight != null ? Fights.Load(Fight) : null;
     }
@@ -214,6 +217,87 @@ public sealed unsafe class TimelineRunner : IDisposable
         Restart(target);
         if (target < now - 1) JumpedBack?.Invoke(target);
     }
+
+    // ================================================================ system-message syncs
+
+    private readonly HashSet<int> usedLogSyncs = new();
+    private readonly Dictionary<int, (string? Place, string Fragment)> logMatchers = new();
+
+    /// <summary>
+    /// Dungeon timelines start each boss from a system message, e.g.
+    ///   1000.0 "--sync--" SystemLogMessage { id: "7DC", param1: "14EA" } window 1000,1
+    /// = "The Shattered Lair will be sealed off..." (LogMessage 0x7DC, PlaceName 0x14EA).
+    /// The message is matched by its fixed text from the LogMessage sheet plus the place name.
+    /// [Assumption] param1 of 0x7DC / 0x7DE is a PlaceName id. If the name can't be resolved, the
+    /// first not-yet-used line with that message id wins (bosses go in order).
+    /// </summary>
+    private void OnChatMessage(Dalamud.Game.Text.XivChatType type, int timestamp,
+        ref Dalamud.Game.Text.SeStringHandling.SeString sender, ref Dalamud.Game.Text.SeStringHandling.SeString message, ref bool isHandled)
+    {
+        try
+        {
+            if (Timeline == null || Preview) return;
+            var text = message.TextValue;
+            if (text.Length == 0) return;
+            var now = Running ? Now : 0;
+
+            TimelineEvent? hit = null;
+            TimelineEvent? fallback = null;
+            foreach (var e in Timeline.Events)
+            {
+                if (e.Sync != SyncKind.SystemLog) continue;
+                if (now < e.Time - e.WindowBefore || now > e.Time + e.WindowAfter) continue;
+                var (place, fragment) = Matcher(e);
+                if (fragment.Length == 0 || !text.Contains(fragment, StringComparison.OrdinalIgnoreCase)) continue;
+                if (place != null && text.Contains(place, StringComparison.OrdinalIgnoreCase)) { hit = e; break; }
+                if (!usedLogSyncs.Contains(e.Index)) fallback ??= e; // name didn't resolve/match: next boss in order
+            }
+            hit ??= fallback;
+            if (hit == null) return;
+
+            usedLogSyncs.Add(hit.Index);
+            var target = hit.Jump ?? hit.Time;
+            LastSync = $"system message \"{Short(text)}\" -> {target:0.0}s";
+            Plugin.Log.Info($"[MitPlanner] {LastSync}");
+            var wasRunning = Running;
+            Restart(target);
+            if (!wasRunning) PullStarted?.Invoke();
+            else if (target < now - 1) JumpedBack?.Invoke(target);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Error(ex, "System message sync failed");
+        }
+    }
+
+    private (string? Place, string Fragment) Matcher(TimelineEvent e)
+    {
+        if (logMatchers.TryGetValue(e.Index, out var m)) return m;
+        string? place = null;
+        var fragment = "";
+        try
+        {
+            var log = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.LogMessage>().GetRowOrDefault(e.LogId);
+            if (log != null)
+            {
+                // Longest run of plain words in the message template ("will be sealed off in").
+                var template = log.Value.Text.ExtractText();
+                fragment = System.Text.RegularExpressions.Regex.Matches(template, @"[\p{L}'’]+(?:\s+[\p{L}'’]+)+")
+                    .Select(x => x.Value.Trim()).OrderByDescending(x => x.Length).FirstOrDefault() ?? "";
+            }
+            if (e.LogParam1 is { } p)
+                place = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.PlaceName>().GetRowOrDefault(p)?.Name.ExtractText() is { Length: > 0 } n ? n : null;
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Warning(ex, $"No text for system message {e.LogId:X}");
+        }
+        m = (place, fragment);
+        logMatchers[e.Index] = m;
+        return m;
+    }
+
+    private static string Short(string s) => s.Length > 48 ? s[..48] + "..." : s;
 
     /// <summary>Adds (mines, bits, images) also sync; the boss is the sync caster with the most max HP.</summary>
     private void UpdateBoss(uint casterEntityId)
