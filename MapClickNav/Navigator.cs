@@ -298,7 +298,7 @@ public sealed unsafe partial class Navigator : IDisposable
             return;
         }
 
-        var point = PickGround(player.Position.Y);
+        var point = PickGround(Plugin.ObjectTable.LocalPlayer?.Position.Y ?? 0);
         if (point == null)
         {
             Notify("vnavmesh couldn't find walkable ground at that spot.");
