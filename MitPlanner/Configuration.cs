@@ -108,6 +108,9 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool ReactToBusterMarkers { get; set; } = true;
 
+    /// <summary>Trash mode: automatic tank mitigation for dungeon pulls (see TrashMode.cs).</summary>
+    public TrashSettings Trash { get; set; } = new();
+
     public static string RoleCode(TankRole role) => role == TankRole.OffTank ? "OT" : "MT";
     public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{RoleCode(role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";
@@ -143,4 +146,42 @@ public class Configuration : IPluginConfiguration
     }
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
+}
+
+
+/// <summary>Trash mode settings. Defaults from docs/DUNGEON_MIT_RULES.md, agreed with syberdamon.</summary>
+[Serializable]
+public class TrashSettings
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Write a run log (pluginConfigs/MitPlanner/trashlog) for tuning.</summary>
+    public bool Log { get; set; } = true;
+
+    // ---- when a pull counts as "set"
+    public int MinMobs { get; set; } = 3;
+    public float StationarySeconds { get; set; } = 1.5f;
+    public float GatherRadius { get; set; } = 5f;
+    public float GatherShare { get; set; } = 0.7f;      // share of mobs on you within GatherRadius
+    /// <summary>Below this HP (with 2+ mobs on you) it acts even while you're moving/gathering.</summary>
+    public float MovingHpPercent { get; set; } = 60f;
+
+    // ---- rotation
+    public float HeavyMinPullSeconds { get; set; } = 12f;   // 40% only if the pull lasts this much longer
+    public float GapMinPullSeconds { get; set; } = 8f;      // refill an expired big mit only if this much is left
+    public float WindDownSeconds { get; set; } = 6f;        // no new big mits under this
+    public int BigPullMobs { get; set; } = 5;               // 40% goes first on pulls this big
+    public float EscalateHpPercent { get; set; } = 80f;     // below this, add the next layer sooner
+    public float HealHpPercent { get; set; } = 70f;
+    public bool PartyMitsAsHeals { get; set; } = true;
+    public float WarRampartAfterBloodwhettingHp { get; set; } = 70f; // WAR: Rampart waits for Bloodwhetting unless HP below this
+
+    // ---- emergency / invuln
+    public float EmergencyHpPercent { get; set; } = 35f;
+    /// <summary>Invuln when this many seconds of the current incoming damage (no heals) would kill you and no major mit is available.</summary>
+    public float InvulnLethalSeconds { get; set; } = 2f;
+    public bool InvulnPaladin { get; set; } = true;     // Hallowed Ground
+    public bool InvulnWarrior { get; set; } = true;     // Holmgang
+    public bool InvulnDarkKnight { get; set; } = false; // Living Dead (needs heals after)
+    public bool InvulnGunbreaker { get; set; } = false; // Superbolide (drops you to 1 HP)
 }

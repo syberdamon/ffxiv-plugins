@@ -170,3 +170,24 @@ plan only loses an entry if cactbot renames or removes that mechanic.
 
 Timelines and default tags from cactbot (Apache-2.0); see
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
+## Trash mode (dungeon pulls)
+Automatic tank mitigation for dungeon trash, by rules rather than timelines
+(full rules: [docs/DUNGEON_MIT_RULES.md](../docs/DUNGEON_MIT_RULES.md)). Settings: the **Trash mode** tab.
+Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
+
+- **Pull set:** 3+ mobs on you, standing still 1.5 s, most of them within 5 y. Or HP under 60%
+  with 2+ mobs, even while moving.
+- **Rotation:** Short every time it's back. Reprisal every pack. One big mit at a time:
+  Rampart, or the 40% first on 5+ mob pulls; the 40% only if the pull lasts 12 s+.
+  WAR's Rampart waits for Bloodwhetting to wear off. Refill when it expires
+  (Rampart / 40% / Arm's Length), Secondary to fill gaps, heals under 70% (party mits as
+  heals allowed; Shake It Off never consumes WAR's buffs). No new big mits with under 6 s left.
+- **Emergency** (also while moving): under 35% HP, or a big HP drop rate. **Invuln** when
+  2 s (configurable) of incoming damage, with no heals, would kill you and no major mit is
+  up or ready. Per-job invuln switches.
+- **Bosses:** emergencies only (Mit Planner's plan and tank-buster safety net handle bosses).
+- Presses only with **Allow auto-use**; otherwise callouts.
+- **Run log** for tuning: `%AppData%\XIVLauncher\pluginConfigs\MitPlanner\trashlog\`,
+  one file per dungeon. It records each pull, a once-a-second snapshot, every press and why,
+  what you pressed yourself, skips (and why), emergencies, deaths, and a pull summary.
