@@ -151,8 +151,11 @@ public sealed unsafe class GcRunner : IDisposable
 
     // ================================================================ tick
 
+    private DateTime tidyUntil = DateTime.MinValue;
+
     private void OnUpdate(IFramework framework)
     {
+        if (Phase == GcPhase.Done && DateTime.UtcNow < tidyUntil) { TidyMenus(); return; }
         if (!Busy) return;
         try
         {
@@ -279,6 +282,24 @@ public sealed unsafe class GcRunner : IDisposable
         { "SelectString", "SelectIconString", "Talk", "GrandCompanySupplyList", "GrandCompanySupplyReward", "GrandCompanyExchange", "SelectYesno", "ShopExchangeCurrencyDialog" };
 
     private static bool AnyMenuOpen() => MenuAddons.Any(GameUi.IsOpen);
+
+    /// <summary>After a run: dismiss the NPC menu/dialogue left behind (e.g. the Personnel Officer's
+    /// "What do you wish to do?" that reappears after the delivery list closes).</summary>
+    private void TidyMenus()
+    {
+        if (DateTime.UtcNow < nextAction) return;
+        var a = GameUi.Get("SelectString");
+        if (a != null)
+        {
+            var rows = GameUi.MenuEntries(a, false);
+            var nothing = rows.FindIndex(r => r.StartsWith("Nothing", StringComparison.OrdinalIgnoreCase) || r.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase));
+            if (nothing >= 0) a->FireCallbackInt(nothing); else a->FireCallbackInt(-1);
+            nextAction = DateTime.UtcNow.AddSeconds(0.6);
+            return;
+        }
+        var talk = GameUi.Get("Talk");
+        if (talk != null) { GameUi.ClickTalk(talk); nextAction = DateTime.UtcNow.AddSeconds(0.6); }
+    }
 
     private void TickClearMenus()
     {
@@ -721,6 +742,8 @@ public sealed unsafe class GcRunner : IDisposable
                   (Bought.Count > 0 ? $"; bought {string.Join(", ", Bought)}" : "") + $". Seals {GcData.Seals()}/{GcData.SealCap()}.";
         Notify(msg);
         Set(GcPhase.Done, msg);
+        tidyUntil = DateTime.UtcNow.AddSeconds(4);
+        nextAction = DateTime.UtcNow.AddSeconds(0.5);
     }
 
     private void Set(GcPhase phase, string status)
