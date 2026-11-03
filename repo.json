@@ -80,7 +80,7 @@
     "Author": "syberdamon",
     "Name": "Poetics Spender",
     "InternalName": "PoeticsSpender",
-    "AssemblyVersion": "0.1.2.0",
+    "AssemblyVersion": "0.1.3.0",
     "Description": "Pick a topsoil (Thanalan or Shroud). One click teleports you to Idyllshire, buys Unidentifiable Ore/Shell from Hismena with all your Poetics (150 each), and trades it to Bertana for Grade 3 topsoil. A movable alert pops up when your Poetics reach a threshold (1800 by default); click it to run. Requires vnavmesh. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -98,9 +98,9 @@
     "LoadPriority": 0,
     "Punchline": "Turn your Poetics into Grade 3 topsoil with one click, plus a near-cap alert.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.2.0/PoeticsSpender.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.2.0/PoeticsSpender.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.2.0/PoeticsSpender.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.3.0/PoeticsSpender.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.3.0/PoeticsSpender.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/PoeticsSpender-v0.1.3.0/PoeticsSpender.zip"
   },
   {
     "Author": "syberdamon",
