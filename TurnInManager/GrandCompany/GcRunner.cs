@@ -413,7 +413,7 @@ public sealed unsafe class GcRunner : IDisposable
     /// The list in on-screen order, or null (with the reason) when it can't be read safely.
     /// Row layout in the game build of 2026-11-03, read from a raw dump (it differs from the
     /// ClientStructs definition): 0x98 bytes per row; +0x00 name (Utf8String), +0x78 seals,
-    /// +0x84 item id, +0x8C bag (InventoryType), +0x90 slot. Every row is checked against your
+    /// +0x84 item id, +0x8C bag (InventoryType), +0x90 slot (1 byte). Every row is checked against your
     /// inventory: the bag/slot it names must hold that item, or the list isn't trusted.
     /// </summary>
     private const int RowSize = 0x98, OffSeals = 0x78, OffItem = 0x84, OffBag = 0x8C, OffSlot = 0x90;
@@ -434,7 +434,7 @@ public sealed unsafe class GcRunner : IDisposable
             var id = *(uint*)(b + OffItem);
             var seals = *(int*)(b + OffSeals);
             var bag = (InventoryType)(*(uint*)(b + OffBag));
-            var slot = *(int*)(b + OffSlot);
+            var slot = (int)*(b + OffSlot);   // one byte; the bytes after it are unrelated
             var held = slot is >= 0 and < 200 ? GcData.Slot(bag, slot) : null;
             if (seals <= 0 || held == null || held->ItemId != id)
             {
