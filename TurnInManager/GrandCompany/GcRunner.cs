@@ -16,7 +16,9 @@ using GameObjectStruct = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace TurnInManager.GrandCompany;
 
-public enum GcPhase { Idle, Retrieving, Traveling, Walking, Talking, Delivering, Buying, Done }
+public enum GcPhase { Idle, Retrieving, Traveling, ClearingMenus, Walking, Talking, Delivering, Buying, Done }
+
+public enum GcMode { Full, BuyOnly, StripOnly }
 
 /// <summary>
 /// One Grand Company run:
@@ -99,18 +101,22 @@ public sealed unsafe class GcRunner : IDisposable
         return null;
     }
 
-    public void Start(bool buyOnly = false)
+    public void Start(GcMode mode = GcMode.Full)
     {
+        this.mode = mode;
+        var buyOnly = mode == GcMode.BuyOnly;
         if (Blocker() is { } why) { Notify(why); return; }
         gc = GcData.Current()!;
         Delivered = 0; SealsEarned = 0; Bought.Clear();
         spendAfterDeliveries = config.SpendAtEnd;
 
         var candidates = GcData.Scan(config).Where(c => c.Allowed).ToList();
-        Log($"Start: {gc.Name}, rank {GcData.Rank()}, seals {GcData.Seals()}/{GcData.SealCap()}, {candidates.Count} allowed items" + (buyOnly ? " (buy only)" : ""));
+        Log($"Start: {gc.Name}, rank {GcData.Rank()}, seals {GcData.Seals()}/{GcData.SealCap()}, {candidates.Count} allowed items, mode {mode}");
 
         if (buyOnly) { GoTo(gc.Quartermaster, GcPhase.Buying); return; }
-        retrieveQueue = new Queue<GearCandidate>(config.RetrieveMateria ? candidates.Where(c => c.MateriaCount > 0) : Enumerable.Empty<GearCandidate>());
+        retrieveQueue = new Queue<GearCandidate>(config.RetrieveMateria || mode == GcMode.StripOnly
+            ? candidates.Where(c => c.MateriaCount > 0) : Enumerable.Empty<GearCandidate>());
+        if (mode == GcMode.StripOnly && retrieveQueue.Count == 0) { Notify("No materia to strip from items that pass your filters."); return; }
         if (retrieveQueue.Count > 0)
         {
             Set(GcPhase.Retrieving, $"Retrieving materia from {retrieveQueue.Count} item(s)...");
@@ -140,6 +146,7 @@ public sealed unsafe class GcRunner : IDisposable
             {
                 case GcPhase.Retrieving: TickRetrieve(); break;
                 case GcPhase.Traveling: TickTravel(); break;
+                case GcPhase.ClearingMenus: TickClearMenus(); break;
                 case GcPhase.Walking: TickWalk(); break;
                 case GcPhase.Talking: TickTalk(); break;
                 case GcPhase.Delivering: TickDeliver(); break;
@@ -167,7 +174,12 @@ public sealed unsafe class GcRunner : IDisposable
     {
         if (retrieving == null)
         {
-            if (retrieveQueue.Count == 0) { GoTo(gc.Personnel, GcPhase.Delivering); return; }
+            if (retrieveQueue.Count == 0)
+            {
+                if (mode == GcMode.StripOnly) { Finish(); return; }
+                GoTo(gc.Personnel, GcPhase.Delivering);
+                return;
+            }
             retrieving = retrieveQueue.Dequeue();
             phaseStarted = DateTime.UtcNow;
             Status = $"Retrieving materia: {retrieving.Name}";
@@ -236,6 +248,45 @@ public sealed unsafe class GcRunner : IDisposable
         npcName = npc;
         afterTalk = then;
         tries = 0;
+        talkedAt = DateTime.MinValue;
+        // Closing a GC window can bring the previous NPC's menu back up. Clear any open menus
+        // before talking to the next NPC, so we never answer one meant for someone else.
+        if (AnyMenuOpen()) { Set(GcPhase.ClearingMenus, "Closing menus..."); return; }
+        ContinueGoTo();
+    }
+
+    private DateTime talkedAt = DateTime.MinValue;
+    private GcMode mode;
+
+    private static readonly string[] MenuAddons =
+        { "SelectString", "SelectIconString", "Talk", "GrandCompanySupplyList", "GrandCompanySupplyReward", "GrandCompanyExchange", "SelectYesno", "ShopExchangeCurrencyDialog" };
+
+    private static bool AnyMenuOpen() => MenuAddons.Any(GameUi.IsOpen);
+
+    private void TickClearMenus()
+    {
+        foreach (var name in MenuAddons)
+        {
+            var a = GameUi.Get(name);
+            if (a == null) continue;
+            if (name == "SelectString")
+            {
+                // Pick "Nothing."/"Cancel" if there is one, else close.
+                var rows = GameUi.MenuEntries(a, false);
+                var nothing = rows.FindIndex(r => r.StartsWith("Nothing", StringComparison.OrdinalIgnoreCase) || r.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase));
+                if (nothing >= 0) a->FireCallbackInt(nothing); else a->FireCallbackInt(-1);
+            }
+            else if (name == "Talk") a->FireCallbackInt(0);
+            else a->FireCallbackInt(-1);
+            nextAction = DateTime.UtcNow.AddSeconds(0.6);
+            return;
+        }
+        ContinueGoTo();
+    }
+
+    private void ContinueGoTo()
+    {
+        var npc = npcName;
         var here = Plugin.ClientState.TerritoryType;
         if (NpcLocator.InTerritory(npc, here) != null || FindNpc() != null) { StartWalk(); return; }
 
@@ -293,12 +344,23 @@ public sealed unsafe class GcRunner : IDisposable
         if (afterTalk == GcPhase.Delivering && GameUi.IsOpen("GrandCompanySupplyList")) { Set(GcPhase.Delivering, "Delivering..."); return; }
         if (afterTalk == GcPhase.Buying && GameUi.IsOpen("GrandCompanyExchange")) { BeginBuying(); return; }
 
-        // Menu: pick the GC option.
+        // Menu: pick the GC option, but only one that opened after we talked to this NPC.
         var menu = GameUi.Get("SelectString");
+        if (menu != null && talkedAt == DateTime.MinValue)
+        {
+            Log("  a menu was already open before talking; closing it");
+            Set(GcPhase.ClearingMenus, "Closing menus...");
+            return;
+        }
         if (menu != null)
         {
             var rows = GameUi.MenuEntries(menu, false);
-            var want = afterTalk == GcPhase.Delivering ? new[] { "supply and provisioning", "expert delivery" } : new[] { "seal", "exchange" };
+            Log($"  {npcName} menu: {string.Join(" | ", rows)}");
+            // Personnel Officer: "Undertake supply and provisioning missions." (option 1).
+            // Quartermaster normally opens the shop directly; if it shows a menu, look for the exchange.
+            var want = afterTalk == GcPhase.Delivering
+                ? new[] { "Undertake supply and provisioning", "supply and provisioning missions" }
+                : new[] { "Purchase", "Exchange" };
             var row = rows.FindIndex(r => want.Any(w => r.Contains(w, StringComparison.OrdinalIgnoreCase)));
             if (row < 0) { Fail($"Menu has none of [{string.Join(", ", want)}]: {string.Join(" | ", rows)}"); return; }
             menu->FireCallbackInt(row);
@@ -311,6 +373,7 @@ public sealed unsafe class GcRunner : IDisposable
         var npc = FindNpc();
         if (npc == null) { Fail($"Lost sight of the {npcName}."); return; }
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
+        talkedAt = DateTime.UtcNow;
         nextAction = DateTime.UtcNow.AddSeconds(2);
     }
 

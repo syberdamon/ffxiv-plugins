@@ -54,7 +54,10 @@ public sealed class MainWindow : Window
             if (blocker != null) ImGui.BeginDisabled();
             if (ImGui.Button("Run: retrieve materia, deliver, buy before cap")) r.Start();
             ImGui.SameLine();
-            if (ImGui.Button("Buy only")) r.Start(buyOnly: true);
+            if (ImGui.Button("Buy only")) r.Start(GcMode.BuyOnly);
+            ImGui.SameLine();
+            if (ImGui.Button("Strip materia only")) r.Start(GcMode.StripOnly);
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Retrieve materia from every item that passes your filters, then stop. Works anywhere.");
             if (blocker != null) { ImGui.EndDisabled(); ImGui.SameLine(); ImGui.TextColored(Warn, blocker); }
             if (r.Phase == GcPhase.Done || r.Status.Length > 0) ImGui.TextDisabled(r.Status);
         }

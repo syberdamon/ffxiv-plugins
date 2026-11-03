@@ -40,7 +40,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open. /turnin gc (run Grand Company) | buy (seal shop only) | stop | dump <window>",
+            HelpMessage = "Open. /turnin gc (run Grand Company) | buy (seal shop only) | strip (retrieve materia only) | stop | dump <window>",
         });
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += mainWindow.Toggle;
@@ -63,7 +63,8 @@ public sealed class Plugin : IDalamudPlugin
         switch (parts[0].ToLowerInvariant())
         {
             case "gc": GcRunner.Start(); break;
-            case "buy": GcRunner.Start(buyOnly: true); break;
+            case "buy": GcRunner.Start(GcMode.BuyOnly); break;
+            case "strip": GcRunner.Start(GcMode.StripOnly); break;
             case "stop": GcRunner.Stop(); break;
             case "dump": GameUi.Dump(parts.Length > 1 ? parts[1] : "GrandCompanySupplyList"); ChatGui.Print("[TurnIn] Written to /xllog."); break;
             default: mainWindow.Toggle(); break;
