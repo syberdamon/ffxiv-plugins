@@ -4,7 +4,7 @@ Turn-ins with guardrails. First module: **Grand Company expert delivery**, with 
 spending. Planned modules: Poetics (folding in Poetics Spender) and other currencies.
 
 Commands: `/turnin` (window), `/turnin gc` (run), `/turnin buy` (seal shop only),
-`/turnin stop`, `/turnin dump <window>` (writes a game window's data to /xllog, for fixing).
+`/turnin strip` (retrieve materia only), `/turnin stop`, `/turnin dump <window>` (writes a game window's data to /xllog, for fixing).
 
 Requires **vnavmesh**. **Lifestream** is optional: with it, the run travels to your Grand
 Company (`/li gc`); without it, start the run at your GC. English client.
@@ -19,6 +19,9 @@ Company (`/li gc`); without it, start the run at your GC. English client.
    your purchase list (each item up to its target, e.g. Ventures up to 65,000), then returns
    and keeps delivering. Seal Sweetener bonuses are counted.
 5. Optional: spend down to a reserve at the end.
+
+**Strip materia only** (button or `/turnin strip`): retrieves materia from every item that passes
+your filters, then stops. Works anywhere; no travel.
 
 ## Guardrails (what may be turned in)
 - **Never items in a gearset** (on by default).
