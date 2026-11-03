@@ -13,8 +13,8 @@ paid.
   `pluginConfigs/MitPlanner/trashlog/*.log`.
 
 ## Storage
-- **Private repo** (syberdamon to create, e.g. `syberdamon/ffxiv-combat-logs`). Logs never go in
-  this public repo, because they show party jobs, timestamps and where you play.
+- **Private repo `syberdamon/ffxiv-combat-logs`** (created 2026-11-03). Logs never go in this
+  public repo, because they show party jobs, timestamps and where you play.
 - Layout:
   - `raw/<yyyy-mm>/<file>.jsonl.gz`
   - `trash/<yyyy-mm>/<file>.log`
@@ -40,3 +40,10 @@ paid.
   - party HP curves vs incoming damage
   - overheal (heal amount vs missing HP)
   - time spent below thresholds, by healer job
+
+## Outside baselines (see `references/SOURCES.md` in the log repo)
+- **The Balance:** rotation and opener baselines per job and patch.
+- **FFLogs:** real extreme/savage clears and top parses to compare against (v2 API needs a free
+  client ID + secret, never committed).
+- **xivanalysis:** per-job checks (GCD uptime, buff windows, drift, overcap). Open source,
+  MIT license, so its rules can be adapted with credit.
