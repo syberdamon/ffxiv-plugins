@@ -53,7 +53,7 @@ public static unsafe class GameUi
         for (var i = 0; i < ints.Length; i++)
         {
             values[i] = default;
-            values[i].Type = FFXIVClientStructs.FFXIV.Component.GUI.ValueType.Int;
+            values[i].Type = AtkValueType.Int;
             values[i].Int = ints[i];
         }
         addon->FireCallback((uint)ints.Length, values);
