@@ -50,3 +50,15 @@ timeline format. cactbot has no NOTICE file.
 Source: https://github.com/OverlayPlugin/cactbot
 License: Apache License 2.0. A full copy is included at
 `MitPlanner/Timelines/CACTBOT_LICENSE.txt` and inside the bundle.
+
+## References for Turn-In Manager (no code copied)
+Turn-In Manager's knowledge of the game's Grand Company, materia-retrieval and context-menu windows
+(callback values, data layouts, button nodes) was learned from reading these open-source projects.
+Our code is our own; credit to their authors:
+- Deliveroo (Liza Carvelli / VeraNala fork): expert delivery flow, tab and filter callbacks.
+- DailyRoutines, AutoExpertDelivery module: supply list data layout, hand-in callback, seal-cap logic.
+- AutoRetainer (PunishXIV): Grand Company exchange data layout, purchase callback, rank/category tabs, venture dialog.
+- Questionable (PunishXIV) and Pandora's Box (PunishXIV): exchange tab selection.
+- ECommons (NightmareXIV): button-click technique, MateriaRetrieveDialog.
+- Snowfall (DevYukine): materia retrieval through the item context menu.
+- Lifestream (NightmareXIV): IPC used for travel (optional dependency).
