@@ -366,7 +366,7 @@ public sealed unsafe class Runner : IDisposable
         {
             var text = GameUi.YesNoText();
             yesNoAnswered = true;
-            if (text.Contains(buyItemName, StringComparison.OrdinalIgnoreCase))
+            if (ConfirmationLooksRight(text))
             {
                 GameUi.ClickRow(yesNo, 0); // Yes
                 nextAction = DateTime.UtcNow.AddSeconds(0.5);
@@ -394,6 +394,21 @@ public sealed unsafe class Runner : IDisposable
             GameUi.Dump(CurrentVendor.ShopAddon);
             Fail($"The purchase didn't go through (no {buyItemName} added). Details in /xllog.");
         }
+    }
+
+    /// <summary>
+    /// The exchange Yes/No reads "Exchange 1,950 Allagan tomestones of poetics for the following
+    /// item?" with the item only as an icon. Accept it when it names the item, or when it names
+    /// the currency we're paying with and the exact expected cost (price x quantity).
+    /// </summary>
+    private bool ConfirmationLooksRight(string text)
+    {
+        if (text.Contains(buyItemName, StringComparison.OrdinalIgnoreCase)) return true;
+        var (currency, cost) = step == 0
+            ? (Soils.LocalName(Soils.PoeticsItemId), (long)quantity * Soils.PoeticsPrice)
+            : (Soils.LocalName(Soils.ItemId(soil.TokenName)), (long)quantity);
+        var currencyWord = currency.Split(' ').Last(); // "poetics" / "Ore": tolerant of plural/case
+        return text.Contains(currencyWord, StringComparison.OrdinalIgnoreCase) && GameUi.Numbers(text).Contains(cost);
     }
 
     private void Bought(int got)

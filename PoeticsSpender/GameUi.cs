@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -63,7 +64,19 @@ public static unsafe class GameUi
     {
         var a = (AddonSelectYesno*)Get("SelectYesno");
         if (a == null || a->PromptText == null) return "";
-        return a->PromptText->NodeText.ToString();
+        // Utf8String starts with its string pointer; parse as SeString so item/colour payloads
+        // become plain text instead of garbage bytes.
+        var ptr = *(nint*)&a->PromptText->NodeText;
+        return ptr == 0 ? "" : MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue;
+    }
+
+    /// <summary>All numbers in a text, separators removed ("Exchange 1,950 ..." -> 1950).</summary>
+    public static List<long> Numbers(string text)
+    {
+        var list = new List<long>();
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"\d[\d,.\u00A0]*\d|\d"))
+            if (long.TryParse(new string(m.Value.Where(char.IsDigit).ToArray()), out var n)) list.Add(n);
+        return list;
     }
 
     /// <summary>Every string value the addon was given, with its position (shops list item names here).</summary>
