@@ -29,7 +29,7 @@
     "Author": "syberdamon",
     "Name": "Map Click Nav",
     "InternalName": "MapClickNav",
-    "AssemblyVersion": "0.2.1.0",
+    "AssemblyVersion": "0.2.2.0",
     "Description": "Hold a modifier (Ctrl by default) and left-click a spot on any zone's map. Map Click Nav places your flag there, teleports to the nearest attuned aetheryte if that's faster (always, for another zone), mounts with Mount Roulette, and has vnavmesh fly you there if flight is unlocked (or ride there if not). A Stop button appears while traveling. Requires vnavmesh.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -46,15 +46,15 @@
     "LoadPriority": 0,
     "Punchline": "Ctrl+click any map to teleport, mount, and fly there with vnavmesh.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.1.0/MapClickNav.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.1.0/MapClickNav.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.1.0/MapClickNav.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.2.0/MapClickNav.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.2.0/MapClickNav.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MapClickNav-v0.2.2.0/MapClickNav.zip"
   },
   {
     "Author": "syberdamon",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
-    "AssemblyVersion": "0.8.3.0",
+    "AssemblyVersion": "0.8.4.0",
     "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -72,9 +72,9 @@
     "LoadPriority": 0,
     "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.3.0/MitPlanner.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.3.0/MitPlanner.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.3.0/MitPlanner.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.4.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.4.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.8.4.0/MitPlanner.zip"
   },
   {
     "Author": "syberdamon",
