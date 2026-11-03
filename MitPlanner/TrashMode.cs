@@ -363,7 +363,7 @@ public sealed class TrashMode : IDisposable
     {
         var now = DateTime.UtcNow;
         var enemies = Plugin.ObjectTable.OfType<IBattleNpc>()
-            .Where(n => n.BattleNpcKind == BattleNpcSubKind.Enemy && n.CurrentHp > 0 && n.IsTargetable &&
+            .Where(n => (n.StatusFlags & StatusFlags.Hostile) != 0 && n.CurrentHp > 0 && n.IsTargetable &&
                         (n.StatusFlags & StatusFlags.InCombat) != 0 &&
                         Vector3.Distance(n.Position, me.Position) <= 30)
             .ToList();
