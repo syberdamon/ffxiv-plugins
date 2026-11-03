@@ -108,7 +108,7 @@ public sealed unsafe class GcRunner : IDisposable
         if (Blocker() is { } why) { Notify(why); return; }
         gc = GcData.Current()!;
         Delivered = 0; SealsEarned = 0; Bought.Clear();
-        probing = false; pagesSeen.Clear(); probeRow = -1; probeRepeats = 0; relativeRows = false; triedRelative = false;
+        probing = false; refreshAfterDelivery = false;
         spendAfterDeliveries = config.SpendAtEnd;
 
         var candidates = GcData.Scan(config).Where(c => c.Allowed).ToList();
@@ -397,32 +397,50 @@ public sealed unsafe class GcRunner : IDisposable
 
     // ================================================================ 3. expert delivery
 
-    // The Expert Delivery window keeps data for at most 40 rows at a time (a "page" of the list,
-    // wherever it was last scrolled). From the first dump (158 items, page = rows 120-157):
-    //   [6] total rows   [7] first row on this page   [8] rows on this page
-    //   per page row i: name [105+i], seals [265+i], container [345+i], slot [385+i], item id [425+i]
-    // Selecting a row is callback (1, absolute row); the game then loads the page containing it.
-    private const int PageCap = 40;
+    // Expert Delivery list (Expert Delivery tab, in the game's current sort/filter order):
+    //   [6] number of rows; the window's values only carry the first 40 rows:
+    //   row i < 40: name [105+i], seals [265+i], container [345+i], slot [385+i], item id [425+i]
+    //   rows 40+ live only in the window's ordered item array (GrandCompanyItem[], pointer at
+    //   addon + 0x288). Selecting row i is callback (1, i, <zero>); filter is (5, filter, <zero>).
+    // References: Deliveroo (select/filter callbacks), XA-Slave (ordered array location and
+    // checking it against the 40 exposed rows before trusting it). No code copied.
+    private const int ExposedRows = 40;
+    private const int OrderedArrayOffset = 0x288;
 
     private readonly record struct ListRow(int Row, uint ItemId, InventoryType Container, int Slot, int Seals, string Name);
 
-    private static List<ListRow> ReadPage(AtkUnitBase* list, out int total, out int first)
+    /// <summary>Every row of the list, or null when rows past 40 exist but can't be read safely.</summary>
+    private static List<ListRow>? ReadList(AtkUnitBase* list, out int total)
     {
         total = (int)GameUi.UInt(list, 6);
-        first = (int)GameUi.UInt(list, 7);
-        var n = Math.Min((int)GameUi.UInt(list, 8), PageCap);
-        var rows = new List<ListRow>(n);
-        for (var i = 0; i < n; i++)
-            rows.Add(new ListRow(first + i, GameUi.UInt(list, 425 + i), (InventoryType)GameUi.UInt(list, 345 + i),
+        if (total is < 0 or > 1024) return null;
+        var exposed = Math.Min(total, ExposedRows);
+        var rows = new List<ListRow>(total);
+        for (var i = 0; i < exposed; i++)
+            rows.Add(new ListRow(i, GameUi.UInt(list, 425 + i), (InventoryType)GameUi.UInt(list, 345 + i),
                 (int)GameUi.UInt(list, 385 + i), (int)GameUi.UInt(list, 265 + i), GameUi.Str(list, 105 + i)));
+        if (total <= ExposedRows) return rows;
+
+        var ptr = *(nint*)((byte*)list + OrderedArrayOffset);
+        if (!Memory.IsReadable(ptr, total * sizeof(GrandCompanyItem))) return null;
+        var ordered = (GrandCompanyItem*)ptr;
+        for (var i = 0; i < exposed; i++)   // must agree with every exposed row, or we don't trust it
+        {
+            var o = ordered[i]; var r = rows[i];
+            if (o.ItemId != r.ItemId || (InventoryType)o.Inventory != r.Container || o.Slot != r.Slot || o.SealReward != r.Seals) return null;
+        }
+        var items = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
+        for (var i = exposed; i < total; i++)
+        {
+            var o = ordered[i];
+            rows.Add(new ListRow(i, o.ItemId, (InventoryType)o.Inventory, o.Slot, o.SealReward,
+                items.GetRowOrDefault(o.ItemId)?.Name.ExtractText() ?? $"item {o.ItemId}"));
+        }
         return rows;
     }
 
     private bool probing;
-    private int probeRow = -1, probeRepeats;
-    private bool relativeRows;      // fallback if the game ever turns out to want the row within the page
-    private bool triedRelative;
-    private readonly List<(int First, int Count)> pagesSeen = new();
+    private bool refreshAfterDelivery;
     private int countBeforeDeliver;
 
     private void TickDeliver()
@@ -433,7 +451,7 @@ public sealed unsafe class GcRunner : IDisposable
         {
             if (probing || pending == null)
             {
-                // Opened only to load another page of the list: never deliver it.
+                // Not ours to deliver (no pending pick): cancel.
                 ((AtkUnitBase*)reward)->FireCallbackInt(-1);
                 probing = false;
                 nextAction = DateTime.UtcNow.AddSeconds(0.8);
@@ -443,18 +461,6 @@ public sealed unsafe class GcRunner : IDisposable
             if (!GameUi.Texts((AtkUnitBase*)reward).Any(t => t.Contains(want.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 var shown = GameUi.Str((AtkUnitBase*)reward, 4);
-                if (!triedRelative)
-                {
-                    // Row numbering guess was wrong: switch between absolute/within-page once and retry.
-                    triedRelative = true;
-                    relativeRows = !relativeRows;
-                    Log($"  confirmation showed {shown}, not {want.Name}: retrying with {(relativeRows ? "page-relative" : "absolute")} rows");
-                    GameUi.Dump("GrandCompanySupplyReward", $"expected: {want.Name} (row {lastRow})");
-                    ((AtkUnitBase*)reward)->FireCallbackInt(-1);
-                    pending = null;
-                    nextAction = DateTime.UtcNow.AddSeconds(0.8);
-                    return;
-                }
                 GameUi.Dump("GrandCompanySupplyReward", $"expected: {want.Name} (row {lastRow})");
                 ((AtkUnitBase*)reward)->FireCallbackInt(-1);
                 var l = GameUi.Get("GrandCompanySupplyList");
@@ -488,7 +494,7 @@ public sealed unsafe class GcRunner : IDisposable
                 Delivered++; SealsEarned += Math.Max(0, gained);
                 Log($"  delivered {p.Name}: +{gained} seals ({GcData.Seals()}/{GcData.SealCap()})");
                 pending = null;
-                pagesSeen.Clear();          // the list changed: every page is worth another look
+                refreshAfterDelivery = true;
                 phaseStarted = DateTime.UtcNow;
                 nextAction = DateTime.UtcNow.AddSeconds(0.6);
                 return;
@@ -499,36 +505,34 @@ public sealed unsafe class GcRunner : IDisposable
 
         // ---- Expert Delivery tab, loaded
         if (GameUi.UInt(list, 0) != 2) return;
-        if (GameUi.UInt(list, 5) != 2) { GameUi.Fire(list, 0, 2); nextAction = DateTime.UtcNow.AddSeconds(0.6); return; }
+        if (GameUi.UInt(list, 5) != 2) { GameUi.Fire(list, 0, 2, GameUi.V.ZeroValue); nextAction = DateTime.UtcNow.AddSeconds(0.6); return; }
 
-        // ---- deliver an allowed item from the loaded page (exact item + bag + slot match)
-        var page = ReadPage(list, out var total, out var first);
-        if (!pagesSeen.Contains((first, page.Count))) pagesSeen.Add((first, page.Count));
+        // ---- filter: hide gear set items when those are protected anyway (shorter list); re-applying it
+        //      after a delivery also makes the game rebuild the list.
+        var gl = (AddonGrandCompanySupplyList*)list;
+        var wantFilter = config.SkipGearsetItems ? 1 : 0;
+        if (refreshAfterDelivery || gl->SelectedFilter != wantFilter)
+        {
+            refreshAfterDelivery = false;
+            GameUi.Fire(list, 5, wantFilter, GameUi.V.ZeroValue);
+            nextAction = DateTime.UtcNow.AddSeconds(0.8);
+            return;
+        }
+
+        // ---- first row whose exact item + bag + slot passes the guardrails
+        var rows = ReadList(list, out var total);
+        if (rows == null)
+        {
+            GameUi.Dump("GrandCompanySupplyList", $"{total} rows; rows past {ExposedRows} unreadable");
+            Fail($"The list has {total} items and only the first {ExposedRows} could be read safely; dump saved.");
+            return;
+        }
         var allowed = GcData.Scan(config).Where(c => c.Allowed && c.MateriaCount == 0).ToDictionary(c => (c.Container, c.Slot));
-        var pick = page.FirstOrDefault(r => r.ItemId != 0 && allowed.TryGetValue((r.Container, r.Slot), out var c) && c.ItemId == r.ItemId);
+        var pick = rows.FirstOrDefault(r => r.ItemId != 0 && allowed.TryGetValue((r.Container, r.Slot), out var c) && c.ItemId == r.ItemId);
 
         if (pick.ItemId == 0)
         {
-            // Nothing allowed on this page: load another page we haven't checked (select a row on it,
-            // then cancel the confirmation), or finish when every page has been seen.
-            var next = Enumerable.Range(0, total).Where(r => !pagesSeen.Any(pg => r >= pg.First && r < pg.First + pg.Count))
-                .Cast<int?>().FirstOrDefault();
-            if (next is { } row0 && !relativeRows)
-            {
-                if (row0 == probeRow && ++probeRepeats >= 3)
-                {
-                    GameUi.Dump("GrandCompanySupplyList", $"selecting row {row0} didn't load its page");
-                    Fail($"Couldn't load the rest of the delivery list (row {row0} of {total}); dump saved.");
-                    return;
-                }
-                if (row0 != probeRow) { probeRow = row0; probeRepeats = 0; }
-                Log($"  page {first}-{first + page.Count - 1} of {total}: nothing allowed; loading row {row0}");
-                probing = true;
-                GameUi.Fire(list, 1, row0);
-                nextAction = DateTime.UtcNow.AddSeconds(0.8);
-                return;
-            }
-            Log($"Deliveries done: {Delivered} items, +{SealsEarned} seals.");
+            Log($"Deliveries done: {Delivered} items, +{SealsEarned} seals ({total} listed items are all blocked by your filters).");
             list->FireCallbackInt(-1);
             if (spendAfterDeliveries && config.Purchases.Any(r => r.Enabled)) { spendAfterDeliveries = false; GoTo(gc.Quartermaster, GcPhase.Buying); return; }
             Finish();
@@ -547,14 +551,14 @@ public sealed unsafe class GcRunner : IDisposable
 
         var key = new GrandCompanyItemKey(pick.ItemId, pick.Container, pick.Slot, pick.Seals, allowed[(pick.Container, pick.Slot)].Name);
         Status = $"Delivering {key.Name} (+{reward2} seals)...";
-        Log($"  {key.Name}: row {pick.Row} (page {first}-{first + page.Count - 1} of {total})");
+        Log($"  {key.Name}: row {pick.Row} of {total}");
         pending = key;
         probing = false;
-        lastRow = relativeRows ? pick.Row - first : pick.Row;
+        lastRow = pick.Row;
         sealsBefore = GcData.Seals();
         countBeforeDeliver = GcData.Count(key.ItemId);
         phaseStarted = DateTime.UtcNow;
-        GameUi.Fire(list, 1, lastRow);
+        GameUi.Fire(list, 1, lastRow, GameUi.V.ZeroValue);
         nextAction = DateTime.UtcNow.AddSeconds(0.8);
     }
 
