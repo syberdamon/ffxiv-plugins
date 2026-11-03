@@ -33,6 +33,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.EnsureDefaults();
+        Configuration.Migrate();
         Configuration.Save();
 
         configWindow = new ConfigWindow(this);

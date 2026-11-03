@@ -24,13 +24,14 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
 
 | | Defensive (self) | Defensive (group) | OT Sent Mits |
 |---|---|---|---|
-| PLD | Rampart, Sentinel/Guardian, Bulwark, (Holy) Sheltron, Hallowed Ground | Reprisal, Divine Veil, Passage of Arms | Intervention |
-| WAR | Rampart, Vengeance/Damnation, Thrill of Battle, Raw Intuition/Bloodwhetting, Equilibrium, Holmgang | Reprisal, Shake It Off | Nascent Flash |
-| DRK | Rampart, Shadow Wall/Shadowed Vigil, Oblation, Dark Mind, The Blackest Night, Living Dead | Reprisal, Dark Missionary | The Blackest Night |
-| GNB | Rampart, Nebula/Great Nebula, Camouflage, Heart of Stone/Corundum, Aurora, Superbolide | Reprisal, Heart of Light | Heart of Corundum |
+| PLD | Rampart, Sentinel/Guardian, Bulwark, (Holy) Sheltron, Hallowed Ground | Reprisal, Divine Veil, Passage of Arms | Intervention, Shirk |
+| WAR | Rampart, Vengeance/Damnation, Thrill of Battle, Raw Intuition/Bloodwhetting, Equilibrium, Holmgang | Reprisal, Shake It Off | Nascent Flash, Shirk |
+| DRK | Rampart, Shadow Wall/Shadowed Vigil, Oblation, Dark Mind, The Blackest Night, Living Dead | Reprisal, Dark Missionary | The Blackest Night, Shirk |
+| GNB | Rampart, Nebula/Great Nebula, Camouflage, Heart of Stone/Corundum, Aurora, Superbolide | Reprisal, Heart of Light | Heart of Corundum, Shirk |
 
-   Support for tanks: Provoke, Shirk, Interject, Low Blow, Arm's Length, Sprint,
-   Limit Break. Every other class starts with Sprint + Limit Break in Support.
+   Support for tanks: Provoke, Interject, Low Blow, Arm's Length, Sprint,
+   Limit Break. Shirk lives in OT Sent Mits: it always goes to the other tank,
+   whichever group you put it in (0.4.1 moves it there in existing layouts). Every other class starts with Sprint + Limit Break in Support.
 
 ## How the icons read
 - Dark with a number: on cooldown (for charge abilities: out of charges; the
@@ -42,8 +43,9 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
 ## Notes
 - The ability list comes from game data, so every combat job works; the four
   tanks have starter layouts so far.
-- Targeting works like a hotbar: self abilities hit you; targeted ones (Nascent
-  Flash, Provoke, Shirk) use your current target.
+- Targeting works like a hotbar: self abilities hit you; targeted ones
+  (Provoke, Interject...) use your current target. Exceptions: anything in OT
+  Sent Mits, and Shirk anywhere, go to the other tank in the party.
 - Not yet included: items (potions) and other non-action buttons.
 
 ## Unverified (needs an in-game check)

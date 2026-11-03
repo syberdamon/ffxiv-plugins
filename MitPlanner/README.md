@@ -52,8 +52,12 @@ Plan tab > **Generate starter plan** builds one from these rules:
   otherwise Rampart + Secondary.
 - **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
   the MT), plus Short on yourself only if the buster targets you.
-- **Raid-wides alternate between tanks**: MT covers #1, #3, #5...; OT covers
-  #2, #4... On its turn a tank uses Reprisal + its party mit.
+- **Raid-wides: one Reprisal + one party mit on every hit, from different
+  tanks.** #1: MT Reprisal + OT party mit. #2: MT party mit + OT Reprisal. Then
+  repeat. Both tanks' cooldowns are simulated together, so the MT's and the OT's
+  generated plans fit each other. If two raid-wides are too close for that
+  (Reprisal 60 s, party mits 90 s), each gets whatever is back and the notes
+  list the gaps.
 - **Press timing** (seconds before the hit; 1.25 s between presses so they
   don't collide on animation lock): Big 3.25 then Short 2.0; if Big isn't back,
   Rampart takes Big's slot with Secondary 0.75 s ahead of it: Secondary 4.0,
@@ -67,7 +71,7 @@ Plan tab > **Generate starter plan** builds one from these rules:
 | DRK | Shadow Wall/Shadowed Vigil | Oblation | The Blackest Night | TBN on the MT | Dark Missionary |
 | GNB | Nebula/Great Nebula | Camouflage | Heart of Stone/Corundum | HoC on the MT | Heart of Light |
 
-All use Rampart when Big isn't back, and Reprisal on their raid-wide turns. Sheltron (Oath gauge) and TBN (MP) cost
+All use Rampart when Big isn't back, and split Reprisal / party mit on raid-wides as above. Sheltron (Oath gauge) and TBN (MP) cost
 resources the cooldown check can't see.
 
 ## OT Sent Mits

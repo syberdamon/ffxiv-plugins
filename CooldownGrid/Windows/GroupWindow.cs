@@ -71,7 +71,8 @@ public sealed class GroupWindow : Window
     {
         var config = plugin.Configuration;
         // Only abilities the game allows on a party member are cast on the co-tank.
-        var sendable = Group.CastOnCoTank && entry.CanTargetAlly;
+        // Shirk always goes to the other tank, whichever group it's in.
+        var sendable = (Group.CastOnCoTank || entry.ActionId == Presets.Shirk) && entry.CanTargetAlly;
         var coTank = sendable ? ActionState.CoTank() : null;
         var status = coTank is { } ct ? ActionState.Get(entry.ActionId, ct.Id) : ActionState.Get(entry.ActionId);
         var texture = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(entry.Icon)).GetWrapOrEmpty();

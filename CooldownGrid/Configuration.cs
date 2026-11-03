@@ -41,7 +41,7 @@ public class Configuration : IPluginConfiguration
     public static readonly Guid SupportId = new("6f1c1d0a-0000-4000-8000-000000000003");
     public static readonly Guid OtSentMitsId = new("6f1c1d0a-0000-4000-8000-000000000004");
 
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
     public List<CooldownGroup> Groups { get; set; } = new();
 
@@ -65,6 +65,21 @@ public class Configuration : IPluginConfiguration
     {
         if (Groups.Any(g => g.Id == id)) return;
         Groups.Add(new CooldownGroup { Id = id, Name = name, IsDefault = true, CastOnCoTank = castOnCoTank });
+    }
+
+    /// <summary>v2: Shirk moves from Support to OT Sent Mits (it always targets the other tank).</summary>
+    public void Migrate()
+    {
+        if (Version >= 2) return;
+        foreach (var list in Jobs.Values)
+        {
+            var shirks = list.Where(a => a.ActionId == Presets.Shirk).ToList();
+            if (shirks.Count == 0) continue;
+            var at = list.IndexOf(shirks[0]);
+            list.RemoveAll(a => a.ActionId == Presets.Shirk);
+            list.Insert(Math.Min(at, list.Count), new Assignment { ActionId = Presets.Shirk, GroupId = OtSentMitsId });
+        }
+        Version = 2;
     }
 
     public List<Assignment> ForJob(uint jobId)

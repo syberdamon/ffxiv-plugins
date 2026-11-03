@@ -10,8 +10,8 @@ namespace CooldownGrid;
 /// Built from the tank crosswalk agreed with syberdamon (same slots Mit Planner uses):
 ///   Defensive (self):  Rampart, Big, Secondary, Short, Invuln (+ job extras)
 ///   Defensive (group): Reprisal + party mit(s)
-///   OT Sent Mits:      the job's "sent" ability, cast on the other tank
-///   Support:           Provoke, Shirk, Interject, Low Blow, Arm's Length, Sprint, Limit Break
+///   OT Sent Mits:      the job's "sent" ability + Shirk, both cast on the other tank
+///   Support:           Provoke, Interject, Low Blow, Arm's Length, Sprint, Limit Break
 /// Every other class gets Sprint + Limit Break in Support.
 /// DRK's TBN and GNB's Heart of Corundum are both their Short and their sent ability, so they
 /// appear in Defensive (self) and in OT Sent Mits.
@@ -25,13 +25,14 @@ public static class Presets
     private const uint Gladiator = 1, Paladin = 19, Marauder = 3, Warrior = 21, DarkKnight = 32, Gunbreaker = 37;
 
     // Role actions shared by every tank
-    private const uint Rampart = 7531, Reprisal = 7535, Provoke = 7533, Shirk = 7537,
+    public const uint Shirk = 7537;
+    private const uint Rampart = 7531, Reprisal = 7535, Provoke = 7533,
                        Interject = 7538, LowBlow = 7540, ArmsLength = 7548;
 
     // Every class: Sprint (action 3) and Limit Break, in Support.
     private const uint Sprint = 3;
     private static readonly uint[] Everyone = { Sprint, ActionCatalog.LimitBreakId };
-    private static readonly uint[] Support = { Provoke, Shirk, Interject, LowBlow, ArmsLength, Sprint, ActionCatalog.LimitBreakId };
+    private static readonly uint[] Support = { Provoke, Interject, LowBlow, ArmsLength, Sprint, ActionCatalog.LimitBreakId };
 
     public static List<Assignment> For(uint jobId) => jobId switch
     {
@@ -53,6 +54,7 @@ public static class Presets
             sent: new uint[]
             {
                 7382,  // Intervention
+                Shirk, // always on the other tank (sheds your enmity to them)
             }),
 
         Warrior or Marauder => Build(
@@ -73,6 +75,7 @@ public static class Presets
             sent: new uint[]
             {
                 16464, // Nascent Flash
+                Shirk, // always on the other tank (sheds your enmity to them)
             }),
 
         DarkKnight => Build(
@@ -93,6 +96,7 @@ public static class Presets
             sent: new uint[]
             {
                 7393,  // The Blackest Night, cast on the other tank
+                Shirk, // always on the other tank (sheds your enmity to them)
             }),
 
         Gunbreaker => Build(
@@ -113,6 +117,7 @@ public static class Presets
             sent: new uint[]
             {
                 16161, // Heart of Corundum, cast on the other tank
+                Shirk, // always on the other tank (sheds your enmity to them)
             }),
 
         // Everyone else: Sprint + Limit Break in Support (LB is skipped for crafters/gatherers).
