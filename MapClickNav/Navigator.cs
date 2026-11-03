@@ -129,6 +129,15 @@ public sealed unsafe partial class Navigator : IDisposable
         var mapX = float.Parse(numbers[0].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
         var mapY = float.Parse(numbers[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
 
+        // The text is rounded to 0.1 (about 5 yalms). The addon also keeps the cursor position to
+        // 0.01 (about half a yalm); use that when it agrees with the text.
+        var precise = addon->MouseCoords;
+        if (precise.X > 0 && precise.Y > 0 && Math.Abs(precise.X - mapX) < 0.15f && Math.Abs(precise.Y - mapY) < 0.15f)
+        {
+            mapX = precise.X;
+            mapY = precise.Y;
+        }
+
         // Inverse of Dalamud's MapUtil.ConvertWorldCoordXZToMapCoord:
         // map = 0.02*offset + 2048/scale + 0.02*world + 1
         float scale = agent->SelectedMapSizeFactor;
@@ -289,7 +298,7 @@ public sealed unsafe partial class Navigator : IDisposable
             return;
         }
 
-        var point = vnav.FlagToPoint();
+        var point = PickGround(player.Position.Y);
         if (point == null)
         {
             Notify("vnavmesh couldn't find walkable ground at that spot.");
@@ -298,6 +307,8 @@ public sealed unsafe partial class Navigator : IDisposable
         }
 
         destination = point.Value;
+        var off = Vector2.Distance(new(destination.X, destination.Z), new(flatDestination.X, flatDestination.Z));
+        if (off > 5) Notify($"No walkable ground right there; heading to the nearest spot ({off:0} yalms from your click).");
         wantFly = PlayerState.Instance()->CanFly;
 
         var shouldMount = config.AutoMount && (wantFly || config.MountForGroundTravel);
@@ -312,6 +323,19 @@ public sealed unsafe partial class Navigator : IDisposable
         {
             BeginTravel();
         }
+    }
+
+    /// <summary>
+    /// The map is 2D, so a click doesn't say which floor. vnavmesh's FlagToPoint takes the top
+    /// surface (rooftops, upper walkways in towns). Prefer the walkable point nearest your own
+    /// height; fall back to the top surface (e.g. when flying high above the ground).
+    /// </summary>
+    private Vector3? PickGround(float playerY)
+    {
+        var atMyLevel = new Vector3(flatDestination.X, playerY, flatDestination.Z);
+        return vnav.NearestPoint(atMyLevel, 2f, 12f)
+               ?? vnav.NearestPoint(atMyLevel, 8f, 12f)
+               ?? vnav.FlagToPoint();
     }
 
     private void TickMounting()
