@@ -34,3 +34,9 @@ Commands: `/mapnav` (settings), `/mapnav stop`, `/mapnav on`, `/mapnav off`.
 
 Teleport flow and aetheryte lookup adapted from CBT by Puni.sh (BSD-3-Clause);
 see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
+## Precision
+The click position comes from the map's own cursor coordinates (to 0.01, about half a yalm).
+Over a map pin (aetheryte, NPC, quest icon) the game stops updating those, so the plugin
+works the spot out from how the cursor was moving just before. In towns it picks the walkable
+ground nearest your own height, not the rooftops.

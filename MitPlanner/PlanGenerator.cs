@@ -71,7 +71,12 @@ public static class PlanGenerator
         // share the same recasts), so the MT's and the OT's generated plans dovetail.
         var hasReprisal = Has(TankKits.ReprisalId, "Reprisal");
         var hasParty = Has(kit.PartyMit, "Party mit");
-        var raidwides = FirstPass(config, fight, timeline, MechanicType.Raidwide);
+        // In raids (and ultimates) party stacks hit everyone in two or more groups: treat them as
+        // raid-wides for Reprisal / party mit.
+        var stacksCount = fight.Category.Contains("Raid") || fight.Category.Contains("Ultimate");
+        var raidwides = FirstPass(config, fight, timeline, MechanicType.Raidwide)
+            .Concat(stacksCount ? FirstPass(config, fight, timeline, MechanicType.Stack) : Enumerable.Empty<TimelineEvent>())
+            .OrderBy(e => e.FightTime).ThenBy(e => e.Index).ToList();
         var reprisalRecast = catalog.FirstOrDefault(c => c.ActionId == TankKits.ReprisalId)?.RecastSeconds ?? 60f;
         var partyRecast = catalog.FirstOrDefault(c => c.ActionId == kit.PartyMit)?.RecastSeconds ?? 90f;
         var me = role == TankRole.MainTank ? 0 : 1;
@@ -112,7 +117,7 @@ public static class PlanGenerator
                 TryAdd(plan, timeline, catalog, notes, Entry(ev, kit.PartyMit, PartyMitLead, TargetCondition.Always), ev, "Party mit");
         }
         if (raidwides.Count > 0)
-            notes.Add($"Raid-wides: {raidwides.Count}, each with one tank's Reprisal and the other's party mit (MT Reprisal first, then they swap).");
+            notes.Add($"Raid-wides{(stacksCount ? " and stacks" : "")}: {raidwides.Count}, each with one tank's Reprisal and the other's party mit (MT Reprisal first, then they swap).");
         if (gaps.Count > 0)
             notes.Add("Raid-wides too close together for full cover: " + string.Join("; ", gaps) + ".");
 

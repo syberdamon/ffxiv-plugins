@@ -97,7 +97,9 @@ public sealed class ConfigWindow : Window
         ImGui.TextDisabled("(the selected role's plan is the one that runs)");
 
         var plan = Config.PlanFor(fight.TerritoryId, jobId, Config.Role);
-        var catalog = ActionCatalog.ForCurrentJob();
+        var catalog = ActionCatalog.ForFight(fight);
+        if (fight.SyncLevel > 0 && fight.SyncLevel < player.Level)
+            ImGui.TextColored(Style.Warning, $"Level sync {fight.SyncLevel}: planning with the abilities you'll have at level {fight.SyncLevel}.");
 
         // QC: every planned use must have its cooldown back by then.
         var conflicts = PlanCheck.Run(timeline, plan, catalog);

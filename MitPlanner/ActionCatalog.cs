@@ -41,6 +41,32 @@ public static unsafe class ActionCatalog
         return cached;
     }
 
+    private static readonly Dictionary<(uint Job, int Level), List<CatalogEntry>> ByLevel = new();
+
+    /// <summary>The job's cooldowns as they are at <paramref name="level"/> (names, icons, recasts of that level).</summary>
+    public static IReadOnlyList<CatalogEntry> ForJob(uint jobId, int level)
+    {
+        if (!ByLevel.TryGetValue((jobId, level), out var list))
+        {
+            list = Build(jobId, level);
+            ByLevel[(jobId, level)] = list;
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// What you'll have in this fight: your job at the duty's level sync (e.g. 49), or your own
+    /// level if that's lower or the duty doesn't sync. Use for planning, outside the duty too.
+    /// </summary>
+    public static IReadOnlyList<CatalogEntry> ForFight(FightDefinition? fight)
+    {
+        var player = Plugin.ObjectTable.LocalPlayer;
+        if (player == null) return Array.Empty<CatalogEntry>();
+        var level = (int)player.Level;
+        if (fight is { SyncLevel: > 0 } && fight.SyncLevel < level) level = fight.SyncLevel;
+        return level == player.Level ? ForCurrentJob() : ForJob(player.ClassJob.RowId, level);
+    }
+
     /// <summary>Look up one action's display info (used for icons of placed abilities).</summary>
     public static CatalogEntry? Find(uint actionId) => ForCurrentJob().FirstOrDefault(e => e.ActionId == actionId);
 
@@ -65,12 +91,16 @@ public static unsafe class ActionCatalog
         }
 
         // An ability and its upgrade (Vengeance / Damnation) resolve to the same live action.
-        // Keep one entry per live action, keyed by the base (lowest) ID, shown with the live icon.
+        // Keep one entry per live action, keyed by the base (lowest) ID. Shown as the version you
+        // have at this level: the live upgrade if it's within the level, else the highest one that is.
         var entries = new List<CatalogEntry>();
         foreach (var group in candidates.GroupBy(c => c.Adjusted))
         {
             var baseRow = group.OrderBy(c => c.Row.RowId).First().Row;
-            var live = Plugin.DataManager.GetExcelSheet<Action>().GetRowOrDefault(group.Key) ?? baseRow;
+            var liveRow = Plugin.DataManager.GetExcelSheet<Action>().GetRowOrDefault(group.Key);
+            var live = liveRow is { } lr && lr.ClassJobLevel <= level
+                ? lr
+                : group.OrderByDescending(c => c.Row.ClassJobLevel).First().Row;
             entries.Add(new CatalogEntry(
                 baseRow.RowId,
                 live.Name.ExtractText(),

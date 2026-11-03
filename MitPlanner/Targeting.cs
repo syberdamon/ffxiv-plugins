@@ -122,7 +122,7 @@ public sealed unsafe class Targeting : IDisposable
         if (kind.IsBuster() && config.AutoPlanLearned && runner.Timeline != null && Plugin.ObjectTable.LocalPlayer is { } me)
         {
             var added = PlanGenerator.AddForLearnedBuster(config, fight, runner.Timeline, me.ClassJob.RowId,
-                ActionCatalog.ForCurrentJob(), ev.Label);
+                ActionCatalog.ForFight(fight), ev.Label);
             if (added.Count > 0)
                 Plugin.ChatGui.Print($"[MitPlanner] Added to your {Configuration.RoleCode(config.Role)} plan: {string.Join(", ", added)}");
         }

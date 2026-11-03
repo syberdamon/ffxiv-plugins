@@ -38,7 +38,7 @@ public sealed class TimelineWindow : Window
         var fight = runner.Fight!;
         var plan = plugin.Tracker.CurrentPlan();
         var conflicts = plan != null && runner.Timeline != null
-            ? PlanCheck.Run(runner.Timeline, plan, ActionCatalog.ForCurrentJob())
+            ? PlanCheck.Run(runner.Timeline, plan, ActionCatalog.ForFight(runner.Fight))
             : new System.Collections.Generic.Dictionary<System.Guid, PlanConflict>();
         var now = runner.Running ? runner.Now : 0;
 

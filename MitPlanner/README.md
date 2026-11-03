@@ -53,6 +53,10 @@ Plan tab > **Generate starter plan** builds one from these rules:
   otherwise Rampart + Secondary.
 - **OT**, every tank buster: send the OT Sent Mit to whoever it targets (normally
   the MT), plus Short on yourself only if the buster targets you.
+- **Level sync:** plans use the abilities you'll have at the duty's level sync (e.g. a level
+  49 duty plans Vengeance, not Damnation, and skips anything learned after 49), in the starter
+  plan, the "+ Add cooldown" list, and the cooldown check, even when you edit it at level 100.
+- **Stacks in raids** (and ultimates) count as raid-wides for Reprisal / party mit.
 - **OT and tank busters:** the OT sends its Sent mit to the MT when the buster isn't on
   it, and uses the full set (Short + Big, or Rampart + Secondary) when it is: many busters hit
   both tanks or swap. **Shared tank busters** (cactbot's "shared tank buster", badge "TB x2")

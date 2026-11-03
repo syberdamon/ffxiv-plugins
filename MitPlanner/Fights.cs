@@ -22,7 +22,8 @@ public sealed record FightDefinition(
     Dictionary<string, MechanicType> DefaultTags,
     IReadOnlyDictionary<string, uint>? HeadMarkers = null,  // label -> head marker that marks the target
     IReadOnlyDictionary<MechanicType, uint[]>? TriggerIds = null,   // cactbot trigger ability ids by type
-    IReadOnlyDictionary<uint, MechanicType>? MarkerKinds = null)    // head marker id -> type (cactbot triggers)
+    IReadOnlyDictionary<uint, MechanicType>? MarkerKinds = null,    // head marker id -> type (cactbot triggers)
+    int SyncLevel = 0)                                              // duty's level sync (0 = none)
 {
     public string Display => $"{Name}  [{Category}]";
 }
@@ -118,7 +119,7 @@ public static class Fights
                     markerKinds[n] = t;
 
             fights.Add(new FightDefinition(e.territory, GameName(e.territory, e.zoneKey), e.category, e.path, tags, markers,
-                triggerIds, markerKinds));
+                triggerIds, markerKinds, SyncLevel(e.territory)));
         }
 
         // Newest expansion first, then by content type and name.
@@ -205,6 +206,17 @@ public static class Fights
             Plugin.Log.Warning(ex, $"No game name for zone {territory}");
         }
         return Regex.Replace(zoneKey, "(?<=[a-z0-9])(?=[A-Z])", " ");
+    }
+
+    /// <summary>The duty's level sync from the Duty Finder entry (0 if none / not a duty).</summary>
+    private static int SyncLevel(uint territory)
+    {
+        try
+        {
+            var tt = Plugin.DataManager.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory);
+            return tt?.ContentFinderCondition.ValueNullable?.ClassJobLevelSync ?? 0;
+        }
+        catch (Exception) { return 0; }
     }
 
     // Duty names start lower-case in game data ("the Cinder Drift").
