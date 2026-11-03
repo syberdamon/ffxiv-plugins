@@ -13,6 +13,23 @@ public enum MechanicType
     Raidwide = 2,
     Stack = 3,
     Mechanic = 4,
+    SharedTankBuster = 5,   // both tanks take it (cactbot Responses.sharedTankBuster)
+}
+
+public static class MechanicTypes
+{
+    public static bool IsBuster(this MechanicType t) => t is MechanicType.TankBuster or MechanicType.SharedTankBuster;
+
+    /// <summary>Which tag wins when several apply (lower = stronger).</summary>
+    public static int Rank(this MechanicType t) => t switch
+    {
+        MechanicType.SharedTankBuster => 0,
+        MechanicType.TankBuster => 1,
+        MechanicType.Raidwide => 2,
+        MechanicType.Stack => 3,
+        MechanicType.Mechanic => 4,
+        _ => 9,
+    };
 }
 
 public enum SyncKind

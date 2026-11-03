@@ -301,7 +301,7 @@ public sealed class ConfigWindow : Window
                     {
                         EventKey = e.Key,
                         ActionId = c.ActionId,
-                        Condition = type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,
+                        Condition = type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,  // shared busters hit both tanks
                         AutoUse = true, // still needs the Auto: ON switch
                     });
                     Config.Save();
@@ -356,6 +356,18 @@ public sealed class ConfigWindow : Window
         var allowAuto = Config.AllowAutoUse;
         if (ImGui.Checkbox("Allow auto-use (only for plan entries ticked 'Auto')", ref allowAuto)) { Config.AllowAutoUse = allowAuto; Config.Save(); }
         ImGui.TextDisabled("Auto-use presses combat actions for you. That's automation: same risk category as Tank Stance Manager.");
+
+        var react = Config.ReactToBusterMarkers;
+        if (ImGui.Checkbox("Cover unplanned tank busters (cactbot tank-buster markers)", ref react)) { Config.ReactToBusterMarkers = react; Config.Save(); }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Tank-buster marker on you, or a shared-buster marker on a tank, and nothing planned covers it:\n" +
+                             "call out the best mits off cooldown (Big, else Rampart + Secondary; plus Short).\n" +
+                             "With auto-use allowed, it presses them too.");
+        var autoPlan = Config.AutoPlanLearned;
+        if (ImGui.Checkbox("Add learned tank busters to my plan", ref autoPlan)) { Config.AutoPlanLearned = autoPlan; Config.Save(); }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("When a head-marker tank buster is learned in a pull, mits for each hit of it are added\n" +
+                             "to your current role's plan (hits that already have something planned are skipped).");
 
         ImGui.Separator();
         if (Fights.All.Count == 0) return;

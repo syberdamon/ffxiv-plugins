@@ -99,6 +99,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>Master switch for per-entry auto-use. Off by default.</summary>
     public bool AllowAutoUse { get; set; } = false;
 
+    /// <summary>When a tank buster is learned in game, add mits for it to your plan.</summary>
+    public bool AutoPlanLearned { get; set; } = true;
+
+    /// <summary>
+    /// Tank-buster marker on you (or a shared-buster marker on a tank) and nothing planned covers
+    /// it: call out (and, with auto-use allowed, press) the best mits that are off cooldown.
+    /// </summary>
+    public bool ReactToBusterMarkers { get; set; } = true;
+
     public static string RoleCode(TankRole role) => role == TankRole.OffTank ? "OT" : "MT";
     public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{RoleCode(role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";

@@ -32,7 +32,8 @@ TYPES = {"alliance": "Alliance", "dungeon": "Dungeon", "eureka": "Eureka", "raid
 
 # cactbot response helpers -> our mechanic types (priority order: first match wins)
 RESPONSE_TYPES = [
-    ("TankBuster", r"(?:Responses|Outputs)\.(?:tankBuster|tankBusterSwap|sharedTankBuster|tankCleave|tankBusterOnYou)\b"),
+    ("SharedTankBuster", r"(?:Responses|Outputs)\.(?:sharedTankBuster|sharedTankbuster|sharedTankBusterOnYou)\b"),
+    ("TankBuster", r"(?:Responses|Outputs)\.(?:tankBuster|tankBusterSwap|tankCleave|tankBusterOnYou|tankBusters)\b"),
     ("Raidwide", r"(?:Responses|Outputs)\.(?:aoe|bigAoe|raidwide)\b"),
     ("Stack", r"(?:Responses|Outputs)\.(?:stackMarker|stackMarkerOn|stackOnYou|stack|stackFor)\b"),
     ("Mechanic", r"Responses\.(?:spread|knockback|getUnder|getOut|getIn|getBehind|goFront|moveAway|awayFromFront|lookAway|getUnderOrOut|outOfMelee|goMiddle|interrupt)\b"),
@@ -102,7 +103,7 @@ def head_marker_kinds(ts):
         if not t or t.group(1) != "HeadMarker":
             continue
         kind = next((name for name, rx in RESPONSE_TYPES if re.search(rx, block)), None)
-        if kind not in ("TankBuster", "Stack", "Raidwide"):
+        if kind not in ("SharedTankBuster", "TankBuster", "Stack", "Raidwide"):
             continue
         net = re.search(r"netRegex:\s*\{(.*?)\}", block, flags=re.S)
         if not net:
