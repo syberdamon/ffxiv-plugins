@@ -92,6 +92,19 @@ public static unsafe class GameUi
         return true;
     }
 
+    /// <summary>
+    /// Advance an NPC's dialogue box ("Talk"): a mouse click on the window, which is what the game
+    /// listens for (FireCallback doesn't advance it).
+    /// </summary>
+    public static void ClickTalk(AtkUnitBase* talk)
+    {
+        var evt = stackalloc AtkEvent[1];
+        evt[0] = default;
+        var data = stackalloc AtkEventData[1];
+        data[0] = default;
+        talk->ReceiveEvent(AtkEventType.MouseClick, 0, evt, data);
+    }
+
     public static string Str(AtkUnitBase* addon, int index)
     {
         if (index < 0 || index >= addon->AtkValuesCount) return "";
