@@ -17,6 +17,7 @@ public sealed class VNavIpc
     private readonly ICallGateSubscriber<bool> pathfindInProgress;
     private readonly ICallGateSubscriber<bool> pathIsRunning;
     private readonly ICallGateSubscriber<object> pathStop;
+    private readonly ICallGateSubscriber<Vector3, float, float, Vector3?> nearestPoint;
 
     public VNavIpc()
     {
@@ -28,6 +29,7 @@ public sealed class VNavIpc
         pathfindInProgress = pi.GetIpcSubscriber<bool>("vnavmesh.SimpleMove.PathfindInProgress");
         pathIsRunning = pi.GetIpcSubscriber<bool>("vnavmesh.Path.IsRunning");
         pathStop = pi.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
+        nearestPoint = pi.GetIpcSubscriber<Vector3, float, float, Vector3?>("vnavmesh.Query.Mesh.NearestPoint");
     }
 
     /// <summary>True when vnavmesh is loaded and has a navmesh for the current zone.</summary>
@@ -38,6 +40,10 @@ public sealed class VNavIpc
 
     /// <summary>True while vnavmesh is building (or loading) the current zone's mesh.</summary>
     public bool IsBuilding => Try(() => buildProgress.InvokeFunc(), -1f) >= 0;
+
+    /// <summary>Closest walkable point to <paramref name="p"/> within the box, or null.</summary>
+    public Vector3? NearestPoint(Vector3 p, float halfExtentXZ, float halfExtentY) =>
+        Try(() => nearestPoint.InvokeFunc(p, halfExtentXZ, halfExtentY), null);
 
     public Vector3? FlagToPoint() => Try(() => flagToPoint.InvokeFunc(), null);
 

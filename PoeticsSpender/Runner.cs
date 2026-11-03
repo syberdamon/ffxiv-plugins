@@ -45,7 +45,7 @@ public sealed unsafe class Runner : IDisposable
     private static readonly Vendor Hismena = new("Hismena", new[] { "Special Arms", "Poetics" }, "ShopExchangeCurrency");
     private static readonly Vendor Bertana = new("Bertana", new[] { "Uncanny Knickknacks", "Knickknacks" }, "ShopExchangeItem");
 
-    private const float InteractRange = 3.5f;
+    private const float InteractRange = 4.5f;
 
     private readonly Configuration config;
     private readonly VNavIpc vnav;
@@ -172,7 +172,7 @@ public sealed unsafe class Runner : IDisposable
     {
         Phase.Teleporting => 90,
         Phase.WaitingForMesh => 90,
-        Phase.Walking => 60,
+        Phase.Walking => 120,
         _ => 15,
     };
 
@@ -203,6 +203,9 @@ public sealed unsafe class Runner : IDisposable
     {
         Set(Phase.Walking, $"Walking to {CurrentVendor.NpcName}...");
         interactTries = 0;
+        bestDistance = float.MaxValue;
+        lastProgress = DateTime.UtcNow;
+        walkTarget = default;
     }
 
     private IGameObject? FindNpc() =>
@@ -218,36 +221,65 @@ public sealed unsafe class Runner : IDisposable
             Plugin.Log.Info($"nearby npc: '{o.Name.TextValue}' at {Vector3.Distance(o.Position, player.Position):0.0}y");
     }
 
+    private Vector3 walkTarget;
+    private float bestDistance;
+    private DateTime lastProgress;
+
     private void TickWalking()
     {
         var player = Plugin.ObjectTable.LocalPlayer;
-        var npc = FindNpc();
         if (player == null) return;
-        if (npc == null)
+        var npc = FindNpc();
+
+        // Close enough to talk (the NPC may stand behind a counter, off the walkable mesh).
+        if (npc != null && Vector3.Distance(player.Position, npc.Position) <= InteractRange)
         {
-            // Not loaded yet (NPCs only appear when you're near): walk to where game data says they stand.
-            var spot = NpcLocator.Find(CurrentVendor.NpcName, Soils.IdyllshireTerritory, player.Position.Y);
-            if (spot == null) { Fail($"Don't know where {CurrentVendor.NpcName} is."); return; }
-            Status = $"Walking to {CurrentVendor.NpcName}'s spot...";
-            if (Vector3.Distance(player.Position, spot.Value) < 2f)
+            ArriveAtNpc();
+            return;
+        }
+
+        // Where to walk: the NPC if loaded, else where game data says they stand
+        // (NPCs only load when you're fairly near). Snapped to walkable ground.
+        Vector3 goal;
+        if (npc != null) goal = npc.Position;
+        else if (NpcLocator.Find(CurrentVendor.NpcName, Soils.IdyllshireTerritory, player.Position.Y) is { } spot) goal = spot;
+        else { Fail($"Don't know where {CurrentVendor.NpcName} is."); return; }
+        var target = vnav.NearestPoint(goal, 6f, 6f) ?? goal;
+        Status = npc != null ? $"Walking to {CurrentVendor.NpcName}..." : $"Walking to {CurrentVendor.NpcName}'s spot...";
+
+        var toTarget = Vector3.Distance(player.Position, target);
+        if (toTarget <= 1.5f)
+        {
+            // At the closest walkable point. Try talking if they're roughly in reach.
+            if (npc != null && Vector3.Distance(player.Position, npc.Position) <= 8f) { ArriveAtNpc(); return; }
+            if (npc == null)
             {
                 LogNearbyNpcs();
                 Fail($"Reached {CurrentVendor.NpcName}'s spot but can't see them (nearby NPC names are in /xllog).");
                 return;
             }
-            if (!vnav.IsBusy) vnav.MoveTo(spot.Value);
-            nextAction = DateTime.UtcNow.AddSeconds(0.5);
+        }
+
+        // Progress check: vnavmesh silently does nothing if it can't find a path.
+        if (toTarget < bestDistance - 0.5f) { bestDistance = toTarget; lastProgress = DateTime.UtcNow; }
+        if ((DateTime.UtcNow - lastProgress).TotalSeconds > 8)
+        {
+            Fail($"vnavmesh isn't getting closer to {CurrentVendor.NpcName} ({toTarget:0} yalms away).");
             return;
         }
 
-        if (Vector3.Distance(player.Position, npc.Position) <= InteractRange)
+        if (!vnav.IsBusy || Vector3.Distance(walkTarget, target) > 2f)
         {
-            vnav.Stop();
-            Set(Phase.Interacting, $"Talking to {CurrentVendor.NpcName}...");
-            nextAction = DateTime.UtcNow.AddSeconds(0.5);
-            return;
+            walkTarget = target;
+            vnav.MoveCloseTo(target, 1f);
         }
-        if (!vnav.IsBusy) vnav.MoveTo(npc.Position);
+        nextAction = DateTime.UtcNow.AddSeconds(0.5);
+    }
+
+    private void ArriveAtNpc()
+    {
+        vnav.Stop();
+        Set(Phase.Interacting, $"Talking to {CurrentVendor.NpcName}...");
         nextAction = DateTime.UtcNow.AddSeconds(0.5);
     }
 
