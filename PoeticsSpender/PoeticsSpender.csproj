@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>syberdamon</Author>
+    <Name>Poetics Spender</Name>
+    <Punchline>Turn your Poetics into Grade 3 topsoil with one click, plus a near-cap alert.</Punchline>
+    <Description>Pick a topsoil (Thanalan or Shroud). One click teleports you to Idyllshire, buys Unidentifiable Ore/Shell from Hismena with all your Poetics (150 each), and trades it to Bertana for Grade 3 topsoil. A movable alert pops up when your Poetics reach a threshold (1800 by default); click it to run. Requires vnavmesh. English client.</Description>
+    <Tags>poetics;tomestones;topsoil;gardening;vnavmesh</Tags>
+    <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>
