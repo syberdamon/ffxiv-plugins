@@ -399,7 +399,7 @@ public sealed unsafe class GcRunner : IDisposable
 
     // Expert Delivery list. [6] = number of rows. The order on screen (and what "select row i",
     // callback (1, i, <zero>), picks) is the window's ordered item array: GrandCompanyItem[] at
-    // addon + 0x288. Its item id and seal reward are live; its bag/slot fields read as 0.
+    // addon + 0x288 (row layout below).
     // The window's own values (name [105+i], seals [265+i], bag [345+i], slot [385+i], id [425+i])
     // only cover 40 rows and are NOT refreshed when the sort changes (dump 2026-11-03 15:46: values
     // still in seals-descending order while the screen and the array were ascending), so they
@@ -407,14 +407,17 @@ public sealed unsafe class GcRunner : IDisposable
     // References: Deliveroo (select/filter callbacks), XA-Slave (array location). No code copied.
     private const int OrderedArrayOffset = 0x288;
 
-    private readonly record struct ListRow(int Row, uint ItemId, int Seals, string Name);
+    private readonly record struct ListRow(int Row, uint ItemId, InventoryType Container, int Slot, int Seals, string Name);
 
     /// <summary>
     /// The list in on-screen order, or null (with the reason) when it can't be read safely.
-    /// Only ItemId (+0x84) and SealReward (+0x78) are used. The row size in the game build can differ
-    /// from the struct definition (0xA0 read row 1 as garbage on 2026-11-03), so the row size is found
-    /// by trying sizes until every row is gear you actually hold, with seals in the on-screen sort order.
+    /// Row layout in the game build of 2026-11-03, read from a raw dump (it differs from the
+    /// ClientStructs definition): 0x98 bytes per row; +0x00 name (Utf8String), +0x78 seals,
+    /// +0x84 item id, +0x8C bag (InventoryType), +0x90 slot. Every row is checked against your
+    /// inventory: the bag/slot it names must hold that item, or the list isn't trusted.
     /// </summary>
+    private const int RowSize = 0x98, OffSeals = 0x78, OffItem = 0x84, OffBag = 0x8C, OffSlot = 0x90;
+
     private static List<ListRow>? ReadList(AtkUnitBase* list, int sort, out int total, out string why)
     {
         total = (int)GameUi.UInt(list, 6);
@@ -422,43 +425,26 @@ public sealed unsafe class GcRunner : IDisposable
         if (total is < 0 or > 1024) { why = $"row count {total}"; return null; }
         if (total == 0) return new();
         var ptr = *(nint*)((byte*)list + OrderedArrayOffset);
-        if (!Memory.IsReadable(ptr, 0xA0)) { why = $"ordered array 0x{ptr:X} not readable"; return null; }
+        if (!Memory.IsReadable(ptr, total * RowSize)) { why = $"ordered array 0x{ptr:X} not readable"; return null; }
         var items = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
-        var fails = new List<string>();
-        foreach (var stride in StrideCandidates())
+        var rows = new List<ListRow>(total);
+        for (var i = 0; i < total; i++)
         {
-            if (!Memory.IsReadable(ptr, (total - 1) * stride + 0xA0)) { fails.Add($"0x{stride:X}: unreadable"); continue; }
-            var rows = new List<ListRow>(total);
-            var counts = new Dictionary<uint, int>();
-            string? bad = null;
-            for (var i = 0; i < total && bad == null; i++)
+            var b = (byte*)ptr + i * RowSize;
+            var id = *(uint*)(b + OffItem);
+            var seals = *(int*)(b + OffSeals);
+            var bag = (InventoryType)(*(uint*)(b + OffBag));
+            var slot = *(int*)(b + OffSlot);
+            var held = slot is >= 0 and < 200 ? GcData.Slot(bag, slot) : null;
+            if (seals <= 0 || held == null || held->ItemId != id)
             {
-                var b = (byte*)ptr + i * stride;
-                var id = *(uint*)(b + 0x84);
-                var seals = *(int*)(b + 0x78);
-                var row = items.GetRowOrDefault(id);
-                if (id == 0 || seals <= 0 || row == null || row.Value.EquipSlotCategory.RowId == 0) { bad = $"row {i}: item {id}, seals {seals}"; break; }
-                counts[id] = counts.GetValueOrDefault(id) + 1;
-                if (counts[id] > GcData.HeldCount(id)) { bad = $"row {i}: item {id} listed more times than you hold"; break; }
-                if (i > 0 && sort == 1 && seals < rows[i - 1].Seals) bad = $"row {i}: seals {seals} after {rows[i - 1].Seals} (ascending sort)";
-                if (i > 0 && sort == 0 && seals > rows[i - 1].Seals) bad = $"row {i}: seals {seals} after {rows[i - 1].Seals} (descending sort)";
-                rows.Add(new ListRow(i, id, seals, row.Value.Name.ExtractText()));
+                why = $"ordered array 0x{ptr:X} row {i}: item {id}, seals {seals}, {bag}/{slot} (holds {(held == null ? 0 : held->ItemId)})\n"
+                      + HexDump(ptr, Math.Min(total, 3) * 0x100);
+                return null;
             }
-            if (bad == null)
-            {
-                if (stride != 0xA0) Plugin.Log.Info($"[TurnIn] Expert Delivery rows are 0x{stride:X} bytes");
-                return rows;
-            }
-            fails.Add($"0x{stride:X}: {bad}");
+            rows.Add(new ListRow(i, id, bag, slot, seals, items.GetRowOrDefault(id)?.Name.ExtractText() ?? $"item {id}"));
         }
-        why = $"ordered array 0x{ptr:X}: no row size fits ({string.Join("; ", fails.Take(6))}...)\n" + HexDump(ptr, Math.Min(total, 3) * 0x100);
-        return null;
-    }
-
-    private static IEnumerable<int> StrideCandidates()
-    {
-        yield return 0xA0;
-        for (var s0 = 0xA8; s0 <= 0x200; s0 += 8) yield return s0;
+        return rows;
     }
 
     private static string HexDump(nint ptr, int len)
@@ -554,9 +540,7 @@ public sealed unsafe class GcRunner : IDisposable
             return;
         }
 
-        // ---- first row (on-screen order) whose item may be turned in. The array doesn't say which
-        //      bag/slot a row is, so an item id only counts when EVERY copy you hold passes the
-        //      guardrails (e.g. an NQ and a blocked HQ copy of the same item: skipped).
+        // ---- first row (on-screen order) whose exact item + bag + slot passes the guardrails
         var rows = ReadList(list, gl->SelectedSortBy, out var total, out var why);
         if (rows == null)
         {
@@ -564,9 +548,8 @@ public sealed unsafe class GcRunner : IDisposable
             Fail("Couldn't read the delivery list safely; dump saved.");
             return;
         }
-        var scan = GcData.Scan(config);
-        var okIds = scan.GroupBy(c => c.ItemId).Where(g => g.All(c => c.Allowed && c.MateriaCount == 0)).Select(g => g.Key).ToHashSet();
-        var pick = rows.FirstOrDefault(r => okIds.Contains(r.ItemId));
+        var allowed = GcData.Scan(config).Where(c => c.Allowed && c.MateriaCount == 0).ToDictionary(c => (c.Container, c.Slot));
+        var pick = rows.FirstOrDefault(r => allowed.TryGetValue((r.Container, r.Slot), out var c) && c.ItemId == r.ItemId);
 
         if (pick.ItemId == 0)
         {
@@ -587,8 +570,7 @@ public sealed unsafe class GcRunner : IDisposable
             return;
         }
 
-        var src = scan.First(c => c.ItemId == pick.ItemId);
-        var key = new GrandCompanyItemKey(pick.ItemId, src.Container, src.Slot, pick.Seals, src.Name);
+        var key = new GrandCompanyItemKey(pick.ItemId, pick.Container, pick.Slot, pick.Seals, allowed[(pick.Container, pick.Slot)].Name);
         Status = $"Delivering {key.Name} (+{reward2} seals)...";
         Log($"  {key.Name}: row {pick.Row} of {total}");
         pending = key;
