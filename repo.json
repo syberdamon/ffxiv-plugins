@@ -3,7 +3,7 @@
     "Author": "syberdamon",
     "Name": "Combat Recorder",
     "InternalName": "CombatRecorder",
-    "AssemblyVersion": "0.1.0.0",
+    "AssemblyVersion": "0.1.1.0",
     "Description": "Writes one compressed JSON-lines file per duty: every action you, your party and enemies use (with damage/heal numbers), buffs and debuffs gained and lost, HP/MP and positions twice a second, casts, deaths and target changes. Party members are recorded by job and slot, never by name. /crec mark <note> drops a marker you can point to later (\"downtime here\"). Nothing leaves your PC.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -20,9 +20,9 @@
     "LoadPriority": 0,
     "Punchline": "Records your fights (actions, damage, heals, buffs, HP, movement) to compact local files for review.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.1.0/CombatRecorder.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.1.0/CombatRecorder.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.1.0/CombatRecorder.zip"
   },
   {
     "Author": "syberdamon",
@@ -79,7 +79,7 @@
     "Author": "syberdamon",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
-    "AssemblyVersion": "0.9.2.0",
+    "AssemblyVersion": "0.9.3.0",
     "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -97,9 +97,9 @@
     "LoadPriority": 0,
     "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.2.0/MitPlanner.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.2.0/MitPlanner.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.2.0/MitPlanner.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.3.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.3.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.9.3.0/MitPlanner.zip"
   },
   {
     "Author": "syberdamon",
