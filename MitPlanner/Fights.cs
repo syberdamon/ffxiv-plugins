@@ -1,101 +1,145 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Lumina.Excel.Sheets;
 
 namespace MitPlanner;
 
-/// <summary>A fight the plugin knows: which zone, which timeline file, and default mechanic tags.</summary>
+/// <summary>A fight the plugin knows: which zone, which timeline, and default mechanic tags.</summary>
+/// <param name="Category">"ShB Trial", "DT Raid", ... (from cactbot's folder layout).</param>
+/// <param name="Path">Timeline path inside the bundle ("05-shb/trial/ruby_weapon").</param>
 public sealed record FightDefinition(
     uint TerritoryId,
     string Name,
-    string Resource,
+    string Category,
+    string Path,
     IReadOnlyDictionary<string, MechanicType> DefaultTags,
-    IReadOnlyDictionary<string, uint>? HeadMarkers = null);  // label -> head marker that marks the target
+    IReadOnlyDictionary<string, uint>? HeadMarkers = null)  // label -> head marker that marks the target
+{
+    public string Display => $"{Name}  [{Category}]";
+}
 
+/// <summary>
+/// Every fight cactbot has a timeline for, from the bundle built by
+/// .github/scripts/sync_cactbot.py (refreshed weekly by CI). Only the small index is read at
+/// startup; each fight's timeline is unpacked and parsed the first time it's needed.
+/// Default tags = cactbot trigger responses, then <see cref="CuratedFights"/> on top, then your
+/// own edits in game (Configuration.TagOverrides) on top of that.
+/// </summary>
 public static class Fights
 {
-    /// <summary>
-    /// Bundled fights. Timelines come from cactbot (Apache-2.0); default tags come from cactbot's
-    /// trigger file for the same fight (Responses.tankBuster / aoe / stack...). Tags are editable in game.
-    /// </summary>
-    public static readonly IReadOnlyList<FightDefinition> All = new[]
-    {
-        // ui/raidboss/data/05-shb/trial/ruby_weapon.txt + ruby_weapon.ts; ZoneId.CinderDrift = 897
-        new FightDefinition(897, "The Cinder Drift", "MitPlanner.Timelines.ruby_weapon.txt", new Dictionary<string, MechanicType>
-        {
-            ["Stamp"] = MechanicType.TankBuster,
-            ["Ruby Claw"] = MechanicType.TankBuster,
-            ["Optimized Ultima"] = MechanicType.Raidwide,
-            ["Optimized Ultima Enrage"] = MechanicType.Raidwide,
-            ["Outrage"] = MechanicType.Raidwide,
-            ["High-Powered Homing Lasers"] = MechanicType.Stack,
-            ["Ruby Dynamics"] = MechanicType.Mechanic,
-            ["Ruby Ray"] = MechanicType.Mechanic,
-            ["Homing Lasers"] = MechanicType.Mechanic,
-            ["Liquefaction?/Undermine?"] = MechanicType.Mechanic,
-            ["Undermine?/Liquifaction?"] = MechanicType.Mechanic,
-            ["Ravensflight"] = MechanicType.Mechanic,
-            ["Meteor Stream"] = MechanicType.Mechanic,
-            ["Magitek Meteor"] = MechanicType.Mechanic,
-            ["Bradamante"] = MechanicType.Mechanic,
-        }),
+    private const string BundleResource = "MitPlanner.Timelines.cactbot.zip";
 
-        // ui/raidboss/data/05-shb/trial/emerald_weapon.txt + emerald_weapon.ts; ZoneId.CastrumMarinum = 934
-        // Tank busters: Emerald Shot (cast on the tank), Divide Et Impera (head marker 00DA on the tank).
-        new FightDefinition(934, "Castrum Marinum", "MitPlanner.Timelines.emerald_weapon.txt", new Dictionary<string, MechanicType>
-        {
-            ["Emerald Shot"] = MechanicType.TankBuster,
-            ["Divide Et Impera"] = MechanicType.TankBuster,
-            ["Optimized Ultima"] = MechanicType.Raidwide,
-            ["Magitek Magnetism"] = MechanicType.Mechanic,
-            ["Emerald Crusher"] = MechanicType.Mechanic,
-            ["Split"] = MechanicType.Mechanic,
-            ["Sidescathe"] = MechanicType.Mechanic,
-            ["Primus Terminus Est"] = MechanicType.Mechanic,
-            ["Secundus Terminus Est"] = MechanicType.Mechanic,
-            ["Tertius Terminus Est"] = MechanicType.Mechanic,
-            ["Legio Phantasmatis"] = MechanicType.Mechanic,
-        },
-        HeadMarkers: new Dictionary<string, uint>
-        {
-            ["Divide Et Impera"] = 0x00DA,
-        }),
-
-        // ui/raidboss/data/05-shb/trial/diamond_weapon.txt + diamond_weapon.ts; ZoneId.TheCloudDeck = 950
-        // Tank buster: Auri Doomstead (cast on the tank, x2 in phase 2). Phase 3 loops.
-        new FightDefinition(950, "The Cloud Deck", "MitPlanner.Timelines.diamond_weapon.txt", new Dictionary<string, MechanicType>
-        {
-            ["Auri Doomstead"] = MechanicType.TankBuster,
-            ["Diamond Rain"] = MechanicType.Raidwide,
-            ["Outrage"] = MechanicType.Raidwide,
-            ["Diamond Flash"] = MechanicType.Stack,
-            ["Homing Laser"] = MechanicType.Mechanic,
-            ["Auri Cyclone 1"] = MechanicType.Mechanic,
-            ["Vertical Cleave"] = MechanicType.Mechanic,
-            ["Claw Swipe"] = MechanicType.Mechanic,
-            ["Adamant Purge"] = MechanicType.Mechanic,
-            ["Photon Burst"] = MechanicType.Mechanic,
-            ["Diamond Shrapnel"] = MechanicType.Mechanic,
-        }),
-    };
-
+    private static readonly Lazy<IReadOnlyList<FightDefinition>> AllLazy = new(LoadIndex);
     private static readonly Dictionary<uint, Timeline> Cache = new();
 
-    public static FightDefinition? ForTerritory(uint territoryId)
-    {
-        foreach (var f in All) if (f.TerritoryId == territoryId) return f;
-        return null;
-    }
+    public static IReadOnlyList<FightDefinition> All => AllLazy.Value;
+
+    public static FightDefinition? ForTerritory(uint territoryId) =>
+        All.FirstOrDefault(f => f.TerritoryId == territoryId);
 
     public static Timeline Load(FightDefinition fight)
     {
-        if (Cache.TryGetValue(fight.TerritoryId, out var t)) return t;
-
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(fight.Resource)
-            ?? throw new FileNotFoundException($"Missing embedded timeline {fight.Resource}");
-        using var reader = new StreamReader(stream);
-        t = Timeline.Parse(fight.Name, reader.ReadToEnd());
-        Cache[fight.TerritoryId] = t;
-        return t;
+        lock (Cache)
+        {
+            if (Cache.TryGetValue(fight.TerritoryId, out var t)) return t;
+            t = Timeline.Parse(fight.Name, ReadEntry($"timelines/{fight.Path}.txt"));
+            Cache[fight.TerritoryId] = t;
+            return t;
+        }
     }
+
+    // ================================================================ bundle
+
+    private sealed class IndexEntry
+    {
+        public uint territory { get; set; }
+        public string zoneKey { get; set; } = "";
+        public string path { get; set; } = "";
+        public string category { get; set; } = "";
+        public Dictionary<string, string> tags { get; set; } = new();
+    }
+
+    private static string ReadEntry(string name)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(BundleResource)
+            ?? throw new FileNotFoundException($"Missing embedded {BundleResource}");
+        using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
+        var entry = zip.GetEntry(name) ?? throw new FileNotFoundException($"{name} not in timeline bundle");
+        using var reader = new StreamReader(entry.Open());
+        return reader.ReadToEnd();
+    }
+
+    private static IReadOnlyList<FightDefinition> LoadIndex()
+    {
+        List<IndexEntry> index;
+        try
+        {
+            index = JsonSerializer.Deserialize<List<IndexEntry>>(ReadEntry("index.json")) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Error(ex, "Couldn't read the timeline bundle");
+            return Array.Empty<FightDefinition>();
+        }
+
+        var fights = new List<FightDefinition>(index.Count);
+        foreach (var e in index)
+        {
+            var tags = new Dictionary<string, MechanicType>(StringComparer.Ordinal);
+            foreach (var (label, type) in e.tags)
+                if (Enum.TryParse<MechanicType>(type, out var t)) tags[label] = t;
+
+            IReadOnlyDictionary<string, uint>? markers = null;
+            if (CuratedFights.ByTerritory.TryGetValue(e.territory, out var curated))
+            {
+                foreach (var (label, t) in curated.Tags) tags[label] = t;
+                markers = curated.HeadMarkers;
+            }
+
+            fights.Add(new FightDefinition(e.territory, GameName(e.territory, e.zoneKey), e.category, e.path, tags, markers));
+        }
+
+        // Newest expansion first, then by content type and name.
+        return fights
+            .OrderByDescending(f => ExpansionOrder(f.Path))
+            .ThenBy(f => f.Category, StringComparer.Ordinal)
+            .ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static int ExpansionOrder(string path) =>
+        int.TryParse(path.Split('-')[0], out var n) ? n : 0;
+
+    /// <summary>
+    /// The duty's name from game data (Duty Finder name, so "(Savage)"/"(Extreme)" are kept),
+    /// falling back to the zone's place name, then to cactbot's zone key split into words.
+    /// </summary>
+    private static string GameName(uint territory, string zoneKey)
+    {
+        try
+        {
+            var row = Plugin.DataManager.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory);
+            if (row is { } tt)
+            {
+                var duty = tt.ContentFinderCondition.ValueNullable?.Name.ExtractText();
+                if (!string.IsNullOrWhiteSpace(duty)) return Capitalize(duty);
+                var place = tt.PlaceName.ValueNullable?.Name.ExtractText();
+                if (!string.IsNullOrWhiteSpace(place)) return Capitalize(place);
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Warning(ex, $"No game name for zone {territory}");
+        }
+        return Regex.Replace(zoneKey, "(?<=[a-z0-9])(?=[A-Z])", " ");
+    }
+
+    // Duty names start lower-case in game data ("the Cinder Drift").
+    private static string Capitalize(string s) => char.ToUpperInvariant(s[0]) + s[1..];
 }

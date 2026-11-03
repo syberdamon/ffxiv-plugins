@@ -7,8 +7,11 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 `/mitplan preview`, `/mitplan stop`, `/mitplan timeline`.
 
 ## How it works
-- **Fight detection:** entering a supported duty loads its timeline
-  (bundled: **The Cinder Drift** 897, **Castrum Marinum** 934, **The Cloud Deck** 950).
+- **Fight detection:** entering any duty cactbot has a timeline for loads it.
+  All ~310 cactbot timelines (dungeons, trials, raids, alliance raids, ultimates,
+  Eureka/Bozja/Occult) ship inside the plugin as one compressed bundle (~750 KB).
+  Only a small index is read at startup; a fight's timeline is unpacked the first
+  time you enter it or open it in the Plan tab. Fight names come from the game.
 - **Clock:** starts on the pull and syncs to the boss's real abilities using the
   fight's cactbot timeline, so it stays accurate and follows phase changes.
 - **Timeline window:** next 5 mechanics (configurable) with countdowns, type
@@ -34,7 +37,8 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 - **Columns:** in both the Plan table and the timeline window, drag a column
   edge to resize and a header to reorder (timeline: right-click a header to
   hide a column). ImGui remembers the layout.
-- **Picking a fight:** the Plan tab's fight dropdown has a search box (name or zone ID).
+- **Picking a fight:** the Plan tab's fight dropdown has a search box (name,
+  category such as "DT Raid" or "EW Trial", or zone ID). Newest expansion first.
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
 
@@ -111,20 +115,32 @@ settings on that PC. To move a plan to another PC (or share it): Plan tab >
 Display > **Preview** runs the timeline from 0 anywhere (no syncing, no auto-use),
 so you can check plans and callout placement before queueing.
 
-## Castrum Marinum default tags (from cactbot's triggers)
-- Tank busters: Emerald Shot, Divide Et Impera
-- Raid-wide: Optimized Ultima
+## Where the timelines and tags come from
+Three layers, later ones win:
+1. **cactbot triggers** (automatic, every fight): a mechanic is tagged when
+   cactbot's trigger for that ability calls it out as a tank buster, raid-wide,
+   stack, or a movement mechanic (spread, knockback, get out/in...). About 280
+   of the 310 fights get at least one tag this way.
+2. **Curated list** (`MitPlanner/CuratedFights.cs`): hand-checked tags and head
+   markers. Currently The Cinder Drift, Castrum Marinum and The Cloud Deck.
+3. **Your edits** in the Plan tab's type column.
 
-## Cinder Drift default tags (from cactbot's triggers)
-- Tank busters: Stamp (x3), Ruby Claw (x2)
-- Raid-wides: Optimized Ultima, Outrage, Optimized Ultima Enrage
-- Stack: High-Powered Homing Lasers
-- Everything is retaggable in the Plan tab.
+**Updates:** every Tuesday a GitHub job re-bundles the timelines from cactbot.
+If anything changed, Mit Planner's version goes up by one in the last digit
+(0.8.0.0 to 0.8.0.1) and Dalamud offers the update. Your plans and tag edits
+are untouched: they're keyed by mechanic name and hit number (Stamp #2), so a
+plan only loses an entry if cactbot renames or removes that mechanic.
 
 ## Known limits
-- One bundled fight for now; other cactbot fights can be added the same way.
-- Accuracy depends on the cactbot timeline, which has a couple of FIXME notes
-  for this fight. If the clock drifts, the Status tab shows the last sync.
+- The clock only syncs on boss abilities and cast bars (cactbot's `Ability` and
+  `StartsUsing` lines, about 97% of sync lines). Lines that sync on other things
+  (system messages, NPC yells, actors appearing) are shown but don't re-sync;
+  the next ability sync catches the clock up.
+- Tags from cactbot are only as good as its triggers: a buster cactbot doesn't
+  call out (or calls out with custom text) stays untagged until you tag it or
+  it's added to the curated list.
+- Accuracy depends on the cactbot timeline. If the clock drifts, the Status tab
+  shows the last sync.
 
 Timelines and default tags from cactbot (Apache-2.0); see
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).

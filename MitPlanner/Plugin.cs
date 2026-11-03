@@ -75,7 +75,8 @@ public sealed class Plugin : IDalamudPlugin
         switch (args.Trim().ToLowerInvariant())
         {
             case "preview":
-                Runner.StartPreview(Runner.Fight ?? Fights.All[0]);
+                if (Runner.Fight != null) Runner.StartPreview(Runner.Fight);
+                else ChatGui.Print("[MitPlanner] No timeline for this zone. Pick a fight under Display > Preview in /mitplan.");
                 return;
             case "stop":
                 Runner.Stop();

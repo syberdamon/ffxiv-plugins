@@ -37,7 +37,14 @@ public sealed class TimelineEvent
     public Regex? IdPattern { get; init; }
     public float WindowBefore { get; init; } = 2.5f;  // cactbot default
     public float WindowAfter { get; init; } = 2.5f;
-    public float? Jump { get; init; }
+    /// <summary>Where a sync on this line sends the clock (a time, or a resolved "label").</summary>
+    public float? Jump { get; set; }
+
+    /// <summary>"forcejump": jump when the clock reaches this line, synced or not (loops).</summary>
+    public bool ForceJump { get; init; }
+
+    /// <summary>Unresolved jump "label" target, filled in after the whole file is read.</summary>
+    internal string? JumpLabel { get; init; }
     public float Duration { get; init; }
 
     /// <summary>
@@ -57,6 +64,9 @@ public sealed class TimelineEvent
 /// Parser for the subset of cactbot's timeline format the bundled fights use:
 ///   time "label" [Ability|StartsUsing { id: "4AC7" | ["A","B"] | "4A9[67]", ... }] [window a,b] [jump t] [duration d]
 ///   hideall "label"
+///   time label "name"                  (a named point in time, for jump "name")
+///   ... jump "name" | forcejump t | forcejump "name"
+/// Other sync types (InCombat, ActorControl, NpcYell, ...) are shown but never sync the clock.
 /// Format reference: cactbot docs/TimelineGuide.md (Apache-2.0).
 /// </summary>
 public sealed class Timeline
@@ -71,7 +81,9 @@ public sealed class Timeline
     private static readonly Regex IdRx = new(
         @"\bid:\s*(?:""(?<one>[^""]+)""|\[(?<many>[^\]]+)\])", RegexOptions.Compiled);
     private static readonly Regex WindowRx = new(@"\bwindow\s+(?<a>\d+(?:\.\d+)?)(?:\s*,\s*(?<b>\d+(?:\.\d+)?))?", RegexOptions.Compiled);
-    private static readonly Regex JumpRx = new(@"\bjump\s+(?<t>\d+(?:\.\d+)?)", RegexOptions.Compiled);
+    private static readonly Regex JumpRx = new(
+        @"\b(?<force>force)?jump\s+(?:(?<t>\d+(?:\.\d+)?)|""(?<l>[^""]*)"")", RegexOptions.Compiled);
+    private static readonly Regex LabelRx = new(@"^(?<time>\d+(?:\.\d+)?)\s+label\s+""(?<name>[^""]*)""", RegexOptions.Compiled);
     private static readonly Regex DurationRx = new(@"\bduration\s+(?<d>\d+(?:\.\d+)?)", RegexOptions.Compiled);
     private static readonly Regex HideAllRx = new(@"^hideall\s+""(?<label>[^""]*)""", RegexOptions.Compiled);
     private static readonly Regex QuotedRx = new(@"""([^""]+)""", RegexOptions.Compiled);
@@ -80,6 +92,7 @@ public sealed class Timeline
     {
         var events = new List<TimelineEvent>();
         var hidden = new HashSet<string>(StringComparer.Ordinal);
+        var labels = new Dictionary<string, float>(StringComparer.Ordinal);
 
         foreach (var raw in text.Split('\n'))
         {
@@ -88,6 +101,9 @@ public sealed class Timeline
 
             var hide = HideAllRx.Match(line);
             if (hide.Success) { hidden.Add(hide.Groups["label"].Value); continue; }
+
+            var named = LabelRx.Match(line);
+            if (named.Success) { labels[named.Groups["name"].Value] = F(named.Groups["time"].Value); continue; }
 
             var m = LineRx.Match(line);
             if (!m.Success) continue;
@@ -123,10 +139,15 @@ public sealed class Timeline
                 IdPattern = pattern,
                 WindowBefore = before,
                 WindowAfter = after,
-                Jump = jump.Success ? F(jump.Groups["t"].Value) : null,
+                Jump = jump.Success && jump.Groups["t"].Success ? F(jump.Groups["t"].Value) : null,
+                JumpLabel = jump.Success && jump.Groups["l"].Success ? jump.Groups["l"].Value : null,
+                ForceJump = jump.Success && jump.Groups["force"].Success,
                 Duration = duration.Success ? F(duration.Groups["d"].Value) : 0,
             });
         }
+
+        foreach (var e in events)
+            if (e.JumpLabel != null && labels.TryGetValue(e.JumpLabel, out var at)) e.Jump = at;
 
         // Hidden: explicit hideall, plus cactbot's "--x--" helper lines.
         var counts = new Dictionary<string, int>();
