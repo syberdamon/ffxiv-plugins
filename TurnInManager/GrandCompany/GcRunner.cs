@@ -107,6 +107,7 @@ public sealed unsafe class GcRunner : IDisposable
         var buyOnly = mode == GcMode.BuyOnly;
         if (Blocker() is { } why) { Notify(why); return; }
         gc = GcData.Current()!;
+        lock (RunLog) RunLog.Clear();
         Delivered = 0; SealsEarned = 0; Bought.Clear();
         probing = false; refreshAfterDelivery = false;
         spendAfterDeliveries = config.SpendAtEnd;
@@ -222,10 +223,22 @@ public sealed unsafe class GcRunner : IDisposable
         var dialog = GameUi.Get("MateriaRetrieveDialog");
         if (dialog != null)
         {
-            GameUi.Fire(dialog, 0);
+            // Click "Begin" (button node 17), the way YesAlready / ECommons do; a callback doesn't start it.
+            var begin = dialog->GetComponentButtonById(17);
+            if (begin == null || !begin->IsEnabled)
+            {
+                if (++tries > 10) { GameUi.Dump("MateriaRetrieveDialog"); Fail($"The retrieve dialog for {item.Name} has no usable Begin button (dump saved)."); }
+                nextAction = DateTime.UtcNow.AddSeconds(0.5);
+                return;
+            }
+            Log($"  Begin ({GcData.MateriaCount(item.Container, item.Slot)} materia left)");
+            GameUi.ClickButton(dialog, begin);
+            tries = 0;
+            phaseStarted = DateTime.UtcNow;
             nextAction = DateTime.UtcNow.AddSeconds(3);   // retrieval animation
             return;
         }
+        if (Plugin.Condition[ConditionFlag.Occupied39] || Plugin.Condition[ConditionFlag.Occupied]) { nextAction = DateTime.UtcNow.AddSeconds(0.5); return; }
 
         // Context menu: pick "Retrieve Materia".
         var menu = GameUi.Get("ContextMenu");
@@ -234,22 +247,33 @@ public sealed unsafe class GcRunner : IDisposable
             var index = -1;
             for (var i = 7; i < menu->AtkValuesCount; i++)
                 if (GameUi.Str(menu, i).Contains("Retrieve Materia", StringComparison.OrdinalIgnoreCase)) { index = i - 8; break; }
-            if (index < 0) { GameUi.Dump("ContextMenu"); Fail($"No 'Retrieve Materia' in the menu for {item.Name}."); return; }
-            GameUi.Fire(menu, 0, index, 0, 0);
+            if (index < 0) { GameUi.Dump("ContextMenu"); Fail($"No 'Retrieve Materia' in the menu for {item.Name} (dump saved)."); return; }
+            Log($"  menu: Retrieve Materia (entry {index})");
+            GameUi.Fire(menu, 0, index, 0);
             nextAction = DateTime.UtcNow.AddSeconds(1.2);
             return;
         }
 
         // Open the item's context menu.
         if (++tries > 20) { Fail($"Couldn't open the menu for {item.Name}."); return; }
-        var ownerId = InventoryAddonId();
+        var ownerId = InventoryAddonId(item.Container);
+        Log($"  open menu for {item.Container}/{item.Slot} (owner window {ownerId}, try {tries})");
         AgentInventoryContext.Instance()->OpenForItemSlot(item.Container, item.Slot, 0, ownerId);
         nextAction = DateTime.UtcNow.AddSeconds(1);
     }
 
-    private static uint InventoryAddonId()
+    private static uint InventoryAddonId(InventoryType container)
     {
         var mgr = RaptureAtkUnitManager.Instance();
+        if (container.ToString().StartsWith("Armory"))
+        {
+            // Armoury items: the menu belongs to the Armoury Chest window; open it if needed.
+            var ab = mgr->GetAddonByName("ArmouryBoard");
+            if (ab != null && ab->IsVisible) return ab->Id;
+            AgentModule.Instance()->GetAgentByInternalId(AgentId.ArmouryBoard)->Show();
+            ab = mgr->GetAddonByName("ArmouryBoard");
+            return ab != null ? (uint)ab->Id : 0u;
+        }
         foreach (var name in new[] { "Inventory", "InventoryLarge", "InventoryExpansion" })
         {
             var a = mgr->GetAddonByName(name);
@@ -741,6 +765,8 @@ public sealed unsafe class GcRunner : IDisposable
         var msg = $"Done: delivered {Delivered} item(s) for {SealsEarned} seals" +
                   (Bought.Count > 0 ? $"; bought {string.Join(", ", Bought)}" : "") + $". Seals {GcData.Seals()}/{GcData.SealCap()}.";
         Notify(msg);
+        Log(msg);
+        SaveRunLog(false);
         Set(GcPhase.Done, msg);
         tidyUntil = DateTime.UtcNow.AddSeconds(4);
         nextAction = DateTime.UtcNow.AddSeconds(0.5);
@@ -758,6 +784,9 @@ public sealed unsafe class GcRunner : IDisposable
         vnav.Stop();
         Notify(why);
         Log("STOP: " + why);
+        foreach (var name in new[] { "ContextMenu", "MateriaRetrieveDialog", "SelectYesno", "GrandCompanyExchange", "ShopExchangeCurrencyDialog", "GrandCompanySupplyReward" })
+            if (GameUi.IsOpen(name)) GameUi.Dump(name, "open when the run stopped: " + why);
+        SaveRunLog(true);
         Set(GcPhase.Idle, why);
         pending = null;
         awaitingPurchase = false;
@@ -765,5 +794,26 @@ public sealed unsafe class GcRunner : IDisposable
     }
 
     private static void Notify(string msg) => Plugin.ChatGui.Print($"[TurnIn] {msg}");
-    private static void Log(string msg) => Plugin.Log.Info($"[TurnIn] {msg}");
+    // Every run's log lines, written to dumps/<time>_run.txt when the run ends, so a failure can be
+    // reviewed without the Dalamud log.
+    private static readonly List<string> RunLog = new();
+
+    private static void Log(string msg)
+    {
+        Plugin.Log.Info($"[TurnIn] {msg}");
+        lock (RunLog) RunLog.Add($"{DateTime.Now:HH:mm:ss.f} {msg}");
+    }
+
+    private static void SaveRunLog(bool failed)
+    {
+        try
+        {
+            string text;
+            lock (RunLog) { text = string.Join(Environment.NewLine, RunLog); RunLog.Clear(); }
+            var dir = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "dumps");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"{DateTime.Now:yyyyMMdd_HHmmss}_run{(failed ? "_FAILED" : "")}.txt"), text);
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write run log"); }
+    }
 }
