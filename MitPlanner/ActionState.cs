@@ -47,6 +47,20 @@ public static unsafe class ActionState
         return new AbilityStatus(remaining, charges, max, onCooldown, usable);
     }
 
+    /// <summary>
+    /// Seconds since the ability was last used (its recast timer started), or +inf if it isn't
+    /// recasting. Counts presses by you or anything else. [Assumption] for charge abilities the
+    /// timer covers all charges, so this is approximate.
+    /// </summary>
+    public static float SecondsSinceUse(uint baseActionId)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return float.PositiveInfinity;
+        var id = am->GetAdjustedActionId(baseActionId);
+        if (!am->IsRecastTimerActive(ActionType.Action, id)) return float.PositiveInfinity;
+        return am->GetRecastTimeElapsed(ActionType.Action, id);
+    }
+
     /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
     public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
 

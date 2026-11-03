@@ -1,3 +1,4 @@
+using System;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -29,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
     public PlanTracker Tracker { get; }
     public Targeting Targeting { get; }
     public BusterGuard Guard { get; }
+    public TrashMode Trash { get; }
 
     /// <summary>Show the callout window's background so it can be dragged into place.</summary>
     public bool ShowCalloutPlacement { get; set; }
@@ -44,6 +46,7 @@ public sealed class Plugin : IDalamudPlugin
         Targeting = new Targeting(Runner, Configuration);
         Tracker = new PlanTracker(Configuration, Runner, Targeting);
         Guard = new BusterGuard(Configuration, Runner, Targeting, Tracker);
+        Trash = new TrashMode(Configuration, Runner);
 
         configWindow = new ConfigWindow(this);
         windowSystem.AddWindow(configWindow);
@@ -66,6 +69,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfig;
         windowSystem.RemoveAllWindows();
+        Trash.Dispose();
         Guard.Dispose();
         Tracker.Dispose();
         Targeting.Dispose();
@@ -77,6 +81,12 @@ public sealed class Plugin : IDalamudPlugin
     {
         switch (args.Trim().ToLowerInvariant())
         {
+            case "trash on":
+            case "trash off":
+                Configuration.Trash.Enabled = args.Trim().EndsWith("on", StringComparison.OrdinalIgnoreCase);
+                Configuration.Save();
+                ChatGui.Print($"[MitPlanner] Trash mode {(Configuration.Trash.Enabled ? "on" : "off")}.");
+                return;
             case "preview":
                 if (Runner.Fight != null) Runner.StartPreview(Runner.Fight);
                 else ChatGui.Print("[MitPlanner] No timeline for this zone. Pick a fight under Display > Preview in /mitplan.");

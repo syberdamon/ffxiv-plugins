@@ -28,6 +28,7 @@ public sealed class ConfigWindow : Window
     {
         if (!ImGui.BeginTabBar("##mptabs")) return;
         if (ImGui.BeginTabItem("Plan")) { DrawPlan(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Trash mode")) { DrawTrash(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Display")) { DrawDisplay(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Status")) { DrawStatus(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
@@ -381,6 +382,59 @@ public sealed class ConfigWindow : Window
             ImGui.TextDisabled("Runs the clock from 0 anywhere, no syncing, no auto-use.");
         }
         else if (ImGui.Button("Stop preview")) plugin.Runner.Stop();
+    }
+
+    // ================================================================ Trash mode
+
+    private void DrawTrash()
+    {
+        var t = Config.Trash;
+        var changed = false;
+        ImGui.TextWrapped("Automatic tank mitigation for dungeon trash pulls (rules: docs/DUNGEON_MIT_RULES.md). " +
+                          "Presses cooldowns only when 'Allow auto-use' (Display tab) is on; otherwise it calls them out.");
+        ImGui.TextColored(Config.AllowAutoUse ? Style.Ok : Style.Warning,
+            Config.AllowAutoUse ? "Auto-use is ON: Trash mode will press mits." : "Auto-use is OFF: callouts only.");
+        ImGui.TextDisabled($"Now: {plugin.Trash.Summary}");
+        ImGui.Separator();
+
+        bool B(string label, bool v, out bool nv) { nv = v; var c = ImGui.Checkbox(label, ref nv); changed |= c; return nv; }
+        float F(string label, float v, float min, float max, string fmt) { var x = v; ImGui.SetNextItemWidth(160); if (ImGui.DragFloat(label, ref x, 0.1f, min, max, fmt)) { changed = true; return Math.Clamp(x, min, max); } return v; }
+        int I(string label, int v, int min, int max) { var x = v; ImGui.SetNextItemWidth(160); if (ImGui.DragInt(label, ref x, 0.1f, min, max)) { changed = true; return Math.Clamp(x, min, max); } return v; }
+
+        t.Enabled = B("Enabled (dungeons only, tank jobs only)", t.Enabled, out _);
+        t.Log = B("Write a run log for tuning", t.Log, out _);
+        ImGui.SameLine();
+        ImGui.TextDisabled(plugin.Trash.Log.CurrentFile is { } f ? System.IO.Path.GetFileName(f) : plugin.Trash.Log.Folder);
+
+        if (ImGui.CollapsingHeader("When a pull counts as set", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            t.MinMobs = I("Mobs on you", t.MinMobs, 1, 15);
+            t.StationarySeconds = F("Standing still for (s)", t.StationarySeconds, 0, 5, "%.1f");
+            t.GatherRadius = F("Mobs gathered within (y)", t.GatherRadius, 1, 15, "%.1f");
+            t.GatherShare = F("Share of mobs gathered", t.GatherShare, 0, 1, "%.2f");
+            t.MovingHpPercent = F("Act anyway below HP % (while moving/gathering)", t.MovingHpPercent, 0, 100, "%.0f");
+        }
+        if (ImGui.CollapsingHeader("Rotation", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            t.HeavyMinPullSeconds = F("40% only if the pull lasts another (s)", t.HeavyMinPullSeconds, 0, 60, "%.0f");
+            t.GapMinPullSeconds = F("Refill an expired big mit if the pull lasts another (s)", t.GapMinPullSeconds, 0, 60, "%.0f");
+            t.WindDownSeconds = F("No new big mits under (s) of pull left", t.WindDownSeconds, 0, 30, "%.0f");
+            t.BigPullMobs = I("40% goes first at this many mobs", t.BigPullMobs, 2, 20);
+            t.EscalateHpPercent = F("Escalate below HP %", t.EscalateHpPercent, 0, 100, "%.0f");
+            t.HealHpPercent = F("Heal below HP %", t.HealHpPercent, 0, 100, "%.0f");
+            t.PartyMitsAsHeals = B("Use party mits as heals (Shake It Off, Divine Veil, ...)", t.PartyMitsAsHeals, out _);
+            t.WarRampartAfterBloodwhettingHp = F("WAR: Rampart waits for Bloodwhetting unless HP below %", t.WarRampartAfterBloodwhettingHp, 0, 100, "%.0f");
+        }
+        if (ImGui.CollapsingHeader("Emergency and invulns", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            t.EmergencyHpPercent = F("Emergency below HP %", t.EmergencyHpPercent, 0, 100, "%.0f");
+            t.InvulnLethalSeconds = F("Invuln if this many seconds of incoming damage would kill (no major mit up/ready)", t.InvulnLethalSeconds, 0.5f, 6, "%.1f");
+            t.InvulnPaladin = B("Paladin: Hallowed Ground", t.InvulnPaladin, out _);
+            t.InvulnWarrior = B("Warrior: Holmgang", t.InvulnWarrior, out _);
+            t.InvulnDarkKnight = B("Dark Knight: Living Dead (needs heals after)", t.InvulnDarkKnight, out _);
+            t.InvulnGunbreaker = B("Gunbreaker: Superbolide (drops you to 1 HP)", t.InvulnGunbreaker, out _);
+        }
+        if (changed) Config.Save();
     }
 
     // ================================================================ Status
