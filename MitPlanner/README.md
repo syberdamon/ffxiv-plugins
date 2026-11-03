@@ -37,7 +37,8 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 - **Columns:** in both the Plan table and the timeline window, drag a column
   edge to resize and a header to reorder (timeline: right-click a header to
   hide a column). ImGui remembers the layout.
-- **Picking a fight:** the Plan tab's fight dropdown has a search box (name,
+- **Picking a fight:** the Plan tab selects the duty you're in whenever you enter one with a
+  timeline. The fight dropdown has a search box (name,
   category such as "DT Raid" or "EW Trial", or zone ID). Newest expansion first.
 - **Adding cooldowns:** the "+ Add cooldown" list has a search box and can be
   sorted by cooldown length or A-Z (remembered).
@@ -125,6 +126,13 @@ Three layers, later ones win:
    cactbot's trigger for that ability calls it out as a tank buster, raid-wide,
    stack, or a movement mechanic (spread, knockback, get out/in...). About 280
    of the 310 fights get at least one tag this way.
+   Also matched **by ability name** (via game data): cactbot often triggers on the cast
+   while the timeline syncs on the damage, which are different action IDs with the same name.
+   **Head-marker mechanics** (the tank-buster icon over a tank, used by most newer fights)
+   can't be tied to a timeline line ahead of time. The plugin learns them in game: when an
+   enemy ability hits someone who had cactbot's tank-buster (or stack) marker, that line is
+   tagged and a chat line says so ("Learned: X = tank buster"). Learned tags sit below your
+   own edits; change any of them in the Plan tab. They also make "if targeted" conditions work.
 2. **Curated list** (`MitPlanner/CuratedFights.cs`): hand-checked tags and head
    markers. Currently The Cinder Drift, Castrum Marinum and The Cloud Deck.
 3. **Your edits** in the Plan tab's type column.

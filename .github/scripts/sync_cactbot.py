@@ -65,19 +65,55 @@ def ids_in(block):
 def trigger_tags(ts):
     """ability-id regex -> mechanic type, from Ability/StartsUsing triggers."""
     tags = []
+    for raw, kind in trigger_ids(ts):
+        try:
+            tags.append((re.compile(f"^(?:{raw})$", re.I), kind))
+        except re.error:
+            pass
+    return tags
+
+
+def trigger_ids(ts):
+    """(raw id, kind) for every Ability/StartsUsing(Extra) trigger with a recognised response."""
+    out = []
     for block in trigger_blocks(ts):
         t = re.search(r"\btype:\s*'(\w+)'", block)
-        if not t or t.group(1) not in ("StartsUsing", "Ability"):
+        if not t or t.group(1) not in ("StartsUsing", "StartsUsingExtra", "Ability"):
             continue
         kind = next((name for name, rx in RESPONSE_TYPES if re.search(rx, block)), None)
-        if not kind:
+        if kind:
+            out.extend((raw, kind) for raw in ids_in(block))
+    return out
+
+
+def head_marker_kinds(ts):
+    """
+    Head-marker id -> mechanic type, for HeadMarker triggers with a recognised response.
+    Ids are literal ('0158') or looked up in the file's marker table (headMarkerData['tankbuster']).
+    Fights that compute offset marker ids (getHeadmarkerId / decOffset) are skipped.
+    """
+    table = {}
+    for m in re.finditer(r"^const (\w+) = \{(.*?)^\}", ts, flags=re.M | re.S):
+        for k, v in re.findall(r"'?(\w+)'?:\s*'([0-9A-Fa-f]{4})'", m.group(2)):
+            table[(m.group(1), k)] = v.upper()
+    out = {}
+    for block in trigger_blocks(ts):
+        t = re.search(r"\btype:\s*'(\w+)'", block)
+        if not t or t.group(1) != "HeadMarker":
             continue
-        for raw in ids_in(block):
-            try:
-                tags.append((re.compile(f"^(?:{raw})$", re.I), kind))
-            except re.error:
-                pass
-    return tags
+        kind = next((name for name, rx in RESPONSE_TYPES if re.search(rx, block)), None)
+        if kind not in ("TankBuster", "Stack", "Raidwide"):
+            continue
+        net = re.search(r"netRegex:\s*\{(.*?)\}", block, flags=re.S)
+        if not net:
+            continue
+        ids = re.findall(r"\bid:\s*'([0-9A-Fa-f]{4})'", net.group(1))
+        ids += [table[(a, k)] for a, k in re.findall(r"\bid:\s*(\w+)\[\s*'(\w+)'\s*\]", net.group(1)) if (a, k) in table]
+        ids += [table[(a, k)] for a, k in re.findall(r"\bid:\s*(\w+)\.(\w+)", net.group(1)) if (a, k) in table]
+        for i in ids:
+            if i.upper() not in out or PRIORITY[kind] < PRIORITY[out[i.upper()]]:
+                out[i.upper()] = kind
+    return out
 
 
 LINE_RX = re.compile(r'^\s*(\d+(?:\.\d+)?)\s+"([^"]*)"(.*)$')
@@ -133,6 +169,14 @@ def main():
         txt = txt_path.read_text(encoding="utf-8", errors="strict")
         rel = txt_path.relative_to(DATA).with_suffix("")
         tags = timeline_tags(txt, trigger_tags(ts))
+        # Plain hex ids by kind: the plugin also matches these by ability NAME (via game data),
+        # since triggers often fire on the cast id while the timeline syncs on the damage id.
+        by_kind = {}
+        for raw, kind in trigger_ids(ts):
+            if re.fullmatch(r"[0-9A-Fa-f]{1,5}", raw):
+                by_kind.setdefault(kind, set()).add(raw.upper())
+        triggers = {k: sorted(v) for k, v in sorted(by_kind.items())}
+        markers = dict(sorted(head_marker_kinds(ts).items()))
         for key in keys:
             territory = zones.get(key)
             if not territory or territory in fights:
@@ -143,6 +187,8 @@ def main():
                 "path": rel.as_posix(),
                 "category": category(rel),
                 "tags": dict(sorted(tags.items())),
+                "triggerIds": triggers,
+                "headMarkers": markers,
                 "_text": txt,
             }
 

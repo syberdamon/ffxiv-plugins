@@ -11,6 +11,7 @@ public sealed class ConfigWindow : Window
 {
     private readonly Plugin plugin;
     private int fightIndex = -1;
+    private uint lastAutoTerritory;
     private string? transferMessage;
     private string abilitySearch = "";
     private string fightSearch = "";
@@ -41,10 +42,14 @@ public sealed class ConfigWindow : Window
         if (Fights.All.Count == 0) { ImGui.TextUnformatted("No fight timelines loaded (see /xllog)."); return; }
 
         // Fight picker: defaults to the fight you're in.
-        if (fightIndex < 0)
+        // Follow the duty you're in: whenever you enter a zone with a timeline, select it.
+        var here = plugin.Runner.Preview ? null : plugin.Runner.Fight;
+        var hereTerritory = here?.TerritoryId ?? 0;
+        if (fightIndex < 0 || hereTerritory != lastAutoTerritory)
         {
-            var here = plugin.Runner.Fight;
-            fightIndex = here != null ? Math.Max(0, Fights.All.ToList().IndexOf(here)) : 0;
+            lastAutoTerritory = hereTerritory;
+            if (here != null) fightIndex = Math.Max(0, Fights.All.ToList().IndexOf(here));
+            else if (fightIndex < 0) fightIndex = 0;
         }
         // Fight picker with a search box (matches name, category like "DT Raid", or zone ID).
         ImGui.SetNextItemWidth(340);

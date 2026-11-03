@@ -43,6 +43,9 @@ public sealed unsafe class TimelineRunner : IDisposable
     /// <summary>Raised when a sync sends the clock backwards (fight loops); arg = new time.</summary>
     public event Action<float>? JumpedBack;
 
+    /// <summary>An enemy ability resolved: (action id, entity ids it hit). Used to learn head-marker tags.</summary>
+    public event Action<uint, uint[]>? AbilityResolved;
+
     public TimelineRunner()
     {
         try
@@ -176,6 +179,12 @@ public sealed unsafe class TimelineRunner : IDisposable
             if (Timeline == null || !Running || Preview || header == null) return;
             if (Plugin.ObjectTable.SearchByEntityId(casterEntityId) is not { ObjectKind: ObjectKind.BattleNpc }) return;
             TrySync(header->ActionId, SyncKind.Ability, casterEntityId);
+            if (AbilityResolved != null && targetEntityIds != null)
+            {
+                var hit = new uint[header->NumTargets];
+                for (var i = 0; i < hit.Length; i++) hit[i] = targetEntityIds[i].ObjectId;
+                AbilityResolved(header->ActionId, hit);
+            }
         }
         catch (Exception ex)
         {
@@ -226,6 +235,18 @@ public sealed unsafe class TimelineRunner : IDisposable
         return Timeline.Events
             .Where(e => !e.Hidden && e.Time >= now - 1 && (filter == null || filter(e)))
             .Take(count);
+    }
+
+    /// <summary>The visible timeline line for this ability nearest the current clock (within 15 s).</summary>
+    public TimelineEvent? EventForAbility(uint actionId)
+    {
+        if (Timeline == null || !Running) return null;
+        var id = actionId.ToString("X");
+        var now = Now;
+        return Timeline.Events
+            .Where(e => !e.Hidden && e.IdPattern != null && e.IdPattern.IsMatch(id) && Math.Abs(e.Time - now) <= 15)
+            .OrderBy(e => Math.Abs(e.Time - now))
+            .FirstOrDefault();
     }
 
     public TimelineEvent? FindByKey(string key) => Timeline?.Events.FirstOrDefault(e => e.Key == key);
