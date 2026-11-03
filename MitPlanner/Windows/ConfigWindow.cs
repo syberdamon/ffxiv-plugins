@@ -427,6 +427,8 @@ public sealed class ConfigWindow : Window
             t.WarBloodwhettingOnly = B("WAR: short heal only (Raw Intuition / Bloodwhetting carries pulls)", t.WarBloodwhettingOnly, out _);
             t.WarShortHealLevel = I("  ...from level (its heal-on-hit unlocked)", t.WarShortHealLevel, 1, 100);
             t.WarOtherMitsBelowHpPct = F("  ...other mits only after it wears off and HP below %", t.WarOtherMitsBelowHpPct, 0, 100, "%.0f");
+            t.WarChainMinMobs = I("  ...but chain the next mit as it wears off with this many mobs", t.WarChainMinMobs, 1, 20);
+            t.WarChainMinPullSeconds = F("  ...and this much pull left (s)", t.WarChainMinPullSeconds, 0, 60, "%.0f");
         }
         if (ImGui.CollapsingHeader("Emergency and invulns", ImGuiTreeNodeFlags.DefaultOpen))
         {

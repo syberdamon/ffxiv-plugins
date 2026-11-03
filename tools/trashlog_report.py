@@ -76,8 +76,9 @@ def report(path):
         if after and all(num(s["f"].get("hp"), 0) >= 90 and num(s["f"].get("dmg"), 0) < 3 for s in after):
             flags.append(("UNNEEDED", p["t"], f"{name} ({p['f'].get('reason', '')}): HP stayed >= 90%, damage < 3%/s"))
         if name in BIG:
-            up = p["f"].get("up", "[]").strip("[]").split(",")
-            if any(u in BIG for u in up if u):
+            # "up" is captured just after the press, so it can include the action itself.
+            up = [u for u in p["f"].get("up", "[]").strip("[]").split(",") if u and u != name]
+            if any(u in BIG for u in up):
                 flags.append(("OVERLAP", p["t"], f"{name} while {p['f'].get('up')} was up"))
             end = next((r for r in rows if r["ev"] == "END" and r["t"] >= p["t"]), None)
             if end and (end["t"] - p["t"]).total_seconds() < 5:
@@ -104,7 +105,7 @@ def report(path):
     for r in rows:
         if r["ev"] == "SKIP":
             key = r["raw"].split("\t")[2] if len(r["raw"].split("\t")) > 2 else "?"
-            key = re.sub(r"\(HP .*?\)", "", key).strip()
+            key = re.sub(r"\d+(\.\d+)?%", "N%", re.sub(r"\(HP .*?\)", "", key)).strip()
             skips[key] = skips.get(key, 0) + 1
 
     out.append(f"\n**Flags ({len(flags)})**")

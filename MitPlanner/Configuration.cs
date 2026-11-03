@@ -185,6 +185,10 @@ public class TrashSettings
     public bool WarBloodwhettingOnly { get; set; } = true;
     public int WarShortHealLevel { get; set; } = 56;       // [Verify] Raw Intuition (56) heals on hit
     public float WarOtherMitsBelowHpPct { get; set; } = 70f;
+    /// <summary>WAR: when Bloodwhetting falls off and is still recasting, chain the next mit at once on pulls this big...</summary>
+    public int WarChainMinMobs { get; set; } = 4;
+    /// <summary>...that last at least this much longer (s).</summary>
+    public float WarChainMinPullSeconds { get; set; } = 10f;
 
     // ---- emergency / invuln
     public float EmergencyHpPercent { get; set; } = 35f;

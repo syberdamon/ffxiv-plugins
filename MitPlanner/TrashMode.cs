@@ -62,6 +62,7 @@ public sealed class TrashMode : IDisposable
     private readonly Queue<(DateTime At, double MobHp, int Count)> mobSamples = new();
     private readonly Dictionary<string, DateTime> skipLogged = new();
     private readonly Dictionary<uint, bool> wasOnCooldown = new();
+    private readonly Dictionary<uint, DateTime> ownPress = new();
     private HashSet<uint>? stunIds;
 
     private DateTime nextTick = DateTime.MinValue;
@@ -249,7 +250,12 @@ public sealed class TrashMode : IDisposable
         // WAR: Raw Intuition / Bloodwhetting heal on hit and usually cap HP on AoE pulls, so
         // nothing else goes out while it's up, or while HP is still high after it falls off.
         // (Emergency and invuln rules are separate.)
-        if (kit.Job == "Warrior" && S.WarBloodwhettingOnly && me.Level >= S.WarShortHealLevel &&
+        // Exception (from the first Mistwake logs): once it falls off and is still recasting, a long
+        // pull (enough mobs, enough time left) drops HP ~2%/s net until it's back, so the next mit
+        // chains in right away instead of waiting for the HP threshold.
+        var chainGap = !Active(kit.Short) && !Ready(kit.Short) && sig.MobsOnMe >= S.WarChainMinMobs &&
+                       PullLasts(S.WarChainMinPullSeconds);
+        if (kit.Job == "Warrior" && S.WarBloodwhettingOnly && me.Level >= S.WarShortHealLevel && !chainGap &&
             (Active(kit.Short) || hp >= S.WarOtherMitsBelowHpPct))
         {
             Skip("bwonly", Active(kit.Short)
@@ -319,6 +325,7 @@ public sealed class TrashMode : IDisposable
         {
             ActionState.Use(id);
             lastPress = now;
+            ownPress[id] = now;
             pullPresses++;
             wasOnCooldown[id] = true; // don't log it again as "someone else used it"
             log.Write("PRESS", $"{name}\tlayer={layer}\treason={reason}\t{Describe(me, kit, sig)}");
@@ -351,7 +358,8 @@ public sealed class TrashMode : IDisposable
         {
             if (id == 0) continue;
             var on = ActionState.SecondsSinceUse(id) < 1.5f;
-            if (on && !wasOnCooldown.GetValueOrDefault(id))
+            var ours = ownPress.TryGetValue(id, out var at) && (DateTime.UtcNow - at).TotalSeconds < 3;
+            if (on && !wasOnCooldown.GetValueOrDefault(id) && !ours)
                 log.Write("USED", $"{ActionCatalog.Find(id)?.Name ?? id.ToString()}\tby=you/other\thp={sig.HpPct:0}%\tmobs={sig.MobsOnMe}");
             wasOnCooldown[id] = on;
         }
