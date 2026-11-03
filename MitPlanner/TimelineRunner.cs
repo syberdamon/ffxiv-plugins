@@ -231,13 +231,12 @@ public sealed unsafe class TimelineRunner : IDisposable
     /// [Assumption] param1 of 0x7DC / 0x7DE is a PlaceName id. If the name can't be resolved, the
     /// first not-yet-used line with that message id wins (bosses go in order).
     /// </summary>
-    private void OnChatMessage(Dalamud.Game.Text.XivChatType type, int timestamp,
-        ref Dalamud.Game.Text.SeStringHandling.SeString sender, ref Dalamud.Game.Text.SeStringHandling.SeString message, ref bool isHandled)
+    private void OnChatMessage(Dalamud.Game.Chat.IHandleableChatMessage chat)
     {
         try
         {
             if (Timeline == null || Preview) return;
-            var text = message.TextValue;
+            var text = chat.Message.TextValue;
             if (text.Length == 0) return;
             var now = Running ? Now : 0;
 
