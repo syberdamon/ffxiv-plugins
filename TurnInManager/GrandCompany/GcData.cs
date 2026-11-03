@@ -41,13 +41,7 @@ public static unsafe class GcData
     {
         var ps = PlayerState.Instance();
         if (ps == null) return 0;
-        return ps->GrandCompany switch
-        {
-            1 => ps->GCRankMaelstrom,
-            2 => ps->GCRankTwinAdders,
-            3 => ps->GCRankImmortalFlames,
-            _ => 0,
-        };
+        return ps->GrandCompany == 0 ? 0 : ps->GetGrandCompanyRank();
     }
 
     public static int Seals()
