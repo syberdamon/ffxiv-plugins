@@ -108,6 +108,7 @@ public sealed unsafe class GcRunner : IDisposable
         if (Blocker() is { } why) { Notify(why); return; }
         gc = GcData.Current()!;
         Delivered = 0; SealsEarned = 0; Bought.Clear();
+        rowOffset = 0; corrections = 0;
         spendAfterDeliveries = config.SpendAtEnd;
 
         var candidates = GcData.Scan(config).Where(c => c.Allowed).ToList();
@@ -405,11 +406,26 @@ public sealed unsafe class GcRunner : IDisposable
             // Safety: only deliver if the confirmation names the item we meant.
             if (pending is { } want && !GameUi.Texts((AtkUnitBase*)reward).Any(t => t.Contains(want.Name, StringComparison.OrdinalIgnoreCase)))
             {
-                GameUi.Dump("GrandCompanySupplyReward", $"expected: {want.Name}");
+                // Wrong row. The window names the item that IS at that row: use it to calibrate the
+                // offset between our row estimate and the list as shown, cancel, and retry.
+                var shown = GameUi.Str((AtkUnitBase*)reward, 4);
                 ((AtkUnitBase*)reward)->FireCallbackInt(-1);
-                Fail($"The delivery window shows a different item than {want.Name}; cancelled (dump saved).");
+                var list0 = GameUi.Get("GrandCompanySupplyList");
+                var posShown = list0 == null ? -1 : NamePosition(list0, AgentGrandCompanySupply.Instance(), shown);
+                if (posShown >= 0 && ++corrections <= 3)
+                {
+                    rowOffset = lastRow - posShown;
+                    Log($"  row {lastRow} held {shown}, not {want.Name}; row offset now {rowOffset}, retrying");
+                    pending = null;
+                    nextAction = DateTime.UtcNow.AddSeconds(1);
+                    return;
+                }
+                GameUi.Dump("GrandCompanySupplyReward", $"expected: {want.Name}");
+                if (list0 != null) GameUi.Dump("GrandCompanySupplyList", AgentDump(AgentGrandCompanySupply.Instance(), want));
+                Fail($"The delivery window shows {shown}, not {want.Name}; cancelled (dumps saved).");
                 return;
             }
+            corrections = 0;
             GameUi.ClickButton((AtkUnitBase*)reward, reward->DeliverButton);
             nextAction = DateTime.UtcNow.AddSeconds(0.8);
             return;
@@ -482,7 +498,10 @@ public sealed unsafe class GcRunner : IDisposable
 
         var (row, how) = FindRow(list, agent, next.Value);
         if (row < 0) { GameUi.Dump("GrandCompanySupplyList", AgentDump(agent, next.Value)); Fail($"Couldn't find {next.Value.Name}'s row in the delivery list (dump saved)."); return; }
-        Log($"  {next.Value.Name}: row {row} ({how})");
+        if (how == "name") row += rowOffset;
+        if (row < 0) row = 0;
+        lastRow = row;
+        Log($"  {next.Value.Name}: row {row} ({how}{(how == "name" && rowOffset != 0 ? $", offset {rowOffset}" : "")})");
 
         Status = $"Delivering {next.Value.Name} (+{reward2} seals)...";
         pending = next;
@@ -517,12 +536,9 @@ public sealed unsafe class GcRunner : IDisposable
             var s = GameUi.Str(list, i);
             if (s.Length > 0 && names.Contains(s)) block.Add((i, s));
         }
-        if (block.Count > 0)
-        {
-            var first = block[0].Index;
-            var hit = block.FirstOrDefault(b => b.Name.Equals(want.Name, StringComparison.OrdinalIgnoreCase));
-            if (hit.Name != null) return (hit.Index - first, "name");
-        }
+        // Rows are counted among the item names (other texts per row, like "Armoury Chest", are skipped).
+        var pos = block.FindIndex(b => b.Name.Equals(want.Name, StringComparison.OrdinalIgnoreCase));
+        if (pos >= 0) return (pos, "name");
 
         for (var i = 0; i < agent->NumItems; i++)
         {
@@ -531,6 +547,25 @@ public sealed unsafe class GcRunner : IDisposable
         }
         return (-1, "");
     }
+
+    /// <summary>Position of a name among the list's item-name strings (display order), or -1.</summary>
+    private static int NamePosition(AtkUnitBase* list, AgentGrandCompanySupply* agent, string name)
+    {
+        if (string.IsNullOrEmpty(name)) return -1;
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < agent->NumItems; i++) names.Add(agent->ItemArray[i].ItemName.ToString());
+        var pos = 0;
+        for (var i = 0; i < list->AtkValuesCount; i++)
+        {
+            var s = GameUi.Str(list, i);
+            if (s.Length == 0 || !names.Contains(s)) continue;
+            if (s.Equals(name, StringComparison.OrdinalIgnoreCase)) return pos;
+            pos++;
+        }
+        return -1;
+    }
+
+    private int rowOffset, lastRow, corrections;
 
     private static string AgentDump(AgentGrandCompanySupply* agent, GrandCompanyItemKey want)
     {
