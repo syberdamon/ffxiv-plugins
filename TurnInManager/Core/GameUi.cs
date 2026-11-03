@@ -131,17 +131,56 @@ public static unsafe class GameUi
         return ptr == 0 ? "" : MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue;
     }
 
-    /// <summary>Write an addon's values to the log (for fixing a wrong layout guess).</summary>
-    public static void Dump(string name)
+    /// <summary>
+    /// Write an addon's values and texts to /xllog and to a file in the plugin's folder
+    /// (pluginConfigs/TurnInManager/dumps/), so a wrong layout guess can be fixed from it.
+    /// </summary>
+    public static void Dump(string name, string? extra = null)
     {
+        var sb = new System.Text.StringBuilder();
         var a = Get(name);
-        if (a == null) { Plugin.Log.Info($"[dump] {name} not open"); return; }
-        Plugin.Log.Info($"[dump] {name}: {a->AtkValuesCount} values");
-        for (var i = 0; i < a->AtkValuesCount; i++)
+        if (a == null) sb.AppendLine($"{name} not open");
+        else
         {
-            var v = &a->AtkValues[i];
-            var text = v->Type.ToString().Contains("String") ? Str(a, i) : v->Int.ToString();
-            Plugin.Log.Info($"[dump]   {i,3} {v->Type,-14} {text}");
+            sb.AppendLine($"{name}: {a->AtkValuesCount} values");
+            for (var i = 0; i < a->AtkValuesCount; i++)
+            {
+                var v = &a->AtkValues[i];
+                var text = v->Type.ToString().Contains("String") ? Str(a, i) : $"{v->Int} (u {v->UInt})";
+                sb.AppendLine($"  {i,3} {v->Type,-14} {text}");
+            }
+            sb.AppendLine("text nodes:");
+            foreach (var t in Texts(a)) sb.AppendLine($"  {t}");
         }
+        if (extra != null) sb.AppendLine(extra);
+        Plugin.Log.Info($"[dump] {sb}");
+        try
+        {
+            var dir = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "dumps");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"{DateTime.Now:yyyyMMdd_HHmmss}_{name}.txt"), sb.ToString());
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write dump file"); }
+    }
+
+    /// <summary>Every text shown in a window: its string values and its text nodes.</summary>
+    public static List<string> Texts(AtkUnitBase* addon)
+    {
+        var list = new List<string>();
+        for (var i = 0; i < addon->AtkValuesCount; i++)
+        {
+            var s = Str(addon, i);
+            if (s.Length > 0) list.Add(s);
+        }
+        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
+        {
+            var node = addon->UldManager.NodeList[i];
+            if (node == null || node->Type != NodeType.Text) continue;
+            var ptr = *(nint*)&((AtkTextNode*)node)->NodeText;
+            if (ptr == 0) continue;
+            var s = MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue;
+            if (s.Length > 0) list.Add(s);
+        }
+        return list;
     }
 }

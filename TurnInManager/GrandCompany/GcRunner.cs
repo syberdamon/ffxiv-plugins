@@ -402,6 +402,14 @@ public sealed unsafe class GcRunner : IDisposable
         var reward = (AddonGrandCompanySupplyReward*)GameUi.Get("GrandCompanySupplyReward");
         if (reward != null)
         {
+            // Safety: only deliver if the confirmation names the item we meant.
+            if (pending is { } want && !GameUi.Texts((AtkUnitBase*)reward).Any(t => t.Contains(want.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                GameUi.Dump("GrandCompanySupplyReward", $"expected: {want.Name}");
+                ((AtkUnitBase*)reward)->FireCallbackInt(-1);
+                Fail($"The delivery window shows a different item than {want.Name}; cancelled (dump saved).");
+                return;
+            }
             GameUi.ClickButton((AtkUnitBase*)reward, reward->DeliverButton);
             nextAction = DateTime.UtcNow.AddSeconds(0.8);
             return;
@@ -422,7 +430,7 @@ public sealed unsafe class GcRunner : IDisposable
         if (pending is { } p)
         {
             var slot = GcData.Slot(p.Container, p.Slot);
-            if (slot == null || slot->ItemId != p.ItemId)
+            if (slot == null || slot->ItemId != p.ItemId || GcData.Count(p.ItemId) < countBeforeDeliver)
             {
                 var gained = GcData.Seals() - sealsBefore;
                 Delivered++; SealsEarned += Math.Max(0, gained);
@@ -472,20 +480,67 @@ public sealed unsafe class GcRunner : IDisposable
             return;
         }
 
-        // Find its row in the window: count [6]; per row: container [345+i], slot [385+i], item [425+i].
-        var count = GameUi.Int(list, 6);
-        var row = -1;
-        for (var i = 0; i < count && i < 40; i++)
-            if (GameUi.UInt(list, 425 + i) == next.Value.ItemId && GameUi.UInt(list, 345 + i) == (uint)next.Value.Container &&
-                GameUi.UInt(list, 385 + i) == (uint)next.Value.Slot) { row = i; break; }
-        if (row < 0) { GameUi.Dump("GrandCompanySupplyList"); Fail($"{next.Value.Name} isn't in the delivery list (details in /xllog)."); return; }
+        var (row, how) = FindRow(list, agent, next.Value);
+        if (row < 0) { GameUi.Dump("GrandCompanySupplyList", AgentDump(agent, next.Value)); Fail($"Couldn't find {next.Value.Name}'s row in the delivery list (dump saved)."); return; }
+        Log($"  {next.Value.Name}: row {row} ({how})");
 
         Status = $"Delivering {next.Value.Name} (+{reward2} seals)...";
         pending = next;
         sealsBefore = GcData.Seals();
+        countBeforeDeliver = GcData.Count(next.Value.ItemId);
         phaseStarted = DateTime.UtcNow;
         GameUi.Fire(list, 1, row);
         nextAction = DateTime.UtcNow.AddSeconds(0.8);
+    }
+
+    private int countBeforeDeliver;
+
+    /// <summary>
+    /// The item's row as shown in the list. Tries, in order:
+    ///  1. the layout from community references (count [6]; item [425+i], container [345+i], slot [385+i]);
+    ///  2. item names: the list's name strings form a block in display order, so row = position in it;
+    ///  3. the agent's own Position field.
+    /// Whatever is used, the delivery confirmation must name the item before Deliver is pressed.
+    /// </summary>
+    private static (int Row, string How) FindRow(AtkUnitBase* list, AgentGrandCompanySupply* agent, GrandCompanyItemKey want)
+    {
+        var count = GameUi.Int(list, 6);
+        for (var i = 0; i < count && i < 100; i++)
+            if (GameUi.UInt(list, 425 + i) == want.ItemId && GameUi.UInt(list, 345 + i) == (uint)want.Container &&
+                GameUi.UInt(list, 385 + i) == (uint)want.Slot) return (i, "layout");
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < agent->NumItems; i++) names.Add(agent->ItemArray[i].ItemName.ToString());
+        var block = new List<(int Index, string Name)>();
+        for (var i = 0; i < list->AtkValuesCount; i++)
+        {
+            var s = GameUi.Str(list, i);
+            if (s.Length > 0 && names.Contains(s)) block.Add((i, s));
+        }
+        if (block.Count > 0)
+        {
+            var first = block[0].Index;
+            var hit = block.FirstOrDefault(b => b.Name.Equals(want.Name, StringComparison.OrdinalIgnoreCase));
+            if (hit.Name != null) return (hit.Index - first, "name");
+        }
+
+        for (var i = 0; i < agent->NumItems; i++)
+        {
+            var it = agent->ItemArray[i];
+            if (it.ItemId == want.ItemId && it.Inventory == want.Container && it.Slot == want.Slot) return (it.Position, "agent position");
+        }
+        return (-1, "");
+    }
+
+    private static string AgentDump(AgentGrandCompanySupply* agent, GrandCompanyItemKey want)
+    {
+        var sb = new System.Text.StringBuilder($"wanted: {want.Name} id {want.ItemId} {want.Container}/{want.Slot}\nagent items ({agent->NumItems}):\n");
+        for (var i = 0; i < agent->NumItems; i++)
+        {
+            var it = agent->ItemArray[i];
+            sb.AppendLine($"  {i,3} {it.ItemName} id {it.ItemId} {it.Inventory}/{it.Slot} seals {it.SealReward} pos {it.Position} bonus {it.IsBonusReward} exp {it.ExpReward}");
+        }
+        return sb.ToString();
     }
 
     // ================================================================ 4. buying
