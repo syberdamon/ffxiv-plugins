@@ -150,5 +150,31 @@
     "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.1.0/TankStanceManager.zip",
     "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.1.0/TankStanceManager.zip",
     "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TankStanceManager-v0.2.1.0/TankStanceManager.zip"
+  },
+  {
+    "Author": "syberdamon",
+    "Name": "Turn-In Manager",
+    "InternalName": "TurnInManager",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Turns in gear for Grand Company seals with guardrails: never items in a gearset, a maximum item level, rarity (green/blue) and HQ/NQ filters, optional armoury chest. Retrieves materia from qualifying gear first (gear turned in with materia loses it). Before seals would cap, it buys items you choose up to a stock target (e.g. Ventures up to 65,000), then keeps delivering. Preview shows exactly what would be turned in. Uses vnavmesh to walk, and Lifestream (if installed) to travel to your Grand Company. English client.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "grand company",
+      "expert delivery",
+      "seals",
+      "ventures",
+      "materia"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Grand Company expert delivery with guardrails, materia retrieval first, and seal spending by stock targets.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.0.0/TurnInManager.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.0.0/TurnInManager.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.1.0.0/TurnInManager.zip"
   }
 ]
