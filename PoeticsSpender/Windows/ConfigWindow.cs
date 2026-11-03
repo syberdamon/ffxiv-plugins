@@ -41,6 +41,13 @@ public sealed class ConfigWindow : Window
             if (blocker != null) ImGui.BeginDisabled();
             if (ImGui.Button("Spend my Poetics now")) plugin.Runner.Start();
             if (blocker != null) { ImGui.EndDisabled(); ImGui.SameLine(); ImGui.TextDisabled(blocker); }
+
+            var held = Soils.Count(Soils.ItemId(soil.TokenName));
+            if (held > 0 && plugin.Runner.Blocker(tradeOnly: true) == null)
+            {
+                if (ImGui.Button($"Trade the {held} {soil.TokenName} I have")) plugin.Runner.Start(tradeOnly: true);
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Skips Hismena: takes what's in your bag to Bertana.");
+            }
         }
 
         ImGui.Separator();

@@ -3,7 +3,8 @@
 Turns all your Allagan Tomestones of Poetics into Grade 3 topsoil in one click,
 and pops up an alert when you're close to the Poetics cap.
 
-Commands: `/poetics` (settings), `/poetics run`, `/poetics stop`,
+Commands: `/poetics` (settings), `/poetics run`, `/poetics trade` (trade Ore/Shell you
+already hold to Bertana), `/poetics stop`,
 `/poetics dump <window>` (writes a game window's data to /xllog, for fixing).
 
 Requires **vnavmesh**. English client (vendor and menu names are matched in English).

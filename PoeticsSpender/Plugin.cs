@@ -41,7 +41,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Settings. /poetics run | stop | dump <addon>",
+            HelpMessage = "Settings. /poetics run | trade (Ore/Shell you hold -> topsoil) | stop | dump <addon>",
         });
 
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
@@ -65,6 +65,7 @@ public sealed class Plugin : IDalamudPlugin
         switch (parts[0].ToLowerInvariant())
         {
             case "run": Runner.Start(); break;
+            case "trade": Runner.Start(tradeOnly: true); break;
             case "stop": Runner.Stop(); break;
             case "dump":
                 GameUi.Dump(parts.Length > 1 ? parts[1] : "ShopExchangeCurrency");
