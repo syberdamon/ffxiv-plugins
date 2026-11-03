@@ -38,6 +38,7 @@ public sealed class ConfigWindow : Window
     {
         var player = Plugin.ObjectTable.LocalPlayer;
         if (player == null) { ImGui.TextUnformatted("Log in to edit plans."); return; }
+        if (Fights.All.Count == 0) { ImGui.TextUnformatted("No fight timelines loaded (see /xllog)."); return; }
 
         // Fight picker: defaults to the fight you're in.
         if (fightIndex < 0)
@@ -45,9 +46,9 @@ public sealed class ConfigWindow : Window
             var here = plugin.Runner.Fight;
             fightIndex = here != null ? Math.Max(0, Fights.All.ToList().IndexOf(here)) : 0;
         }
-        // Fight picker with a search box (matches name or zone ID).
-        ImGui.SetNextItemWidth(260);
-        if (ImGui.BeginCombo("Fight", Fights.All[fightIndex].Name, ImGuiComboFlags.HeightLarge))
+        // Fight picker with a search box (matches name, category like "DT Raid", or zone ID).
+        ImGui.SetNextItemWidth(340);
+        if (ImGui.BeginCombo("Fight", Fights.All[fightIndex].Display, ImGuiComboFlags.HeightLarge))
         {
             if (ImGui.IsWindowAppearing())
             {
@@ -63,10 +64,10 @@ public sealed class ConfigWindow : Window
             {
                 var f = Fights.All[i];
                 if (fightSearch.Length > 0 &&
-                    !f.Name.Contains(fightSearch, StringComparison.OrdinalIgnoreCase) &&
+                    !f.Display.Contains(fightSearch, StringComparison.OrdinalIgnoreCase) &&
                     !f.TerritoryId.ToString().Contains(fightSearch)) continue;
                 any = true;
-                if (ImGui.Selectable($"{f.Name}  (zone {f.TerritoryId})##fight{i}", i == fightIndex)) fightIndex = i;
+                if (ImGui.Selectable($"{f.Display}  (zone {f.TerritoryId})##fight{i}", i == fightIndex)) fightIndex = i;
             }
             if (!any) ImGui.TextDisabled("No matching fights.");
             ImGui.EndCombo();
@@ -352,7 +353,8 @@ public sealed class ConfigWindow : Window
         ImGui.TextDisabled("Auto-use presses combat actions for you. That's automation: same risk category as Tank Stance Manager.");
 
         ImGui.Separator();
-        var fight = Fights.All[Math.Max(0, fightIndex)];
+        if (Fights.All.Count == 0) return;
+        var fight = Fights.All[Math.Clamp(fightIndex, 0, Fights.All.Count - 1)];
         if (!plugin.Runner.Preview)
         {
             if (ImGui.Button($"Preview {fight.Name} timeline")) plugin.Runner.StartPreview(fight);
@@ -373,6 +375,6 @@ public sealed class ConfigWindow : Window
         ImGui.TextUnformatted($"Last sync: {r.LastSync}");
         ImGui.TextUnformatted($"Active callouts: {plugin.Tracker.Active.Count}");
         ImGui.Spacing();
-        ImGui.TextDisabled("Bundled fights: " + string.Join(", ", Fights.All.Select(f => $"{f.Name} ({f.TerritoryId})")));
+        ImGui.TextDisabled($"Bundled fights: {Fights.All.Count} (cactbot timelines, refreshed weekly)");
     }
 }

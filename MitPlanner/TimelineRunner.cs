@@ -95,7 +95,26 @@ public sealed unsafe class TimelineRunner : IDisposable
     private void Restart(float at)
     {
         clockBase = at;
+        lastTick = at;
         clock.Restart();
+    }
+
+    private float lastTick;
+
+    /// <summary>"forcejump" lines jump the moment the clock reaches them, whether or not they synced.</summary>
+    private void CheckForceJumps()
+    {
+        var now = Now;
+        var from = lastTick;
+        lastTick = now;
+        foreach (var e in Timeline!.Events)
+        {
+            if (!e.ForceJump || e.Jump is not { } target || e.Time <= from || e.Time > now) continue;
+            LastSync = $"{e.Label} forcejump {e.Time:0.0}s -> {target:0.0}s";
+            Restart(target + (now - e.Time));
+            if (target < e.Time - 1) JumpedBack?.Invoke(target);
+            return;
+        }
     }
 
     private void OnTerritoryChanged(uint territory)
@@ -110,7 +129,9 @@ public sealed unsafe class TimelineRunner : IDisposable
 
     private void OnUpdate(IFramework framework)
     {
-        if (Timeline == null || Preview) return;
+        if (Timeline == null) return;
+        if (Running) CheckForceJumps();
+        if (Preview) return;
 
         var inCombat = Plugin.Condition[ConditionFlag.InCombat];
         if (inCombat)

@@ -4,11 +4,18 @@ name: Build
 # .csproj has no GitHub Release yet, the build creates the release
 # (<PluginFolder>-v<version>, with <PluginFolder>.zip) and updates repo.json so
 # Dalamud on every PC offers the update. To release: bump <Version> and push.
+#
+# Weekly (and on a manual run) it also re-bundles cactbot's fight timelines into
+# Mit Planner. If anything changed, it bumps Mit Planner's version, commits, and the
+# same run builds and releases it. (A push made by this workflow can't start another
+# run, so the sync has to happen here, before the build.)
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * 2'   # Tuesdays 09:17 UTC, after the usual Monday/patch-day cactbot updates
 
 permissions:
   contents: write
@@ -35,6 +42,33 @@ jobs:
           Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
           Expand-Archive -Force latest.zip -DestinationPath $dest
 
+      - name: Sync cactbot timelines into Mit Planner
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/OverlayPlugin/cactbot.git "$env:RUNNER_TEMP/cactbot"
+          git -C "$env:RUNNER_TEMP/cactbot" sparse-checkout set --no-cone 'ui/raidboss/data/**/*.txt' 'ui/raidboss/data/**/*.ts' resources/zone_id.ts LICENSE
+          $cactbot = git -C "$env:RUNNER_TEMP/cactbot" log -1 --format='%h %cs'
+          python .github/scripts/sync_cactbot.py "$env:RUNNER_TEMP/cactbot" MitPlanner/Timelines/cactbot.zip
+
+          if (-not (git status --porcelain MitPlanner/Timelines/cactbot.zip)) { Write-Host "Timelines unchanged (cactbot $cactbot)"; exit 0 }
+
+          # Bump the last version number (0.8.0.0 -> 0.8.0.1) so Dalamud offers the update.
+          $proj = 'MitPlanner/MitPlanner.csproj'
+          $text = Get-Content $proj -Raw
+          $m = [regex]::Match($text, '<Version>(\d+)\.(\d+)\.(\d+)\.(\d+)</Version>')
+          $new = "$($m.Groups[1]).$($m.Groups[2]).$($m.Groups[3]).$([int]$m.Groups[4].Value + 1)"
+          $text = $text.Replace($m.Value, "<Version>$new</Version>")
+          [IO.File]::WriteAllText((Resolve-Path $proj), $text)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MitPlanner/Timelines/cactbot.zip $proj
+          git commit -m "MitPlanner $new`: sync cactbot timelines (cactbot $cactbot)"
+          git push origin HEAD:main
+          "RELEASE_SHA=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
+
       - name: Build all plugins
         run: dotnet build ffxiv-plugins.slnx -c Release
 
@@ -50,7 +84,7 @@ jobs:
           if-no-files-found: error
 
       - name: Release new plugin versions
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -59,6 +93,8 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $false
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # A timeline sync earlier in this run adds a commit; release that, not the commit we started on.
+          $target = if ($env:RELEASE_SHA) { $env:RELEASE_SHA } else { $env:GITHUB_SHA }
           $changed = $false
           foreach ($proj in Get-ChildItem -Path */*.csproj) {
             $plugin = $proj.Directory.Name
@@ -71,7 +107,7 @@ jobs:
             $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin" -Filter latest.zip | Select-Object -First 1
             if (-not $zip) { throw "No latest.zip found for $plugin" }
             Copy-Item $zip.FullName "$plugin.zip"
-            gh release create $tag "$plugin.zip" --title "$plugin $version" --notes "$plugin $version" --target $env:GITHUB_SHA
+            gh release create $tag "$plugin.zip" --title "$plugin $version" --notes "$plugin $version" --target $target
             if ($LASTEXITCODE -ne 0) { throw "Release failed for $tag" }
 
             python .github/scripts/update_repo_json.py $plugin $tag

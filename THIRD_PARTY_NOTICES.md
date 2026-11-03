@@ -40,12 +40,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## cactbot (OverlayPlugin/cactbot)
 
-Mit Planner bundles fight timelines from cactbot, unmodified, under
-`MitPlanner/Timelines/` (currently `ruby_weapon.txt`, `emerald_weapon.txt` and `diamond_weapon.txt`, from
-`ui/raidboss/data/05-shb/trial/`, commit e79ea7f, 2026-10-08). Default mechanic
-tags are taken from cactbot's matching trigger files. The timeline parser follows
-cactbot's documented timeline format.
+Mit Planner bundles every fight timeline from cactbot's `ui/raidboss/data/`,
+unmodified, in `MitPlanner/Timelines/cactbot.zip` (first bundled from commit
+e79ea7f, 2026-10-08; refreshed weekly by `.github/scripts/sync_cactbot.py`).
+Default mechanic tags in the bundle's `index.json` are derived from cactbot's
+matching trigger files. The timeline parser follows cactbot's documented
+timeline format. cactbot has no NOTICE file.
 
 Source: https://github.com/OverlayPlugin/cactbot
 License: Apache License 2.0. A full copy is included at
-`MitPlanner/Timelines/CACTBOT_LICENSE.txt`.
+`MitPlanner/Timelines/CACTBOT_LICENSE.txt` and inside the bundle.
