@@ -94,14 +94,16 @@ public sealed unsafe class Runner : IDisposable
     // ================================================================ start / stop
 
     /// <summary>Why a run can't start right now, or null if it can.</summary>
-    public string? Blocker()
+    public string? Blocker(bool tradeOnly = false)
     {
         if (Plugin.ObjectTable.LocalPlayer == null) return "Not logged in.";
         if (Busy) return "Already running.";
         if (Plugin.Condition[ConditionFlag.InCombat]) return "In combat.";
         if (Plugin.Condition[ConditionFlag.BoundByDuty]) return "In a duty.";
         var poetics = Soils.Poetics();
-        if (poetics < Soils.PoeticsPrice) return $"You have {poetics} Poetics; you need at least {Soils.PoeticsPrice} for one topsoil.";
+        var held = Soils.Count(Soils.ItemId(Soils.Options[Math.Clamp(config.SoilIndex, 0, Soils.Options.Count - 1)].TokenName));
+        if (tradeOnly && held == 0) return "You don't have any of the token for this topsoil.";
+        if (!tradeOnly && poetics < Soils.PoeticsPrice) return $"You have {poetics} Poetics; you need at least {Soils.PoeticsPrice} for one topsoil.";
         if (Soils.FreeSlots() < 2) return "You need at least 2 free inventory slots.";
         if (!vnav.IsLoaded) return "vnavmesh isn't installed or loaded.";
         var s = Soils.Options[Math.Clamp(config.SoilIndex, 0, Soils.Options.Count - 1)];
@@ -109,17 +111,27 @@ public sealed unsafe class Runner : IDisposable
         return null;
     }
 
-    public void Start()
+    /// <param name="tradeOnly">Skip Hismena: trade the Ore/Shell you already hold to Bertana.</param>
+    public void Start(bool tradeOnly = false)
     {
-        if (Blocker() is { } why) { Notify(why); return; }
+        if (Blocker(tradeOnly) is { } why) { Notify(why); return; }
 
         soil = Soils.Options[Math.Clamp(config.SoilIndex, 0, Soils.Options.Count - 1)];
         step = 0;
         bought = 0;
         soilsGot = 0;
         buyRounds = 0;
-        quantity = Soils.Affordable();
-        Notify($"Buying {quantity} x {soil.SoilName} with {quantity * Soils.PoeticsPrice} Poetics.");
+        if (tradeOnly)
+        {
+            step = 1;
+            bought = Soils.Count(Soils.ItemId(soil.TokenName));
+            Notify($"Trading {bought} {soil.TokenName} for {soil.SoilName}.");
+        }
+        else
+        {
+            quantity = Soils.Affordable();
+            Notify($"Buying {quantity} x {soil.SoilName} with {quantity * Soils.PoeticsPrice} Poetics.");
+        }
 
         if (Plugin.ClientState.TerritoryType == Soils.IdyllshireTerritory) { EnterWaitingForMesh(); return; }
 
