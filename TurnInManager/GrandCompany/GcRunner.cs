@@ -226,7 +226,7 @@ public sealed unsafe class GcRunner : IDisposable
         // Open the inventory so the menu has an owner.
         AgentModule.Instance()->GetAgentByInternalId(AgentId.Inventory)->Show();
         var inv = mgr->GetAddonByName("Inventory");
-        return inv != null ? inv->Id : 0;
+        return inv != null ? (uint)inv->Id : 0u;
     }
 
     // ================================================================ 2. travel + walk + talk
@@ -431,12 +431,12 @@ public sealed unsafe class GcRunner : IDisposable
         {
             var rule = config.Purchases[ruleIndex];
             var cost = Math.Max(1, lastCost);
-            var qty = Math.Min(rule.Target - GcData.Count(rule.ItemId), (GcData.Seals() - config.SealReserve) / cost);
-            qty = Math.Clamp(qty, 1, 999);
+            var dialogQty = Math.Min(rule.Target - GcData.Count(rule.ItemId), (GcData.Seals() - config.SealReserve) / cost);
+            dialogQty = Math.Clamp(dialogQty, 1, 999);
             var numeric = (AtkComponentNumericInput*)currency->UldManager.NodeList[8]->GetComponent();
-            if (numeric != null) numeric->SetValue(qty);
+            if (numeric != null) numeric->SetValue(dialogQty);
             GameUi.ClickNode(currency, 17); // Exchange
-            Log($"  quantity dialog: {qty}");
+            Log($"  quantity dialog: {dialogQty}");
             nextAction = DateTime.UtcNow.AddSeconds(0.8);
             return;
         }
