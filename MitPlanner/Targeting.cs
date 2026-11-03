@@ -42,12 +42,15 @@ public sealed unsafe class Targeting : IDisposable
 
     private readonly Hook<PacketDispatcher.Delegates.HandleActorControlPacket>? actorControlHook;
     private readonly TimelineRunner runner;
+    private readonly Configuration config;
     private readonly List<(uint Entity, uint Marker, DateTime At)> markers = new();
 
-    public Targeting(TimelineRunner runner)
+    public Targeting(TimelineRunner runner, Configuration config)
     {
         this.runner = runner;
+        this.config = config;
         runner.PullStarted += markers.Clear;
+        runner.AbilityResolved += OnAbilityResolved;
         try
         {
             actorControlHook = Plugin.GameInterop.HookFromAddress<PacketDispatcher.Delegates.HandleActorControlPacket>(
@@ -63,6 +66,7 @@ public sealed unsafe class Targeting : IDisposable
     public void Dispose()
     {
         runner.PullStarted -= markers.Clear;
+        runner.AbilityResolved -= OnAbilityResolved;
         actorControlHook?.Dispose();
     }
 
@@ -80,6 +84,35 @@ public sealed unsafe class Targeting : IDisposable
         {
             Plugin.Log.Error(ex, "Head marker tracking failed");
         }
+    }
+
+    /// <summary>
+    /// Learn which timeline line a head-marker mechanic is: when an enemy ability hits a player who
+    /// had a marker cactbot calls a tank buster (or stack) in the last 10 s, that line gets the tag.
+    /// Only fills lines that are untagged or plain "mechanic"; your own tags always win.
+    /// </summary>
+    private void OnAbilityResolved(uint actionId, uint[] targets)
+    {
+        var fight = runner.Fight;
+        if (fight?.MarkerKinds == null || fight.MarkerKinds.Count == 0 || runner.Preview || targets.Length == 0) return;
+
+        var recent = markers.Where(m => (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds &&
+                                        targets.Contains(m.Entity) && fight.MarkerKinds.ContainsKey(m.Marker)).ToList();
+        if (recent.Count == 0) return;
+        var kind = recent.Select(m => fight.MarkerKinds[m.Marker]).Min(); // TB before stack
+
+        var ev = runner.EventForAbility(actionId);
+        if (ev == null) return;
+        var key = Configuration.TagKey(fight.TerritoryId, ev.Label);
+        if (config.TagOverrides.ContainsKey(key) || config.LearnedTags.ContainsKey(key)) return;
+        var current = config.TagFor(fight, ev.Label);
+        if (current is not (MechanicType.Other or MechanicType.Mechanic)) return;
+
+        config.LearnedTags[key] = kind;
+        config.Save();
+        // Markers that fired with this ability now count as "this mechanic targets them" too.
+        markers.RemoveAll(m => recent.Contains(m));
+        Plugin.ChatGui.Print($"[MitPlanner] Learned: {ev.Label} = {(kind == MechanicType.TankBuster ? "tank buster" : kind.ToString().ToLowerInvariant())} (cactbot head marker). Change it in the Plan tab if that's wrong.");
     }
 
     /// <summary>The other tank in the party (fallback target for OT Sent Mits).</summary>
@@ -106,6 +139,21 @@ public sealed unsafe class Targeting : IDisposable
         {
             var recent = markers.Where(m => m.Marker == markerId && (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds).ToList();
             if (recent.Count > 0)
+            {
+                var isMe = recent.Any(m => m.Entity == me.EntityId);
+                var other = recent.Select(m => Plugin.ObjectTable.SearchByEntityId(m.Entity))
+                                  .FirstOrDefault(o => o != null && o.EntityId != me.EntityId);
+                return new(isMe, TargetSource.HeadMarker, isMe ? me.GameObjectId : other?.GameObjectId ?? 0);
+            }
+        }
+
+        // 1b. Any recent head marker cactbot uses for this mechanic's type (e.g. its tank-buster marker).
+        if (fight.MarkerKinds is { Count: > 0 } kinds)
+        {
+            var type = config.TagFor(fight, ev.Label);
+            var recent = markers.Where(m => kinds.TryGetValue(m.Marker, out var k) && k == type &&
+                                            (DateTime.UtcNow - m.At).TotalSeconds <= MarkerLifetimeSeconds).ToList();
+            if (recent.Count > 0 && type is MechanicType.TankBuster or MechanicType.Stack)
             {
                 var isMe = recent.Any(m => m.Entity == me.EntityId);
                 var other = recent.Select(m => Plugin.ObjectTable.SearchByEntityId(m.Entity))

@@ -66,6 +66,12 @@ public class Configuration : IPluginConfiguration
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
     public Dictionary<string, MechanicType> TagOverrides { get; set; } = new();
 
+    /// <summary>
+    /// "territoryId:label" -> type learned in game: a head marker cactbot calls a tank buster/stack
+    /// was on a player when this ability hit them. Below your own overrides, above bundled tags.
+    /// </summary>
+    public Dictionary<string, MechanicType> LearnedTags { get; set; } = new();
+
     // Display
     public bool ShowTimeline { get; set; } = true;
     public int UpcomingCount { get; set; } = 5;
@@ -108,6 +114,7 @@ public class Configuration : IPluginConfiguration
 
     public MechanicType TagFor(FightDefinition fight, string label) =>
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
+        : LearnedTags.TryGetValue(TagKey(fight.TerritoryId, label), out var l) ? l
         : fight.DefaultTags.TryGetValue(label, out var d) ? d
         : MechanicType.Other;
 

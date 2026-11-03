@@ -40,7 +40,7 @@ public sealed class Plugin : IDalamudPlugin
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Migrate();
         Runner = new TimelineRunner();
-        Targeting = new Targeting(Runner);
+        Targeting = new Targeting(Runner, Configuration);
         Tracker = new PlanTracker(Configuration, Runner, Targeting);
 
         configWindow = new ConfigWindow(this);
