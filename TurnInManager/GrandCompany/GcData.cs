@@ -149,6 +149,25 @@ public static unsafe class GcData
         return ids;
     }
 
+    /// <summary>Copies of a piece of gear in bags + armoury, NQ and HQ alike (filters ignored).</summary>
+    public static int HeldCount(uint itemId)
+    {
+        var im = InventoryManager.Instance();
+        if (im == null) return 0;
+        var n = 0;
+        foreach (var type in Bags.Concat(Armoury))
+        {
+            var c = im->GetInventoryContainer(type);
+            if (c == null) continue;
+            for (var i = 0; i < c->Size; i++)
+            {
+                var it = c->GetInventorySlot(i);
+                if (it != null && it->ItemId == itemId) n++;
+            }
+        }
+        return n;
+    }
+
     public static InventoryItem* Slot(InventoryType type, int slot)
     {
         var im = InventoryManager.Instance();
