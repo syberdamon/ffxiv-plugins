@@ -144,6 +144,7 @@ public sealed class MainWindow : Window
             var row = Plugin.DataManager.GetExcelSheet<Item>(ClientLanguage.English)
                 .FirstOrDefault(it => it.Name.ExtractText().Equals(addName.Trim(), StringComparison.OrdinalIgnoreCase));
             if (row.RowId == 0) addError = $"No item called \"{addName}\".";
+            else if (C.Purchases.Any(p => p.ItemId == row.RowId)) addError = $"{row.Name.ExtractText()} is already on the list.";
             else { C.Purchases.Add(new PurchaseRule { ItemId = row.RowId, Name = row.Name.ExtractText(), Target = 1 }); addName = ""; addError = ""; changed = true; }
         }
         if (addError.Length > 0) ImGui.TextColored(Warn, addError);

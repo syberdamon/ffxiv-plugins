@@ -1,3 +1,4 @@
+using System.Linq;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -32,6 +33,9 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        // Older versions duplicated purchase rows on every load: keep the first row per item.
+        var dedup = Configuration.Purchases.GroupBy(r => r.ItemId).Select(g => g.First()).ToList();
+        if (dedup.Count != Configuration.Purchases.Count) { Configuration.Purchases = dedup; Configuration.Save(); }
         GcRunner = new GcRunner(Configuration, new VNavIpc(), new LifestreamIpc());
 
         mainWindow = new MainWindow(this);
