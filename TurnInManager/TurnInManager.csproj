@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>syberdamon</Author>
+    <Name>Turn-In Manager</Name>
+    <Punchline>Grand Company expert delivery with guardrails, materia retrieval first, and seal spending by stock targets.</Punchline>
+    <Description>Turns in gear for Grand Company seals with guardrails: never items in a gearset, a maximum item level, rarity (green/blue) and HQ/NQ filters, optional armoury chest. Retrieves materia from qualifying gear first (gear turned in with materia loses it). Before seals would cap, it buys items you choose up to a stock target (e.g. Ventures up to 65,000), then keeps delivering. Preview shows exactly what would be turned in. Uses vnavmesh to walk, and Lifestream (if installed) to travel to your Grand Company. English client.</Description>
+    <Tags>grand company;expert delivery;seals;ventures;materia</Tags>
+    <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>
