@@ -1,6 +1,31 @@
 [
   {
     "Author": "syberdamon",
+    "Name": "Combat Recorder",
+    "InternalName": "CombatRecorder",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Writes one compressed JSON-lines file per duty: every action you, your party and enemies use (with damage/heal numbers), buffs and debuffs gained and lost, HP/MP and positions twice a second, casts, deaths and target changes. Party members are recorded by job and slot, never by name. /crec mark <note> drops a marker you can point to later (\"downtime here\"). Nothing leaves your PC.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "log",
+      "combat",
+      "analysis",
+      "recorder"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Records your fights (actions, damage, heals, buffs, HP, movement) to compact local files for review.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/CombatRecorder-v0.1.0.0/CombatRecorder.zip"
+  },
+  {
+    "Author": "syberdamon",
     "Name": "Cooldown Grid",
     "InternalName": "CooldownGrid",
     "AssemblyVersion": "0.4.1.0",
