@@ -1,6 +1,6 @@
 # Dungeon Mit (working name): rules draft
 
-Status: **design draft for review**. Nothing is built yet. Written 2026-11-02 from syberdamon's
+Status: **built as Mit Planner 0.9.0.0 "Trash mode"** (decisions below, 2026-11-02). Written 2026-11-02 from syberdamon's
 brief plus community tanking guides (sources at the end). Items marked **[Assumption]** or
 **[Verify]** need a check in game or a decision from you.
 
@@ -152,14 +152,15 @@ layers automatically.
 - Never presses while casting, mounted, dead, or out of combat.
 - Log line per press ("Pull 4: 5 mobs, 62% HP → Damnation"), so it's easy to tune afterwards.
 
-## Open decisions
+## Decisions (syberdamon, 2026-11-02)
 
-1. **Shape:** a "Trash mode" inside Mit Planner (shares the ability lists, auto-press, buster
-   safety net and boss handoff; one plugin pressing defensives), or a separate plugin?
-   Recommendation: inside Mit Planner.
-2. **Proactive opener** (fire on Set at any HP) vs your HP < 80% gate.
-3. **Party mits as heals** in trash: yes / no.
-4. **Invuln defaults** above, and the optional big-pull invuln.
+1. **Shape:** Trash mode inside Mit Planner.
+2. **Trigger:** pull set **or** HP below a threshold (default 60%, 2+ mobs) even while gathering
+   or moving out of AoEs.
+3. **Heals on trash:** yes, party mits included (healers carry bosses).
+4. **Invuln:** when N seconds (default 2, configurable) of incoming damage with no heals would
+   kill you and no major mit is up or ready. Per-job switches (PLD/WAR on, DRK/GNB off).
+5. **Run log** for tuning: `pluginConfigs/MitPlanner/trashlog/`, one file per dungeon.
 
 ## Sources
 
