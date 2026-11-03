@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -76,6 +78,7 @@ public sealed unsafe partial class Navigator : IDisposable
 
     private void CheckForMapClick()
     {
+        SampleCursor();
         var leftDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         var clicked = leftDown && !leftWasDown;
         leftWasDown = leftDown;
@@ -129,10 +132,21 @@ public sealed unsafe partial class Navigator : IDisposable
         var mapX = float.Parse(numbers[0].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
         var mapY = float.Parse(numbers[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
 
+        // Over a map pin (aetheryte, NPC, quest icon) the game stops updating the cursor
+        // coordinates, so they still show wherever the cursor last crossed open map. If the mouse
+        // has moved since they last changed, work the position out from recent cursor movement.
+        var fitted = ExtrapolateFromSamples(addon);
+
         // The text is rounded to 0.1 (about 5 yalms). The addon also keeps the cursor position to
         // 0.01 (about half a yalm); use that when it agrees with the text.
         var precise = addon->MouseCoords;
-        if (precise.X > 0 && precise.Y > 0 && Math.Abs(precise.X - mapX) < 0.15f && Math.Abs(precise.Y - mapY) < 0.15f)
+        if (fitted is { } f)
+        {
+            Plugin.Log.Debug($"Map click away from the live readout (pin?): {mapX:0.00},{mapY:0.00} -> fitted {f.X:0.00},{f.Y:0.00}");
+            mapX = f.X;
+            mapY = f.Y;
+        }
+        else if (precise.X > 0 && precise.Y > 0 && Math.Abs(precise.X - mapX) < 0.15f && Math.Abs(precise.Y - mapY) < 0.15f)
         {
             mapX = precise.X;
             mapY = precise.Y;
@@ -146,6 +160,68 @@ public sealed unsafe partial class Navigator : IDisposable
         worldZ = (mapY - 1f - 2048f / scale) / 0.02f - agent->SelectedOffsetY;
         territory = agent->SelectedTerritoryId;
         mapId = agent->SelectedMapId;
+        return true;
+    }
+
+    // ================================================================ cursor calibration
+
+    private readonly List<(Vector2 Screen, Vector2 Map)> samples = new();
+    private Vector2 lastMap;
+    private Vector2 lastChangeScreen;
+    private uint sampleMapId;
+
+    /// <summary>
+    /// Every frame the map is hovered: remember (screen position, map coordinate) pairs whenever
+    /// the coordinate changes. At a fixed zoom/pan the map is linear in screen space, so a few
+    /// pairs give an exact screen -> map conversion. Pairs that stop fitting (zoom, pan, another
+    /// map) clear the history.
+    /// </summary>
+    private void SampleCursor()
+    {
+        var addon = Plugin.GameGui.GetAddonByName<AddonAreaMap>("AreaMap");
+        var agent = AgentMap.Instance();
+        if (addon == null || !addon->AtkUnitBase.IsVisible || agent == null) { samples.Clear(); return; }
+        if (agent->SelectedMapId != sampleMapId) { samples.Clear(); sampleMapId = agent->SelectedMapId; }
+
+        var map = addon->MouseCoords;
+        if (map.X <= 0 || map.Y <= 0 || map == lastMap) return;
+        var screen = ImGui.GetMousePos();
+        lastMap = map;
+        lastChangeScreen = screen;
+
+        if (Fit(out var fx, out var fy) && (Math.Abs(fx.A * screen.X + fx.B - map.X) > 0.06f || Math.Abs(fy.A * screen.Y + fy.B - map.Y) > 0.06f))
+            samples.Clear(); // zoomed or panned: start over
+        samples.Add((screen, map));
+        if (samples.Count > 40) samples.RemoveAt(0);
+    }
+
+    private Vector2? ExtrapolateFromSamples(AddonAreaMap* addon)
+    {
+        var mouse = ImGui.GetMousePos();
+        if (Vector2.Distance(mouse, lastChangeScreen) < 4 || addon->MouseCoords != lastMap) return null; // readout is live
+        if (!Fit(out var fx, out var fy)) return null;
+        return new Vector2(fx.A * mouse.X + fx.B, fy.A * mouse.Y + fy.B);
+    }
+
+    /// <summary>Least-squares map = A * screen + B per axis; needs enough spread to trust.</summary>
+    private bool Fit(out (float A, float B) x, out (float A, float B) y)
+    {
+        x = y = default;
+        if (samples.Count < 3) return false;
+        return FitAxis(samples.Select(s => (s.Screen.X, s.Map.X)).ToList(), out x) &&
+               FitAxis(samples.Select(s => (s.Screen.Y, s.Map.Y)).ToList(), out y);
+    }
+
+    private static bool FitAxis(List<(float S, float M)> pts, out (float A, float B) fit)
+    {
+        fit = default;
+        var meanS = pts.Average(p => p.S);
+        var meanM = pts.Average(p => p.M);
+        var varS = pts.Sum(p => (p.S - meanS) * (p.S - meanS));
+        if (pts.Max(p => p.S) - pts.Min(p => p.S) < 15 || varS <= 0) return false; // not enough movement
+        var a = pts.Sum(p => (p.S - meanS) * (p.M - meanM)) / varS;
+        if (a <= 0) return false; // map coordinates grow right/down
+        fit = (a, meanM - a * meanS);
         return true;
     }
 
