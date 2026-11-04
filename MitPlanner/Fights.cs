@@ -39,6 +39,12 @@ public static class Fights
 {
     private const string BundleResource = "MitPlanner.Timelines.cactbot.zip";
 
+    // Timelines we built ourselves from Combat Recorder logs (tools/build_timeline.py) for fights
+    // cactbot has none for. Embedded as MitPlanner.Learned.<territory>.txt / .json; only entries
+    // marked "trusted" (every boss seen dying at least twice) are used.
+    private const string LearnedPrefix = "learned/";
+    private const string LearnedResource = "MitPlanner.Learned.";
+
     private static readonly Lazy<IReadOnlyList<FightDefinition>> AllLazy = new(LoadIndex);
     private static readonly Dictionary<uint, Timeline> Cache = new();
 
@@ -52,7 +58,9 @@ public static class Fights
         lock (Cache)
         {
             if (Cache.TryGetValue(fight.TerritoryId, out var t)) return t;
-            t = Timeline.Parse(fight.Name, ReadEntry($"timelines/{fight.Path}.txt"));
+            t = Timeline.Parse(fight.Name, fight.Path.StartsWith(LearnedPrefix)
+                ? ReadLearned(fight.Path[LearnedPrefix.Length..] + ".txt")
+                : ReadEntry($"timelines/{fight.Path}.txt"));
             AddNameTags(fight, t);
             Cache[fight.TerritoryId] = t;
             return t;
@@ -82,6 +90,40 @@ public static class Fights
         return reader.ReadToEnd();
     }
 
+    private static string ReadLearned(string name)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(LearnedResource + name)
+            ?? throw new FileNotFoundException($"Missing learned timeline {name}");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    private sealed class LearnedEntry
+    {
+        public uint territory { get; set; }
+        public string zoneKey { get; set; } = "";
+        public Dictionary<string, string> tags { get; set; } = new();
+        public Dictionary<string, List<string>> triggerIds { get; set; } = new();
+        public bool trusted { get; set; }
+    }
+
+    private static IEnumerable<IndexEntry> LearnedIndex(HashSet<uint> covered)
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        foreach (var res in asm.GetManifestResourceNames().Where(n => n.StartsWith(LearnedResource) && n.EndsWith(".json")))
+        {
+            LearnedEntry? e = null;
+            try { e = JsonSerializer.Deserialize<LearnedEntry>(ReadLearned(res[LearnedResource.Length..])); }
+            catch (Exception ex) { Plugin.Log.Warning(ex, $"Bad learned timeline index {res}"); }
+            if (e == null || !e.trusted || covered.Contains(e.territory)) continue;
+            yield return new IndexEntry
+            {
+                territory = e.territory, zoneKey = e.zoneKey, path = LearnedPrefix + e.territory,
+                category = "Learned", tags = e.tags, triggerIds = e.triggerIds,
+            };
+        }
+    }
+
     private static IReadOnlyList<FightDefinition> LoadIndex()
     {
         List<IndexEntry> index;
@@ -94,6 +136,7 @@ public static class Fights
             Plugin.Log.Error(ex, "Couldn't read the timeline bundle");
             return Array.Empty<FightDefinition>();
         }
+        index.AddRange(LearnedIndex(index.Select(e => e.territory).ToHashSet()).ToList());
 
         var fights = new List<FightDefinition>(index.Count);
         foreach (var e in index)
