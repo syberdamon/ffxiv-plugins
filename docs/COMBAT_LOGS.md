@@ -47,3 +47,25 @@ paid.
   client ID + secret, never committed).
 - **xivanalysis:** per-job checks (GCD uptime, buff windows, drift, overcap). Open source,
   MIT license, so its rules can be adapted with credit.
+
+## Learned timelines (fights cactbot doesn't cover)
+Decided 2026-11-04: built offline from Combat Recorder logs, reviewed by Claude, then shipped
+with Mit Planner. Any fight without a cactbot timeline. Used once every boss has 2+ recorded kills.
+1. Record a few runs of the duty with Combat Recorder on.
+2. Ask for a timeline. Claude copies the logs to the private log repo and runs
+   `python3 tools/build_timeline.py <logs...> --out <dir>`. It writes the timeline, an index entry
+   (tags, kills, `trusted`) and a review report (per ability: timing spread, who it hit, damage).
+3. After review, the `.txt`/`.json` go into `MitPlanner/Timelines/Learned/` and ship with the next
+   Mit Planner release. Mit Planner loads trusted ones for zones cactbot has no timeline for.
+How it reads a fight:
+- **Boss:** an enemy with 8x your max HP.
+- **Timing:** time 0 is the first hit on the boss; the n-th use of each ability is lined up across
+  pulls (median time); the timeline syncs on the opener's cast bar.
+- **Lines kept:** casts and their follow-up hits; un-cast hits only if they landed on 2+ players.
+- **Classification:**
+  - hit 75%+ of the party for 5%+ HP → raidwide (a stack if the cast targeted a player);
+  - a cast that hit only a tank → tankbuster; only both tanks → shared tankbuster;
+  - any other cast → mechanic.
+- **Loops:** the repeating tail of the fight becomes a cactbot-style loop.
+Checked against cactbot's Mistwake timeline (1 run): opener times match within 0.5 s, and the tank
+busters, raidwides and stack match cactbot's tags.
