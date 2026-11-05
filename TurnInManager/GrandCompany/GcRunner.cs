@@ -385,6 +385,18 @@ public sealed unsafe class GcRunner : IDisposable
     {
         var me = Plugin.ObjectTable.LocalPlayer;
         if (me == null || !vnav.IsReady) return;
+        // The previous NPC's menu often reappears a moment after its window closes, and you can't
+        // move while it's open: dismiss it and give the walk a fresh start.
+        if (GameUi.IsOpen("SelectString") || GameUi.IsOpen("Talk"))
+        {
+            Log("  a menu reappeared while walking; dismissing it");
+            vnav.Stop();
+            TidyMenus();
+            lastProgress = DateTime.UtcNow;
+            phaseStarted = DateTime.UtcNow;
+            nextAction = DateTime.UtcNow.AddSeconds(0.8);
+            return;
+        }
         var npc = FindNpc();
         if (npc != null && Vector3.Distance(me.Position, npc.Position) <= 4.5f) { vnav.Stop(); Set(GcPhase.Talking, $"Talking to the {npcName}..."); tries = 0; return; }
 
