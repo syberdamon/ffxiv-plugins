@@ -53,6 +53,11 @@ retainer, AutoRetainer does what it would anyway.
 - **Who can go:** any retainer whose class (combat for hunting drops, MIN/BTN/FSH for gathered items and crystals) and
   level fit, with AutoRetainer's recorded gathering / item level, and (gatherers) only for items you've gathered yourself.
   Tick **Keep its ventures** for a retainer (Retainers tab) to leave it alone.
+- **Crystals** (tick "Venture for crystals too"): a minimum and target per element for each tier (shards, crystals,
+  clusters), or per element; counted across your crystal tab and every retainer's combined. Below its minimum a type
+  competes with the other short items as usual; above it, crystals come **last of all**, in your tier order, lowest %
+  of target first within a tier. Target 0 = no limit (until every crystal tab is full). Crystals your recipes or items
+  ask for are added on top of the minimum/target.
 - Items no venture brings back (vendor or crafted-only) are listed as "craft/buy/gather yourself".
 - Venture amounts are estimated from AutoRetainer's recorded perception / item level (the game's thresholds); unknown
   stats count as the lowest amount.
@@ -68,7 +73,7 @@ Tools), then every time a retainer's inventory is open, by you, AutoRetainer or 
 each was last seen. A retainer never seen is assumed to have room; it's checked when the run opens it.
 
 ## Unverified (needs an in-game check)
-- Selecting a retainer from the list (callback 2, list index), and closing the inventory with the window's close.
+- Closing the retainer inventory with the window's close (selecting a retainer from the list is confirmed in game).
 - Moving part of a crystal stack: the item menu's "Entrust..." / "Retrieve..." then the number prompt. Whole stacks
   move directly. A wrong menu guess skips that crystal and saves a dump in `pluginConfigs/MaterialStash/dumps/`.
 - Allagan Tools' `GetCharacterItems` layout ([item, flags, owner, quantity] per stack).
