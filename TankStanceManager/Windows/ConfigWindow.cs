@@ -9,11 +9,13 @@ public sealed class ConfigWindow : Window
 {
     private readonly Configuration config;
     private readonly StanceController controller;
+    private readonly AggroAssist aggro;
 
     public ConfigWindow(Plugin plugin) : base("Tank Stance Manager - Options###TSMConfig")
     {
         config = plugin.Configuration;
         controller = plugin.Controller;
+        aggro = plugin.Aggro;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(380, 380), MaximumSize = new Vector2(800, 900) };
     }
 
@@ -49,6 +51,24 @@ public sealed class ConfigWindow : Window
 
             var coTank = config.RequireCoTank;
             if (ImGui.Checkbox("Only when another tank is in the party", ref coTank)) { config.RequireCoTank = coTank; config.Save(); }
+        }
+
+        if (ImGui.CollapsingHeader("Loose mobs (trash pulls)", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.TextWrapped("A loose mob is one attacking a party member who isn't a tank: someone pulled it off you, or your AoEs missed it.");
+            var tgt = config.AutoTargetLooseMobs;
+            if (ImGui.Checkbox("Target loose mobs automatically", ref tgt)) { config.AutoTargetLooseMobs = tgt; config.Save(); }
+            var prov = config.ProvokeLooseMobs;
+            if (ImGui.Checkbox("Provoke loose mobs when Provoke is ready", ref prov)) { config.ProvokeLooseMobs = prov; config.Save(); }
+            var delay = config.LooseMobDelayMs;
+            if (ImGui.SliderInt("Loose for at least (ms)", ref delay, 0, 3000)) { config.LooseMobDelayMs = delay; config.Save(); }
+            var trash = config.TrashOnly;
+            if (ImGui.Checkbox("Trash only (stand by while a boss is up)", ref trash)) { config.TrashOnly = trash; config.Save(); }
+            var co = config.IgnoreMobsOnCoTank;
+            if (ImGui.Checkbox("Leave mobs on the other tank alone", ref co)) { config.IgnoreMobsOnCoTank = co; config.Save(); }
+            ImGui.TextDisabled($"Status: {aggro.StatusText}");
+            ImGui.TextDisabled($"Last: {aggro.LastAction}");
+            ImGui.TextDisabled("Uses the master ON switch and \"Only in duties\" above. /tsm provoke | target toggle these.");
         }
 
         if (ImGui.CollapsingHeader("General", ImGuiTreeNodeFlags.DefaultOpen))
