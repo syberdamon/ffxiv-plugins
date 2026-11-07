@@ -129,6 +129,32 @@
   },
   {
     "Author": "syberdamon",
+    "Name": "Retainer Gear",
+    "InternalName": "RetainerGear",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Records each retainer's equipped gear when you open them, then works out the highest item level available for their job and level from crafted gear, dungeon drops and uncapped-tomestone gear (no raid or savage gear). Shows what each retainer still needs, a combined shopping list with market board prices (Universalis) for crafted pieces, and marks gear you already own and which retainer it's for. Re-check after you equip upgrades and the list updates.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "retainers",
+      "gear",
+      "ventures",
+      "item level",
+      "upgrades"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Tracks your retainers' gear and lists the best non-raid upgrades: crafted, dungeon drops, or uncapped tomestones.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RetainerGear-v0.1.0.0/RetainerGear.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RetainerGear-v0.1.0.0/RetainerGear.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RetainerGear-v0.1.0.0/RetainerGear.zip"
+  },
+  {
+    "Author": "syberdamon",
     "Name": "Tank Stance Manager",
     "InternalName": "TankStanceManager",
     "AssemblyVersion": "0.3.0.0",
