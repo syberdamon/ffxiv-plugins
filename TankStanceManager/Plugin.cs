@@ -16,12 +16,14 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static ICondition Condition { get; private set; } = null!;
     [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
+    [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
     private const string CommandName = "/tsm";
 
     public Configuration Configuration { get; }
     public StanceController Controller { get; }
+    public AggroAssist Aggro { get; }
 
     private readonly WindowSystem windowSystem = new("TankStanceManager");
     private readonly ConfigWindow configWindow;
@@ -31,6 +33,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Controller = new StanceController(Configuration);
+        Aggro = new AggroAssist(Configuration);
 
         configWindow = new ConfigWindow(this);
         controlWindow = new ControlWindow(this) { IsOpen = Configuration.ShowControlWindow };
@@ -39,7 +42,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Show/hide the control panel. /tsm options | on | off | mt | ot",
+            HelpMessage = "Show/hide the control panel. /tsm options | on | off | mt | ot | provoke | target (toggle loose-mob help)",
         });
 
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
@@ -54,6 +57,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi -= ToggleControls;
         windowSystem.RemoveAllWindows();
         Controller.Dispose();
+        Aggro.Dispose();
         CommandManager.RemoveHandler(CommandName);
     }
 
@@ -65,6 +69,10 @@ public sealed class Plugin : IDalamudPlugin
             case "off": Configuration.Enabled = false; break;
             case "mt": Configuration.Role = TankRole.MainTank; break;
             case "ot": Configuration.Role = TankRole.OffTank; break;
+            case "provoke": Configuration.ProvokeLooseMobs = !Configuration.ProvokeLooseMobs; Configuration.Save();
+                ChatGui.Print($"[TSM] Provoke loose mobs: {(Configuration.ProvokeLooseMobs ? "on" : "off")}"); return;
+            case "target": Configuration.AutoTargetLooseMobs = !Configuration.AutoTargetLooseMobs; Configuration.Save();
+                ChatGui.Print($"[TSM] Target loose mobs: {(Configuration.AutoTargetLooseMobs ? "on" : "off")}"); return;
             case "options": case "config": ToggleOptions(); return;
             default: ToggleControls(); return;
         }

@@ -46,6 +46,18 @@ public class Configuration : IPluginConfiguration
     /// <summary>Show a one-line status under the control panel buttons.</summary>
     public bool ShowStatusLine { get; set; } = true;
 
+    // ---- Loose mobs (trash pulls): an enemy attacking a non-tank party member.
+    /// <summary>Target loose mobs automatically (worst one first) so your next hits land on them.</summary>
+    public bool AutoTargetLooseMobs { get; set; } = false;
+    /// <summary>Provoke a loose mob when Provoke is ready.</summary>
+    public bool ProvokeLooseMobs { get; set; } = false;
+    /// <summary>A mob must stay on that player this long before it counts (ignores brief target swaps).</summary>
+    public int LooseMobDelayMs { get; set; } = 1000;
+    /// <summary>Leave mobs alone while a boss is up (tank swaps and mechanics are the plan's job).</summary>
+    public bool TrashOnly { get; set; } = true;
+    /// <summary>Mobs on the other tank aren't loose.</summary>
+    public bool IgnoreMobsOnCoTank { get; set; } = true;
+
     /// <summary>Echo each toggle to chat.</summary>
     public bool ChatFeedback { get; set; } = true;
 

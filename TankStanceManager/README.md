@@ -16,6 +16,13 @@ death or a job swap.
 - Stance ON if you are pushed to #3, even inside the band (checkbox, default on).
 - Stance OFF immediately if you ever become #1.
 
+**Loose mobs** (trash pulls, both off by default): a mob attacking a party member who
+isn't a tank (pulled off you, or missed by your AoEs) for 1 s or more.
+- *Target loose mobs*: switches your target to the worst one (on the lowest-HP player).
+- *Provoke loose mobs*: Provokes it when Provoke is ready and in range.
+- Stands by while a boss is up and leaves mobs on the other tank alone (both adjustable).
+- `/tsm provoke` and `/tsm target` toggle them.
+
 Jobs: PLD/GLA, WAR/MRD, DRK, GNB.
 
 ## Things to know
