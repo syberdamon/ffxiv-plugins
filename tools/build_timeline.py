@@ -12,7 +12,7 @@ rule Mit Planner's Trash mode uses) and each pull of it:
     hits within 0.6 s are folded into one line;
   - the n-th use of each ability is lined up across pulls and its time is the median.
 Lines are classified from what they did to the party:
-  - Raidwide: hit >= 75% of the party for >= 5% of their max HP on average
+  - Raidwide: hit >= 75% of the party for >= 10% of their max HP on average
   - TankBuster: hit one tank for >= 25% of max HP (and was cast or is not a regular auto)
   - SharedTankBuster: hit exactly the tanks (2) for >= 25% max HP each
   - Mechanic: anything else the boss cast; Other: the rest
@@ -107,7 +107,11 @@ def pulls(log):
                 for h in e.get("hits", []):
                     if str(h.get("to", "")).startswith("e"):
                         enemies.add(h["to"])
-        bosses = [w for w in enemies if log.ents.get(w, ("", 0))[1] >= BOSS_HP_FACTOR * my_mhp]
+        big = [w for w in enemies if log.ents.get(w, ("", 0))[1] >= BOSS_HP_FACTOR * my_mhp]
+        # Several boss-sized enemies in one fight: the biggest is the boss, the rest are its adds
+        # (their abilities still land in the boss's timeline). Same-HP pairs both stay.
+        top = max((log.ents[w][1] for w in big), default=0)
+        bosses = [w for w in big if log.ents[w][1] >= 0.9 * top]
         for boss in bosses:
             name = log.ents[boss][0]
             t0 = None
@@ -201,7 +205,7 @@ def classify(uses, party, mhp):
             tank_pair += 1
     n = len(uses)
     half = max(1, (n + 1) // 2)
-    if statistics.mean(frac_hit) >= 0.75 and raid_dmg and statistics.mean(raid_dmg) >= 0.05:
+    if statistics.mean(frac_hit) >= 0.75 and raid_dmg and statistics.mean(raid_dmg) >= 0.10:
         return "Stack" if on_player >= half else "Raidwide"
     if any_cast and tank_pair >= half:
         return "SharedTankBuster"

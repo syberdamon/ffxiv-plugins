@@ -1,0 +1,98 @@
+### THE CLYTEUM (learned)
+# ZoneId: 1345
+# Built by tools/build_timeline.py from 2 Combat Recorder log(s). Review before trusting.
+
+hideall "--sync--"
+
+#~~~ Eye of the Scorpion ~~~#
+# pulls: 2, kills: 2
+
+1004.4 "--sync--" StartsUsing { id: "BF00", source: "Eye of the Scorpion" } window 1004,5
+1009.1 "Eyes on Me" Ability { id: "BF00", source: "Eye of the Scorpion" }
+1025.4 "Petrifying Beam" Ability { id: "C3FF", source: "Eye of the Scorpion" }
+1025.9 "--sync--" Ability { id: "C401", source: "Eye of the Scorpion" }
+1035.7 "Petrifying Beam" Ability { id: "C400", source: "Eye of the Scorpion" }
+1036.2 "--sync--" Ability { id: "C402", source: "Eye of the Scorpion" }
+1045.5 "Eyes on Me" Ability { id: "BF00", source: "Eye of the Scorpion" }
+1051.9 "Motion Scanner" Ability { id: "BEFD", source: "Eye of the Scorpion" }
+1079.5 "Penetrator Missile" Ability { id: "BF05", source: "Eye of the Scorpion" }
+1094.0 label "eye-of-the-scorpion-loop"
+1094.0 "Petrifying Beam" Ability { id: "C3FF", source: "Eye of the Scorpion" }
+1094.5 "--sync--" Ability { id: "C401", source: "Eye of the Scorpion" }
+1104.7 "Eyes on Me" Ability { id: "BF00", source: "Eye of the Scorpion" }
+1111.0 "Motion Scanner" Ability { id: "BEFD", source: "Eye of the Scorpion" }
+1122.6 "Anti-personnel Missile" Ability { id: "BF03", source: "Eye of the Scorpion" }
+1137.6 "Eyes on Me" Ability { id: "BF00", source: "Eye of the Scorpion" }
+1154.1 "Petrifying Beam" Ability { id: "C3FF", source: "Eye of the Scorpion" } forcejump "eye-of-the-scorpion-loop"
+
+#~~~ Chort ~~~#
+# pulls: 2, kills: 2
+
+2003.9 "--sync--" StartsUsing { id: "BEF4", source: "Chort" } window 2004,5
+2008.6 "Ripples of Gloom" Ability { id: "BEF4", source: "Chort" }
+2009.4 "Ripples of Gloom" Ability { id: "C4E8", source: "Chort" }
+2021.9 "--sync--" Ability { id: "C4E0", source: "Chort" }
+2029.5 "--sync--" Ability { id: "BEEE", source: "Chort" }
+2041.5 "Basic Vomit" Ability { id: "C4B9", source: "Chort" }
+2053.0 "Bodyweight Exorcism" Ability { id: "BEEF", source: "Chort" }
+2054.0 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2054.7 "Mortifying Flesh" Ability { id: "BEE4", source: "Chort" }
+2057.0 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2060.0 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2075.5 "Ripples of Gloom" Ability { id: "BEF4", source: "Chort" }
+2076.2 "Ripples of Gloom" Ability { id: "C4E8", source: "Chort" }
+2088.6 "--sync--" Ability { id: "C4E0", source: "Chort" }
+2106.9 "Evil Emission" Ability { id: "C4F1", source: "Chort" }
+2107.3 "Evil Emission" Ability { id: "BEF5", source: "Chort" }
+2112.5 "Profane Pressure" Ability { id: "BEF6", source: "Chort" }
+2113.0 "Profane Pressure" Ability { id: "BEF7", source: "Chort" }
+2119.3 "Basic Vomit" Ability { id: "C4B9", source: "Chort" }
+2136.9 "Bodyweight Exorcism" Ability { id: "BEEF", source: "Chort" }
+2137.8 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2140.9 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2143.8 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2146.9 "--sync--" Ability { id: "BEF2", source: "Chort" }
+2159.1 "Ripples of Gloom" Ability { id: "BEF4", source: "Chort" }
+2159.9 "Ripples of Gloom" Ability { id: "C4E8", source: "Chort" }
+
+#~~~ Malphas ~~~#
+# pulls: 2, kills: 2
+
+3005.9 "--sync--" StartsUsing { id: "BF18", source: "Malphas" } window 3006,5
+3010.6 "Rubbish Disposal" Ability { id: "BF18", source: "Malphas" }
+3021.5 "Void Dark" Ability { id: "C489", source: "Malphas" }
+3031.2 "Scrap Meddle" Ability { id: "BF19", source: "Malphas" }
+3031.9 "--sync--" Ability { id: "BF25", source: "Malphas" }
+3041.6 "Puppet Strings" Ability { id: "BF1A", source: "Malphas" }
+3042.3 "Cast-off Halo" Ability { id: "BF26", source: "Scrap Gargoyle" }
+3051.1 "Puppet Strings" Ability { id: "BF1A", source: "Malphas" }
+3051.7 "Metallic Miasma" Ability { id: "BF28", source: "Scrap Byblos" }
+3061.5 "Gluttonous Wire" Ability { id: "BF21", source: "Malphas" }
+3062.5 "Gluttonous Wire" Ability { id: "BF22", source: "Malphas" }
+3073.0 "Rubbish Disposal" Ability { id: "BF18", source: "Malphas" }
+3080.9 label "malphas-loop"
+3080.9 "Scrap Meddle" Ability { id: "BF19", source: "Malphas" }
+3081.6 "--sync--" Ability { id: "BF25", source: "Malphas" }
+3090.3 "Puppet Pair" Ability { id: "BF1B", source: "Malphas" }
+3091.0 "Metallic Miasma" Ability { id: "BF28", source: "Scrap Byblos" }
+3091.0 "Cast-off Halo" Ability { id: "BF26", source: "Scrap Gargoyle" }
+3098.0 "Void Dark" Ability { id: "C489", source: "Malphas" }
+3107.2 "String Up" Ability { id: "BF23", source: "Malphas" }
+3118.6 "Shadow Play" Ability { id: "C48B", source: "Malphas" }
+3119.4 "Shadow Play" Ability { id: "C48A", source: "Malphas" }
+3126.7 "Rubbish Disposal" Ability { id: "BF18", source: "Malphas" }
+3137.6 "Scrap Meddle" Ability { id: "BF19", source: "Malphas" }
+3138.3 "--sync--" Ability { id: "BF25", source: "Malphas" }
+3156.0 "Puppet Mastery" Ability { id: "BF1D", source: "Malphas" }
+3156.3 "--sync--" Ability { id: "BF29", source: "Malphas" }
+3157.6 "--sync--" Ability { id: "BF2C", source: "Malphas" }
+3157.6 "--sync--" Ability { id: "BF2F", source: "Malphas" }
+3163.7 "Void Dark" Ability { id: "C489", source: "Malphas" }
+3178.9 "Puppet Mastery" Ability { id: "BF1D", source: "Malphas" }
+3180.4 "--sync--" Ability { id: "BF2C", source: "Malphas" }
+3180.4 "--sync--" Ability { id: "BF2F", source: "Malphas" }
+3185.0 "Wrathful Wire" Ability { id: "BF20", source: "Malphas" }
+3192.0 "Void Dark" Ability { id: "C489", source: "Malphas" }
+3199.2 "Rubbish Disposal" Ability { id: "BF18", source: "Malphas" }
+3209.9 "Scrap Meddle" Ability { id: "BF19", source: "Malphas" } forcejump "malphas-loop"
+

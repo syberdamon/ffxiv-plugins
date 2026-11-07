@@ -1,0 +1,75 @@
+{
+ "territory": 1345,
+ "zoneKey": "the Clyteum",
+ "path": "learned/1345",
+ "category": "Learned",
+ "tags": {
+  "Eyes on Me": "Raidwide",
+  "Petrifying Beam": "Mechanic",
+  "Motion Scanner": "Mechanic",
+  "Penetrator Missile": "Raidwide",
+  "Anti-personnel Missile": "Raidwide",
+  "Ripples of Gloom": "Raidwide",
+  "Basic Vomit": "Mechanic",
+  "Bodyweight Exorcism": "Mechanic",
+  "Mortifying Flesh": "Mechanic",
+  "Evil Emission": "Raidwide",
+  "Profane Pressure": "Raidwide",
+  "Rubbish Disposal": "Raidwide",
+  "Void Dark": "Mechanic",
+  "Scrap Meddle": "Mechanic",
+  "Puppet Strings": "Mechanic",
+  "Cast-off Halo": "Mechanic",
+  "Metallic Miasma": "Mechanic",
+  "Gluttonous Wire": "Raidwide",
+  "Puppet Pair": "Mechanic",
+  "String Up": "Mechanic",
+  "Shadow Play": "TankBuster",
+  "Puppet Mastery": "Mechanic",
+  "Wrathful Wire": "Raidwide"
+ },
+ "triggerIds": {
+  "Raidwide": [
+   "BEF5",
+   "BEF7",
+   "BF00",
+   "BF03",
+   "BF05",
+   "BF18",
+   "BF20",
+   "BF22",
+   "C4E8"
+  ],
+  "Mechanic": [
+   "BEE4",
+   "BEEF",
+   "BEF4",
+   "BEF6",
+   "BEFD",
+   "BF19",
+   "BF1A",
+   "BF1B",
+   "BF1D",
+   "BF21",
+   "BF23",
+   "BF26",
+   "BF28",
+   "C3FF",
+   "C400",
+   "C489",
+   "C48B",
+   "C4B9",
+   "C4F1"
+  ],
+  "TankBuster": [
+   "C48A"
+  ]
+ },
+ "headMarkers": {},
+ "kills": {
+  "Eye of the Scorpion": 2,
+  "Chort": 2,
+  "Malphas": 2
+ },
+ "trusted": true
+}
