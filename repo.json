@@ -105,8 +105,8 @@
     "Author": "syberdamon",
     "Name": "Material Stash",
     "InternalName": "MaterialStash",
-    "AssemblyVersion": "0.1.0.0",
-    "Description": "Sorts common crafting materials onto your retainers in the order you choose. Gathered materials (mining, botany, fishing) and white, tradeable mob drops used in recipes qualify; boss drops, crafted items and collectables don't, and you can include or exclude anything by hand. Each category (ore, lumber, hides...) gets an ordered list of home retainers, with an overflow order behind it, and items already on a retainer are kept together. Crystals fill retainers in the game's list order, keeping a set amount of each on you. Nothing runs by itself: press \"Stash\" above the retainer list (after AutoRetainer is done) and it visits each retainer, deposits, and moves on. English client.",
+    "AssemblyVersion": "0.2.0.0",
+    "Description": "Sorts common crafting materials onto your retainers in the order you choose. Gathered materials (mining, botany, fishing) and white, tradeable mob drops used in recipes qualify; boss drops, crafted items and collectables don't, and you can include or exclude anything by hand. Each category (ore, lumber, hides...) gets an ordered list of home retainers, with an overflow order behind it, and items already on a retainer are kept together. Crystals fill retainers in the game's list order, keeping a set amount of each on you. Nothing runs by itself: press \"Stash\" above the retainer list (after AutoRetainer is done) and it visits each retainer, deposits, and moves on. Stock list: keep a minimum and target of items, or of whole recipes (materials worked out from the recipe); when AutoRetainer sends a retainer out, it is sent for the most-needed item it can bring back. Buttons on the saddlebag move mats in or out. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
     "Tags": [
@@ -114,7 +114,10 @@
       "crafting",
       "materials",
       "storage",
-      "crystals"
+      "crystals",
+      "ventures",
+      "autoretainer",
+      "saddlebag"
     ],
     "DalamudApiLevel": 15,
     "LoadRequiredState": 0,
@@ -123,9 +126,9 @@
     "LoadPriority": 0,
     "Punchline": "One button at the summoning bell puts your gathered and mob-dropped crafting mats and crystals on the right retainers.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.2.0.0/MaterialStash.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.2.0.0/MaterialStash.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.2.0.0/MaterialStash.zip"
   },
   {
     "Author": "syberdamon",
