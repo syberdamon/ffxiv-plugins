@@ -160,10 +160,11 @@ public sealed unsafe class Transmuter : IDisposable
     {
         nextAction = DateTime.UtcNow.AddSeconds(0.5);
         if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
-        var menu = GameUi.Get("SelectString") ?? GameUi.Get("SelectIconString");
+        var menu = GameUi.Get("SelectString");
+        var icon = false;
+        if (menu == null) { menu = GameUi.Get("SelectIconString"); icon = menu != null; }
         if (menu != null && talkedAt != DateTime.MinValue)
         {
-            var icon = GameUi.IsOpen("SelectIconString") && GameUi.Get("SelectString") == null;
             var rows = GameUi.MenuEntries(menu, icon);
             var row = rows.FindIndex(r => r.Contains("transmut", StringComparison.OrdinalIgnoreCase) || r.Contains("Materia", StringComparison.OrdinalIgnoreCase));
             if (row < 0) { GameUi.Dump(icon ? "SelectIconString" : "SelectString"); Fail("No transmute option in Mutamix's menu (dump saved): " + string.Join(" | ", rows)); return; }
