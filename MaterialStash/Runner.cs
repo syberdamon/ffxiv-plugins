@@ -107,8 +107,32 @@ public sealed unsafe class Runner : IDisposable
         Plugin.ChatGui.Print("[Stash] Stopped.");
     }
 
+    private int menuTries;
+
+    /// <summary>
+    /// The rows of a SelectString menu. The popup's own entry list can still be empty right after the
+    /// window appears, while the window's values already hold them: value 3 is the row count and the
+    /// rows are the strings from value 7 (as in the retainer menu dump).
+    /// </summary>
+    private static List<string> MenuRows(AtkUnitBase* ss)
+    {
+        var rows = GameUi.MenuEntries(ss, false);
+        if (rows.Count > 0 && rows.Exists(r => r.Length > 0)) return rows;
+        rows = new List<string>();
+        var count = GameUi.Int(ss, 3);
+        if (count <= 0 || count > 30) count = 30;
+        for (var i = 7; i < 7 + count && i < ss->AtkValuesCount; i++)
+        {
+            var t = GameUi.Str(ss, i);
+            if (t.Length == 0) break;
+            rows.Add(t);
+        }
+        return rows;
+    }
+
     private void Set(Phase p)
     {
+        menuTries = 0;
         phase = p;
         phaseStart = DateTime.UtcNow;
         next = DateTime.UtcNow.AddSeconds(config.StepDelay);
@@ -223,9 +247,16 @@ public sealed unsafe class Runner : IDisposable
             Fail($"Opened the wrong retainer (wanted {tracker.NameOf(current)}): the list order may have changed. Stopped.", "RetainerList");
             return;
         }
-        var rows = GameUi.MenuEntries(ss, false);
+        var rows = MenuRows(ss);
         var row = rows.FindIndex(r => r.Contains("Entrust or withdraw items", StringComparison.OrdinalIgnoreCase));
-        if (row < 0) { Fail($"No 'Entrust or withdraw items' in the retainer menu: {string.Join(" | ", rows)}", "SelectString"); return; }
+        if (row < 0)
+        {
+            // The menu can be visible a frame or two before its rows are filled in: look again.
+            if (++menuTries < 8) return;
+            Fail($"No 'Entrust or withdraw items' in the retainer menu: {string.Join(" | ", rows)}", "SelectString");
+            return;
+        }
+        menuTries = 0;
         ss->FireCallbackInt(row);
         Set(Phase.OpenInventory);
     }
@@ -269,9 +300,15 @@ public sealed unsafe class Runner : IDisposable
         if (ClickThroughTalk()) return;
         var ss = GameUi.Get("SelectString");
         if (ss == null) return;
-        var rows = GameUi.MenuEntries(ss, false);
+        var rows = MenuRows(ss);
         var row = rows.FindIndex(r => r.StartsWith("Quit", StringComparison.OrdinalIgnoreCase));
-        if (row < 0) { Fail($"No 'Quit' in the retainer menu: {string.Join(" | ", rows)}", "SelectString"); return; }
+        if (row < 0)
+        {
+            if (++menuTries < 8) return;
+            Fail($"No 'Quit' in the retainer menu: {string.Join(" | ", rows)}", "SelectString");
+            return;
+        }
+        menuTries = 0;
         ss->FireCallbackInt(row);
         Set(Phase.BackToList);
     }
