@@ -48,15 +48,11 @@ public class Configuration : IPluginConfiguration
     public bool FillFromSaddlebag { get; set; } = true;
 
     // ---- which kinds the pull buttons and transmuting may touch
-    public bool PullCombat { get; set; } = true;
-    public bool PullCrafting { get; set; } = true;
-    public bool PullGathering { get; set; } = true;
-    public bool TransmuteCombat { get; set; } = true;
-    public bool TransmuteCrafting { get; set; } = true;
-    public bool TransmuteGathering { get; set; } = true;
-
-    public bool PullKind(MateriaKind k) => k switch { MateriaKind.Crafting => PullCrafting, MateriaKind.Gathering => PullGathering, _ => PullCombat };
-    public bool TransmuteKind(MateriaKind k) => k switch { MateriaKind.Crafting => TransmuteCrafting, MateriaKind.Gathering => TransmuteGathering, _ => TransmuteCombat };
+    public KindSet PullAllKinds { get; set; } = new();
+    public KindSet PullGradeKinds { get; set; } = new();
+    public KindSet BalanceKinds { get; set; } = new();
+    public KindSet TransmuteKinds { get; set; } = new();
+    public KindSet PurgeKinds { get; set; } = new();
 
     // ---- pull by grade (into your bags, from the saddlebag and/or the open retainer)
     public int PullGradeFrom { get; set; } = 11;
@@ -132,4 +128,14 @@ public class Configuration : IPluginConfiguration
     }
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
+}
+
+/// <summary>Which materia kinds a feature may touch.</summary>
+[Serializable]
+public class KindSet
+{
+    public bool Combat { get; set; } = true;
+    public bool Crafting { get; set; } = true;
+    public bool Gathering { get; set; } = true;
+    public bool Has(MateriaKind k) => k switch { MateriaKind.Crafting => Crafting, MateriaKind.Gathering => Gathering, _ => Combat };
 }

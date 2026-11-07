@@ -63,6 +63,7 @@ public sealed unsafe class Purger : IDisposable
         {
             var m = all[id];
             if (m.Grade >= config.PurgeBelowGrade) continue;
+            if (!config.PurgeKinds.Has(m.Kind)) continue;
             var total = owned.GetValueOrDefault(id);
             if (total >= config.PurgeUnder) continue;
             if (config.PurgeSpareMixable && gradeTotals.GetValueOrDefault(m.Grade) >= 5) continue;

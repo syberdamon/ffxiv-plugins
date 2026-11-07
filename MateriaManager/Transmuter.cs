@@ -87,7 +87,7 @@ public sealed unsafe class Transmuter : IDisposable
             rule ??= new FodderRule();
             var mi = all[id];
             if (mi.Grade > config.MaxTransmuteGrade) continue;                    // master cap
-            if (!config.TransmuteKind(mi.Kind)) continue;                         // combat / crafting / gathering switches
+            if (!config.TransmuteKinds.Has(mi.Kind)) continue;                         // combat / crafting / gathering switches
             if (config.SkipTopGrade && mi.Grade >= mi.TopGrade) continue;         // can't upgrade
             var free = count - Math.Max(0, rule.Keep);
             var n = free;
