@@ -230,6 +230,8 @@ public sealed class MainWindow : Window
         if (ImGui.Checkbox("Never transmute materia at its highest grade (can't upgrade, only changes type)", ref top)) { C.SkipTopGrade = top; C.Save(); }
         var roll = C.RollResults;
         if (ImGui.Checkbox("Keep rolling: use results at a grade I'm transmuting (unless I set that materia myself)", ref roll)) { C.RollResults = roll; C.Save(); }
+        var first = C.RerollResultsFirst;
+        if (ImGui.Checkbox("Reroll this trip's results first (even if the retainer still needs that materia)", ref first)) { C.RerollResultsFirst = first; C.Save(); }
         var reserve = C.ReserveForRetainer;
         if (ImGui.Checkbox("Don't use what my materia retainer still needs (up to its maximum)", ref reserve)) { C.ReserveForRetainer = reserve; C.Save(); }
         var t = plugin.Transmuter;

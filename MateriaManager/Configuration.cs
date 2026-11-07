@@ -64,6 +64,8 @@ public class Configuration : IPluginConfiguration
     public int MaxBatchesPerRun { get; set; } = 10;
     /// <summary>A result at a grade being transmuted is used in later batches (keep rolling until a grade runs short).</summary>
     public bool RollResults { get; set; } = true;
+    /// <summary>Results from the current trip go first in the next batches and aren't held back for the retainer.</summary>
+    public bool RerollResultsFirst { get; set; } = true;
     /// <summary>Master cap: nothing above this grade is ever transmuted, whatever is ticked.</summary>
     public int MaxTransmuteGrade { get; set; } = 11;
     /// <summary>Never transmute materia already at its type's highest grade (it can't upgrade, only change type).</summary>
