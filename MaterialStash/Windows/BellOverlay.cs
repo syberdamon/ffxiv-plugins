@@ -16,7 +16,8 @@ public sealed unsafe class BellOverlay : Window
     private readonly Plugin plugin;
     private Vector2 size = new(320, 60);
     private DateTime nextCount = DateTime.MinValue;
-    private int stacks, crystalTypes, homeless;
+    private int stacks, crystalTypes, homeless, tidyMoves;
+    private string tidyTip = "";
 
     public BellOverlay(Plugin plugin) : base("Material Stash###MaterialStashBell")
     {
@@ -52,6 +53,15 @@ public sealed unsafe class BellOverlay : Window
             stacks = mats.Count(m => m.To != null);
             homeless = mats.Count(m => m.To == null);
             crystalTypes = plugin.Planner.PreviewCrystals().Count(x => x.Retainer != null);
+            var plan = plugin.Planner.TidyPlan();
+            tidyMoves = plan.Sum(m => m.Stacks);
+            var merges = plan.Where(m => m.Merge).Sum(m => m.Stacks);
+            tidyTip = tidyMoves == 0 ? "Everything is where it belongs (as last seen)."
+                : $"Move {tidyMoves} stack(s): {merges} merged with the rest of their item, {tidyMoves - merges} to their homes.
+" +
+                  string.Join("\n", plan.Take(12).Select(m => $"  {Items.Info(m.ItemId)?.Name}: {plugin.Tracker.NameOf(m.From)} -> {plugin.Tracker.NameOf(m.To)}")) +
+                  (plan.Count > 12 ? $"\n  ... {plan.Count - 12} more" : "") + "\nGoes through your bags (uses your free slots). /stash tidy";
+        }
         }
 
         if (r.Busy)
@@ -73,6 +83,11 @@ public sealed unsafe class BellOverlay : Window
             ImGui.EndDisabled();
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                 ImGui.SetTooltip(why ?? "Open every retainer once and record what it holds (nothing moves). /stash scan");
+            ImGui.SameLine();
+            ImGui.BeginDisabled(why != null || tidyMoves == 0);
+            if (ImGui.Button($"Tidy ({tidyMoves})##tidy")) r.Start(Runner.RunMode.Tidy);
+            ImGui.EndDisabled();
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGui.SetTooltip(why ?? tidyTip);
             ImGui.SameLine();
             if (ImGui.SmallButton("...##stashcfg")) plugin.ToggleMain();
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Material Stash settings (/stash)");

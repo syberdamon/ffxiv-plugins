@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
         if (ImGui.BeginTabItem("Categories")) { DrawCategories(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Crystals")) { DrawCrystals(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Stock")) { DrawStock(me); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Keep on me")) { DrawKeep(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Rules")) { DrawRules(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
@@ -49,59 +50,103 @@ public sealed class MainWindow : Window
 
     private void DrawBags(CharacterData me)
     {
-        ImGui.TextWrapped("What's in your bags and where a stash run would put it. Include or exclude items here; the rules are on the Rules tab.");
-        var showAll = ImGui.GetIO().KeyShift;
-        ImGui.TextColored(Dim, "Hold Shift to also list items that don't qualify.");
-        var stacks = Tracker.Stacks(Tracker.Bags);
-        var rows = stacks.GroupBy(s => s.ItemId).Select(g => (Id: g.Key, Qty: g.Sum(s => s.Qty))).ToList();
+        ImGui.TextWrapped("Everything in your bags and what Stash would do with it. \"Keep\" puts an item on the Keep on me list.");
+        var rows = Tracker.Stacks(Tracker.Bags).GroupBy(s => s.ItemId).Select(g => (Id: g.Key, Qty: g.Sum(s => s.Qty))).ToList();
         var changed = false;
         if (ImGui.BeginTable("##bags", 5, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY, new Vector2(0, 0)))
         {
             ImGui.TableSetupColumn("Item");
             ImGui.TableSetupColumn("Qty", ImGuiTableColumnFlags.WidthFixed, 55);
-            ImGui.TableSetupColumn("Why", ImGuiTableColumnFlags.WidthFixed, 190);
+            ImGui.TableSetupColumn("Why", ImGuiTableColumnFlags.WidthFixed, 200);
             ImGui.TableSetupColumn("Goes to", ImGuiTableColumnFlags.WidthFixed, 130);
-            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 80);
+            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 110);
             ImGui.TableSetupScrollFreeze(0, 1);
             ImGui.TableHeadersRow();
-            foreach (var (id, qty) in rows.OrderByDescending(r => Items.Stashable(r.Id, C)).ThenBy(r => Items.Info(r.Id)?.Category).ThenBy(r => Items.Info(r.Id)?.Name))
+            foreach (var (id, qty) in rows.OrderByDescending(r => Items.Depositable(r.Id, C, me)).ThenBy(r => Items.Info(r.Id)?.Category).ThenBy(r => Items.Info(r.Id)?.Name))
             {
                 if (Items.IsCrystal(id)) continue;
                 var info = Items.Info(id);
                 if (info == null) continue;
-                var stash = Items.Stashable(id, C);
-                if (!stash && !showAll && !C.Exclude.Contains(id % 1_000_000)) continue;
                 var nq = id % 1_000_000;
+                var dep = Items.Depositable(id, C, me);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(info.Name + (id >= 1_000_000 ? " (HQ)" : ""));
-                if (ImGui.IsItemHovered()) ImGui.SetTooltip(info.Category);
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"{info.Category} ({C.GroupOf(info.CategoryId)?.Name ?? "no group"})");
                 ImGui.TableNextColumn(); ImGui.TextUnformatted(qty.ToString("N0"));
                 ImGui.TableNextColumn();
-                var why = C.Exclude.Contains(nq) ? "excluded by you" : C.Include.Contains(nq) ? "included by you" : info.Why;
-                ImGui.TextColored(stash ? Good : Dim, why);
+                var group = C.GroupOf(info.CategoryId);
+                var why = C.KeepOnMe.Contains(nq) ? "keep on me"
+                    : me.TidyCarry.Contains(nq) ? "carried by a tidy"
+                    : C.Include.Contains(nq) ? "always stash (you)"
+                    : Items.Stashable(id, C) ? info.Why
+                    : group == null ? "no group"
+                    : group.Name == Configuration.MaterialsGroup ? info.Why
+                    : dep ? $"{group.Name}: stash from bags" : $"{group.Name}: stays (switch off)";
+                ImGui.TextColored(dep ? Good : Dim, why);
                 ImGui.TableNextColumn();
-                if (stash)
+                if (dep)
                 {
-                    if (plugin.Planner.Best(id) is { } to) ImGui.TextUnformatted(plugin.Tracker.NameOf(to));
+                    var to = me.TidyCarry.Contains(nq) ? plugin.Planner.TidyTarget(id, me) ?? plugin.Planner.Best(id) : plugin.Planner.Best(id);
+                    if (to is { } t) ImGui.TextUnformatted(plugin.Tracker.NameOf(t));
                     else ImGui.TextColored(Warn, "no room / no home");
                 }
                 else ImGui.TextColored(Dim, "stays");
                 ImGui.TableNextColumn();
                 ImGui.PushID((int)id);
-                if (stash)
+                if (C.KeepOnMe.Contains(nq)) { if (ImGui.SmallButton("Unkeep")) { C.KeepOnMe.Remove(nq); changed = true; } }
+                else
                 {
-                    if (ImGui.SmallButton("Exclude")) { C.Include.Remove(nq); C.Exclude.Add(nq); changed = true; }
+                    if (ImGui.SmallButton("Keep")) { C.KeepOnMe.Add(nq); C.Include.Remove(nq); changed = true; }
+                    if (!dep) { ImGui.SameLine(); if (ImGui.SmallButton("Stash it")) { C.Include.Add(nq); changed = true; } }
+                    else if (C.Include.Contains(nq)) { ImGui.SameLine(); if (ImGui.SmallButton("Undo")) { C.Include.Remove(nq); changed = true; } }
                 }
-                else if (C.Exclude.Contains(nq))
-                {
-                    if (ImGui.SmallButton("Allow")) { C.Exclude.Remove(nq); changed = true; }
-                }
-                else if (ImGui.SmallButton("Include")) { C.Include.Add(nq); changed = true; }
                 ImGui.PopID();
             }
             ImGui.EndTable();
         }
+        if (changed) C.Save();
+    }
+
+    // ================================================================ keep on me
+
+    private string keepSearch = "";
+    private List<(uint Id, string Name)> keepHits = new();
+
+    private static List<(uint Id, string Name)> SearchAnyItem(string text)
+    {
+        var list = new List<(uint, string)>();
+        var t = text.Trim();
+        if (t.Length < 2) return list;
+        foreach (var row in Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>())
+        {
+            if (row.RowId == 0) continue;
+            var n = row.Name.ExtractText();
+            if (n.Length > 0 && n.Contains(t, StringComparison.OrdinalIgnoreCase)) list.Add((row.RowId, n));
+            if (list.Count >= 25) break;
+        }
+        return list.OrderBy(x => x.Item2.Length).ToList();
+    }
+
+    private void DrawKeep()
+    {
+        ImGui.TextWrapped("Never taken out of your bags by Stash, a tidy or the saddlebag buttons: raid food, potions, dark matter, " +
+                          "anything you want to hand. (Retainers can still hold them; this is only about your bags.)");
+        var changed = false;
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.InputTextWithHint("##keepsearch", "Add an item: type a name...", ref keepSearch, 64)) keepHits = SearchAnyItem(keepSearch);
+        foreach (var (id, name) in keepHits.ToList())
+            if (ImGui.Selectable($"{name}##kh{id}")) { C.KeepOnMe.Add(id); C.Include.Remove(id); keepHits.Clear(); keepSearch = ""; changed = true; }
+        ImGui.Separator();
+        foreach (var id in C.KeepOnMe.OrderBy(i => Items.Info(i)?.Name).ToList())
+        {
+            ImGui.PushID((int)id);
+            ImGui.BulletText(Items.Info(id)?.Name ?? $"#{id}");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Remove")) { C.KeepOnMe.Remove(id); changed = true; }
+            ImGui.PopID();
+        }
+        if (C.KeepOnMe.Count == 0) ImGui.TextColored(Dim, "Nothing yet. The \"Keep\" button on the Bags now tab adds items too.");
         if (changed) C.Save();
     }
 
@@ -181,6 +226,16 @@ public sealed class MainWindow : Window
         if (ImGui.DragFloat("Nudge X", ref ox, 1f)) { C.BellOffsetX = ox; changed = true; }
         ImGui.SameLine(); ImGui.SetNextItemWidth(110);
         if (ImGui.DragFloat("Nudge Y", ref oy, 1f)) { C.BellOffsetY = oy; changed = true; }
+        var vw = C.ShowVentureWindow;
+        if (ImGui.Checkbox("Venture timer window (ready count, next venture)", ref vw)) { C.ShowVentureWindow = vw; changed = true; }
+        ImGui.SameLine();
+        var va = C.VentureWindowAlways;
+        if (ImGui.Checkbox("also in combat / duties", ref va)) { C.VentureWindowAlways = va; changed = true; }
+        var ts = C.TidySort;
+        if (ImGui.Checkbox("After tidying a retainer, run the game's item sort on it", ref ts)) { C.TidySort = ts; changed = true; }
+        var laps = C.TidyMaxLaps;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Most laps a tidy may take", ref laps, 1, 1)) { C.TidyMaxLaps = Math.Clamp(laps, 1, 10); changed = true; }
         var delay = C.StepDelay;
         ImGui.SetNextItemWidth(110);
         if (ImGui.SliderFloat("Seconds between moves", ref delay, 0.2f, 1.5f, "%.1f")) { C.StepDelay = delay; changed = true; }
@@ -223,38 +278,141 @@ public sealed class MainWindow : Window
 
     // ================================================================ categories
 
+    private string catFilter = "", pinSearch = "";
+    private List<(uint Id, string Name)> pinHits = new();
+    private List<(uint Id, string Name)>? allCats;
+
+    private List<(uint Id, string Name)> AllCategories() =>
+        allCats ??= Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.ItemUICategory>()
+            .Where(c => c.RowId != 0 && c.RowId != 59 && c.Name.ExtractText().Length > 0)
+            .Select(c => (c.RowId, c.Name.ExtractText())).OrderBy(c => c.Item2).ToList();
+
+    private string CatName(uint id) => AllCategories().FirstOrDefault(c => c.Id == id).Name ?? $"#{id}";
+
+    private string Summary(List<ulong>? homes) => homes == null || homes.Count == 0 ? "no home" : string.Join(", ", homes.Select(plugin.Tracker.NameOf));
+
     private void DrawCategories(CharacterData me)
     {
-        ImGui.TextWrapped("Give a category its home retainers, first choice first. Items with no home (or whose homes are full) use the overflow order on the Retainers tab.");
+        ImGui.TextWrapped("Where things live, most specific first: item pins, then name rules, then the game category, then its group, " +
+                          "then the overflow order (Retainers tab). Stash and Tidy both follow this.");
         var changed = false;
-        var cats = Items.Candidates()
-            .Concat(C.Include.Select(id => Items.Info(id)).Where(i => i != null).Select(i => i!))
-            .GroupBy(i => i.CategoryId)
-            .Select(g => (Id: g.Key, Name: g.First().Category, Count: g.Count()))
-            .OrderBy(c => c.Name)
-            .ToList();
-        var inBags = Tracker.Stacks(Tracker.Bags, id => Items.Stashable(id, C)).Select(s => Items.Info(s.ItemId)?.CategoryId ?? 0).ToHashSet();
-        if (ImGui.BeginChild("##cats"))
+        if (!ImGui.BeginChild("##cats")) { ImGui.EndChild(); return; }
+
+        // ---- groups
+        if (ImGui.CollapsingHeader("Groups", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            foreach (var cat in cats)
+            foreach (var g in C.Groups.ToList())
             {
-                if (!me.CategoryHomes.TryGetValue(cat.Id, out var homes)) homes = new List<ulong>();
-                var summary = homes.Count == 0 ? "overflow" : string.Join(", ", homes.Select(plugin.Tracker.NameOf));
-                var open = ImGui.TreeNode($"{cat.Name}  ({cat.Count} items) -> {summary}{(inBags.Contains(cat.Id) ? "   [in your bags]" : "")}###cat{cat.Id}");
-                if (!open) continue;
-                if (OrderedList($"cat{cat.Id}", homes, me))
+                me.GroupHomes.TryGetValue(g.Name, out var homes);
+                var flags = $"{(g.StashFromBags ? "stash from bags" : "bags: stays")}{(g.Tidy ? "" : ", no tidy")}";
+                if (!ImGui.TreeNode($"{g.Name} -> {Summary(homes)}   ({flags})###grp{g.Name}")) continue;
+                var sfb = g.StashFromBags;
+                if (ImGui.Checkbox(g.Name == Configuration.MaterialsGroup ? "Stash from my bags (by the material rules, Rules tab)" : "Stash from my bags too", ref sfb)) { g.StashFromBags = sfb; changed = true; }
+                ImGui.SameLine();
+                var td = g.Tidy;
+                if (ImGui.Checkbox("Tidy may move these", ref td)) { g.Tidy = td; changed = true; }
+                homes ??= new List<ulong>();
+                if (OrderedList($"g{g.Name}", homes, me)) { if (homes.Count == 0) me.GroupHomes.Remove(g.Name); else me.GroupHomes[g.Name] = homes; changed = true; }
+                if (ImGui.TreeNode($"Game categories in it ({g.Categories.Count})###gc{g.Name}"))
                 {
-                    if (homes.Count == 0) me.CategoryHomes.Remove(cat.Id); else me.CategoryHomes[cat.Id] = homes;
-                    changed = true;
+                    foreach (var cid in g.Categories.OrderBy(CatName).ToList())
+                    {
+                        ImGui.PushID((int)cid);
+                        ImGui.BulletText(CatName(cid)); ImGui.SameLine();
+                        if (ImGui.SmallButton("Remove")) { g.Categories.Remove(cid); changed = true; }
+                        ImGui.PopID();
+                    }
+                    ImGui.SetNextItemWidth(220);
+                    if (ImGui.BeginCombo("##addcat", "Add a category (moves it here)..."))
+                    {
+                        foreach (var (cid, name) in AllCategories().Where(c => !g.Categories.Contains(c.Id)))
+                            if (ImGui.Selectable($"{name}  ({C.GroupOf(cid)?.Name ?? "no group"})##ac{cid}"))
+                            {
+                                foreach (var other in C.Groups) other.Categories.Remove(cid);
+                                g.Categories.Add(cid); changed = true;
+                            }
+                        ImGui.EndCombo();
+                    }
+                    ImGui.TreePop();
                 }
-                if (ImGui.SmallButton("List its items"))
+                if (g.Name != Configuration.MaterialsGroup && ImGui.SmallButton("Delete this group"))
                 {
-                    var names = Items.Candidates().Where(i => i.CategoryId == cat.Id).Select(i => i.Name).OrderBy(n => n).Take(400);
-                    Plugin.ChatGui.Print($"[Stash] {cat.Name}: {string.Join(", ", names)}");
+                    C.Groups.Remove(g); me.GroupHomes.Remove(g.Name); changed = true;
                 }
                 ImGui.TreePop();
             }
+            if (ImGui.SmallButton("New group"))
+            {
+                var n = 1;
+                while (C.Groups.Any(x => x.Name == $"Group {n}")) n++;
+                C.Groups.Add(new CategoryGroup { Name = $"Group {n}" });
+                changed = true;
+            }
         }
+
+        // ---- game categories
+        if (ImGui.CollapsingHeader("Game categories"))
+        {
+            ImGui.SetNextItemWidth(220);
+            ImGui.InputTextWithHint("##catfilter", "Filter (e.g. Rug, Head, Miscellany)", ref catFilter, 40);
+            var inBags = Tracker.Stacks(Tracker.Bags).Select(x => Items.Info(x.ItemId)?.CategoryId ?? 0).ToHashSet();
+            foreach (var (cid, name) in AllCategories())
+            {
+                if (catFilter.Length > 0 && !name.Contains(catFilter, StringComparison.OrdinalIgnoreCase)) continue;
+                me.CategoryHomes.TryGetValue(cid, out var homes);
+                var label = $"{name} -> {(homes is { Count: > 0 } ? Summary(homes) : $"group: {C.GroupOf(cid)?.Name ?? "none"}")}{(inBags.Contains(cid) ? "   [in your bags]" : "")}###cat{cid}";
+                if (!ImGui.TreeNode(label)) continue;
+                homes ??= new List<ulong>();
+                if (OrderedList($"cat{cid}", homes, me)) { if (homes.Count == 0) me.CategoryHomes.Remove(cid); else me.CategoryHomes[cid] = homes; changed = true; }
+                ImGui.TreePop();
+            }
+        }
+
+        // ---- name rules
+        if (ImGui.CollapsingHeader($"Name rules ({me.NameRules.Count})###namerules"))
+        {
+            ImGui.TextColored(Dim, "Items whose name contains the text go to these retainers (e.g. \"Totem\"). First matching rule wins.");
+            for (var i = 0; i < me.NameRules.Count; i++)
+            {
+                var rule = me.NameRules[i];
+                ImGui.PushID($"nr{i}");
+                var text = rule.Text;
+                ImGui.SetNextItemWidth(160);
+                if (ImGui.InputText("##t", ref text, 40)) { rule.Text = text; changed = true; }
+                ImGui.SameLine(); ImGui.TextColored(Dim, $"-> {Summary(rule.Homes)}");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) { me.NameRules.RemoveAt(i); changed = true; ImGui.PopID(); break; }
+                ImGui.Indent();
+                if (OrderedList($"nrl{i}", rule.Homes, me)) changed = true;
+                ImGui.Unindent();
+                ImGui.PopID();
+            }
+            if (ImGui.SmallButton("Add a name rule")) { me.NameRules.Add(new NameRule { Text = "Totem" }); changed = true; }
+        }
+
+        // ---- item pins
+        if (ImGui.CollapsingHeader($"Item pins ({me.ItemPins.Count})###pins"))
+        {
+            ImGui.TextColored(Dim, "One item always goes to these retainers (usually just one; a second is the backup when the first is full).");
+            foreach (var (id, homes) in me.ItemPins.OrderBy(p => Items.Info(p.Key)?.Name).ToList())
+            {
+                ImGui.PushID($"pin{id}");
+                var open = ImGui.TreeNode($"{Items.Info(id)?.Name ?? $"#{id}"} -> {Summary(homes)}###p");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) { me.ItemPins.Remove(id); changed = true; if (open) ImGui.TreePop(); ImGui.PopID(); break; }
+                if (open)
+                {
+                    if (OrderedList($"pl{id}", homes, me)) changed = true;
+                    ImGui.TreePop();
+                }
+                ImGui.PopID();
+            }
+            ImGui.SetNextItemWidth(240);
+            if (ImGui.InputTextWithHint("##pinsearch", "Pin an item: type a name...", ref pinSearch, 64)) pinHits = SearchAnyItem(pinSearch);
+            foreach (var (id, name) in pinHits.ToList())
+                if (ImGui.Selectable($"{name}##ph{id}")) { me.ItemPins.TryAdd(id, new List<ulong>()); pinHits.Clear(); pinSearch = ""; changed = true; }
+        }
+
         ImGui.EndChild();
         if (changed) C.Save();
     }
@@ -550,9 +708,7 @@ public sealed class MainWindow : Window
         ImGui.Separator();
         ImGui.TextUnformatted($"Always stash ({C.Include.Count})");
         if (IdList(C.Include)) changed = true;
-        ImGui.TextUnformatted($"Never stash ({C.Exclude.Count})");
-        if (IdList(C.Exclude)) changed = true;
-        ImGui.TextColored(Dim, "Add items from the 'Bags now' tab (hold Shift there to see everything).");
+        ImGui.TextColored(Dim, "Add items from the 'Bags now' tab (\"Stash it\"). Items never to stash: the Keep on me tab.");
         if (changed) C.Save();
     }
 

@@ -30,6 +30,35 @@ For each stack, the first retainer with room from:
 every retainer. Retainers marked **never use** (e.g. your materia retainer) are skipped. A second pass picks up
 anything a full retainer bounced back to one already visited.
 
+## Tidy (sorting between retainers)
+**Tidy (N)** at the bell (or `/stash tidy`) moves items between retainers; hover it for the plan first.
+- An item with a home (pin, name rule, category, group) that sits on a retainer outside its homes goes home.
+- An item with no home that's split across retainers is merged onto the one holding the most. Items with no home on a
+  single retainer stay where they are. NQ and HQ stay together.
+- Retainer to retainer goes through your bags (the game has no direct transfer), so each trip is limited by your free
+  bag slots; it takes laps (up to 4, settable) until nothing's left or nothing moves. Anything still in your bags at the
+  end is remembered and put away by the next Stash or Tidy.
+- After each retainer, the game's own item sort runs on it (`/itemsort ... retainer`; switchable).
+- Items the game refuses (a unique item the retainer already has, or one that can't be entrusted) are skipped and listed.
+- "Never use" retainers are never touched; groups can opt out ("Tidy may move these": Materia is off by default).
+
+## Homes: groups, categories, name rules, pins (Categories tab)
+Most specific first: **item pin** (one item -> retainers), **name rule** ("name contains Totem" -> retainers),
+**game category** (e.g. Rug), **group** (Housing, Armor, Accessories, Weapons & tools, Food & potions, Materials,
+Collectibles, Materia, Other: built from the game's own category order; edit freely), then the **overflow order**.
+Each group has a **Stash from my bags too** switch: on for Materials (by the material rules), off for the rest, so gear
+or housing items you're carrying stay with you unless you turn it on.
+
+## Keep on me
+Items never taken out of your bags by Stash, a tidy or the saddlebag buttons (raid food, potions, dark matter...).
+Add them on the **Keep on me** tab or with **Keep** on the Bags now tab.
+
+## Venture timer
+A small movable window: how many retainers are ready (venture done, or none assigned) and minutes until the next. From
+the game's retainer list once you've used a bell this session; before that, from AutoRetainer (its
+`PluginState.GetClosestRetainerVentureSecondsRemaining`). Hidden in combat, duties and cutscenes unless you pin it;
+click it to open Material Stash. `/stash ventures` toggles it.
+
 ## Saddlebag
 With the saddlebag open, two buttons sit on top of it: **Mats -> saddlebag** and **Mats -> bags** (stashable materials
 only, stacking onto existing stacks first). Also `/stash saddle in` and `/stash saddle out`.
@@ -74,6 +103,7 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 
 ## Unverified (needs an in-game check)
 - Closing the retainer inventory with the window's close (selecting a retainer from the list is confirmed in game).
+- The item sort commands for a retainer (`/itemsort clear|condition|execute retainer`).
 - Moving part of a crystal stack: the item menu's "Entrust..." / "Retrieve..." then the number prompt. Whole stacks
   move directly. A wrong menu guess skips that crystal and saves a dump in `pluginConfigs/MaterialStash/dumps/`.
 - Allagan Tools' `GetCharacterItems` layout ([item, flags, owner, quantity] per stack).

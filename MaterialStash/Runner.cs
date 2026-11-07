@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -19,6 +20,7 @@ namespace MaterialStash;
 public sealed unsafe class Runner : IDisposable
 {
     private enum Phase { Idle, Select, OpenMenu, OpenInventory, Work, CloseInventory, Quit, BackToList }
+    public enum RunMode { Stash, Scan, Tidy }
 
     private sealed class CrystalOp
     {
@@ -41,7 +43,14 @@ public sealed unsafe class Runner : IDisposable
     private readonly Queue<ulong> queue = new();
     private readonly HashSet<ulong> visited = new();
     private ulong current;
-    private bool scanOnly;
+    private RunMode mode;
+    private bool scanOnly => mode == RunMode.Scan;
+    private bool tidy => mode == RunMode.Tidy;
+    private int laps, lapMoves, withdrawn;
+    private int sortStep;
+    private bool bagsFull;
+    private readonly HashSet<(uint, ulong)> skipWithdraw = new();
+    private readonly HashSet<string> refused = new();
     private int pass;
     private int stacksMoved, crystalsMoved;
     private CrystalOp? crystal;
@@ -53,6 +62,7 @@ public sealed unsafe class Runner : IDisposable
     public string Status { get; private set; } = "";
     public bool Busy => phase != Phase.Idle;
     public bool Scanning => Busy && scanOnly;
+    public bool Tidying => Busy && tidy;
 
     public Runner(Configuration config, Tracker tracker, Planner planner, AutoRetainerIpc autoRetainer)
     {
@@ -77,25 +87,42 @@ public sealed unsafe class Runner : IDisposable
         return null;
     }
 
-    public void Start(bool scan)
+    public void Start(bool scan) => Start(scan ? RunMode.Scan : RunMode.Stash);
+
+    public void Start(RunMode m)
     {
         if (CantStart() is { } why) { Status = why; return; }
         var me = tracker.Me()!;
-        scanOnly = scan;
+        mode = m;
         pass = 1;
+        laps = 1; lapMoves = 0; withdrawn = 0;
         stacksMoved = crystalsMoved = 0;
-        visited.Clear(); skipStacks.Clear();
-        crystal = null; lastMove = null;
+        visited.Clear(); skipStacks.Clear(); skipWithdraw.Clear(); refused.Clear();
+        crystal = null; lastMove = null; bagsFull = false;
+        PruneCarry(me);
         queue.Clear();
-        var list = scan ? me.Order : planner.RetainersToVisit();
+        var list = m switch
+        {
+            RunMode.Scan => me.Order,
+            RunMode.Tidy => planner.TidyVisits(),
+            _ => planner.RetainersToVisit(),
+        };
         if (list.Count == 0)
         {
-            Status = "Nothing to stash (or nowhere to put it: check the overflow order).";
+            Status = m == RunMode.Tidy ? "Already tidy (as far as the records show: Scan all to refresh)."
+                : "Nothing to stash (or nowhere to put it: check the overflow order).";
             return;
         }
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
-        Status = scan ? "Scanning retainers..." : "Stashing...";
+        Status = m switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", _ => "Stashing..." };
+    }
+
+    /// <summary>Forget carried items that aren't in your bags any more.</summary>
+    private void PruneCarry(CharacterData me)
+    {
+        var inBags = Tracker.Stacks(Tracker.Bags).Select(x => x.ItemId % 1_000_000).ToHashSet();
+        if (me.TidyCarry.RemoveWhere(id => !inBags.Contains(id)) > 0) tracker.Save(force: true);
     }
 
     public void Stop()
@@ -151,9 +178,19 @@ public sealed unsafe class Runner : IDisposable
     {
         phase = Phase.Idle;
         tracker.Save(force: true);
+        if (tracker.Me() is { } me) PruneCarry(me);
         if (scanOnly)
         {
             Status = $"Scanned {visited.Count} retainer(s).";
+        }
+        else if (tidy)
+        {
+            var left = tracker.Me()?.TidyCarry.Count ?? 0;
+            var plan = planner.TidyPlan().Count;
+            Status = $"Tidied: {withdrawn} stack(s) taken out, {stacksMoved} put away, {laps} lap(s)." +
+                     (left > 0 ? $" {left} item(s) still in your bags (no room where they go): Stash puts them away later." : "") +
+                     (plan > 0 ? $" {plan} move(s) left{(bagsFull ? " (bags full)" : "")}." : "") +
+                     (refused.Count > 0 ? $" Refused by the game: {string.Join(", ", refused.Take(8))}." : "");
         }
         else
         {
@@ -218,8 +255,18 @@ public sealed unsafe class Runner : IDisposable
 
         if (queue.Count == 0)
         {
+            if (tidy)
+            {
+                // Another lap while things are still moving: carried items, or more to take out.
+                if (laps < Math.Max(1, config.TidyMaxLaps) && lapMoves > 0 && planner.TidyVisits() is { Count: > 0 } next)
+                {
+                    laps++; lapMoves = 0;
+                    foreach (var id in next) queue.Enqueue(id);
+                }
+                else { Finish(); return; }
+            }
             // A second pass for anything a full retainer bounced to another one already passed.
-            if (!scanOnly && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
+            else if (!scanOnly && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
             {
                 pass++;
                 foreach (var id in again) queue.Enqueue(id);
@@ -231,7 +278,7 @@ public sealed unsafe class Runner : IDisposable
         var me = tracker.Me();
         var index = me?.Order.IndexOf(current) ?? -1;
         if (index < 0) { phaseStart = DateTime.UtcNow; return; } // gone from the list; next one
-        Status = $"{(scanOnly ? "Scanning" : "Stashing")}: {tracker.NameOf(current)}...";
+        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : "Stashing")}: {tracker.NameOf(current)}...";
         GameUi.Fire(list, 2, index);
         Set(Phase.OpenMenu);
         next = DateTime.UtcNow.AddSeconds(0.8);
@@ -269,6 +316,7 @@ public sealed unsafe class Runner : IDisposable
         skipStacks.Clear();
         skipCrystals.Clear(); // per retainer: a crystal tried here is re-checked at the next one
         lastMove = null;
+        sortStep = 0;
         Set(Phase.Work);
     }
 
@@ -278,7 +326,8 @@ public sealed unsafe class Runner : IDisposable
         if (crystal != null) { TickCrystal(); return; }
         tracker.RecordOpen();
         if (scanOnly) { Set(Phase.CloseInventory); return; }
-        if (DepositStep() || CrystalStep()) { phaseStart = DateTime.UtcNow; return; }
+        if (DepositStep() || (tidy && WithdrawStep()) || CrystalStep()) { phaseStart = DateTime.UtcNow; return; }
+        if (tidy && config.TidySort && SortStep()) { phaseStart = DateTime.UtcNow; return; }
         Set(Phase.CloseInventory);
     }
 
@@ -326,25 +375,108 @@ public sealed unsafe class Runner : IDisposable
     {
         var im = InventoryManager.Instance();
         if (im == null) return false;
-        foreach (var s in Tracker.Stacks(Tracker.Bags, id => Items.Stashable(id, config)))
+        var me = tracker.Me();
+        foreach (var s in Tracker.Stacks(Tracker.Bags, id => Items.Depositable(id, config, me)))
         {
             if (skipStacks.Contains((s.Type, s.Slot))) continue;
-            if (planner.Best(s.ItemId) != current) continue;
+            var carried = me != null && me.TidyCarry.Contains(s.ItemId % 1_000_000);
+            var to = carried ? planner.TidyTarget(s.ItemId, me!) ?? planner.Best(s.ItemId) : planner.Best(s.ItemId);
+            if (to != current) continue;
             if (FindSlot(s.ItemId) is not { } dst) continue;
 
             // The same stack again with nothing changed: the game isn't taking it. Leave it.
             if (lastMove is { } lm && lm.Type == s.Type && lm.Slot == s.Slot && lm.Item == s.ItemId && lm.Qty == s.Qty)
             {
-                if (++sameMoveCount >= 3) { skipStacks.Add((s.Type, s.Slot)); Plugin.Log.Warning($"Stash: {Items.Info(s.ItemId)?.Name} wouldn't move; skipped."); continue; }
+                if (++sameMoveCount >= 3)
+                {
+                    skipStacks.Add((s.Type, s.Slot));
+                    refused.Add(Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}");
+                    Plugin.Log.Warning($"Stash: {Items.Info(s.ItemId)?.Name} wouldn't move (unique already there, or can't be entrusted); skipped.");
+                    continue;
+                }
             }
             else sameMoveCount = 0;
             lastMove = (s.Type, s.Slot, s.ItemId, s.Qty);
 
             im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
             stacksMoved++;
+            lapMoves++;
             return true;
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------ tidy
+
+    /// <summary>Take one stack that belongs elsewhere out of the open retainer into your bags. True if something moved.</summary>
+    private bool WithdrawStep()
+    {
+        var me = tracker.Me();
+        var im = InventoryManager.Instance();
+        if (me == null || im == null || bagsFull) return false;
+        foreach (var s in Tracker.Stacks(Tracker.RetainerPages))
+        {
+            var nq = s.ItemId % 1_000_000;
+            if (skipWithdraw.Contains((nq, current)) || skipStacks.Contains((s.Type, s.Slot))) continue;
+            if (planner.TidyMoveFrom(current, s.ItemId, me) is null) continue;
+            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; return false; }
+            if (lastMove is { } lm && lm.Type == s.Type && lm.Slot == s.Slot && lm.Item == s.ItemId && lm.Qty == s.Qty)
+            {
+                if (++sameMoveCount >= 3) { skipStacks.Add((s.Type, s.Slot)); skipWithdraw.Add((nq, current)); refused.Add(Items.Info(nq)?.Name ?? $"#{nq}"); continue; }
+            }
+            else sameMoveCount = 0;
+            lastMove = (s.Type, s.Slot, s.ItemId, s.Qty);
+            im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
+            if (me.TidyCarry.Add(nq)) tracker.Save(force: true);
+            withdrawn++;
+            lapMoves++;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>A bag stack of the same item with room, else a free bag slot.</summary>
+    private static (InventoryType Type, int Slot)? BagSlot(uint itemId)
+    {
+        var max = Tracker.StackMax(itemId);
+        foreach (var s in Tracker.Stacks(Tracker.Bags, id => id == itemId))
+            if (s.Qty < max) return (s.Type, s.Slot);
+        var im = InventoryManager.Instance();
+        foreach (var t in Tracker.Bags)
+        {
+            var c = im->GetInventoryContainer(t);
+            if (c == null || !c->IsLoaded) continue;
+            for (var i = 0; i < c->Size; i++)
+                if (c->GetInventorySlot(i) is var slot && slot != null && slot->ItemId == 0) return (t, i);
+        }
+        return null;
+    }
+
+    private static readonly string[] SortCommands =
+    {
+        "/itemsort clear retainer",
+        "/itemsort condition retainer category asc",
+        "/itemsort condition retainer id asc",
+        "/itemsort execute retainer",
+    };
+
+    /// <summary>The game's own item sort for the open retainer, one command per step. True while sending.</summary>
+    private bool SortStep()
+    {
+        if (sortStep >= SortCommands.Length) return false;
+        SendChat(SortCommands[sortStep++]);
+        next = DateTime.UtcNow.AddSeconds(0.5);
+        return true;
+    }
+
+    /// <summary>Send a line through the chat box, like typing it.</summary>
+    private static void SendChat(string line)
+    {
+        var ui = UIModule.Instance();
+        if (ui == null) return;
+        var str = Utf8String.FromString(line);
+        try { ui->ProcessChatBoxEntry(str); }
+        finally { str->Dtor(true); }
     }
 
     /// <summary>A stack of the same item (same quality) with room on the open retainer, else an empty slot (respecting the reserve).</summary>
