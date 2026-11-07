@@ -54,8 +54,8 @@ public sealed unsafe class Transmuter : IDisposable
     private DateTime runStarted;
     private readonly List<MateriaInfo> runIn = new(), runOut = new();
     private bool summarized = true;
-    /// <summary>Results received this trip (item id -> count): rolled again first, and never held back for the retainer.</summary>
-    private readonly Dictionary<uint, int> rolled = new();
+    /// <summary>Results not rolled again yet (kept across trips): rolled first, never held back for the retainer.</summary>
+    private Dictionary<uint, int> rolled => config.Rerolls;
     private Batch? batch;
     private int added, stepTries;
     private string lastMenu = "";
@@ -81,7 +81,10 @@ public sealed unsafe class Transmuter : IDisposable
         var spare = new List<(MateriaInfo Info, int Count)>();
         foreach (var (id, count) in bags)
         {
-            if (!config.Rules.TryGetValue(id, out var rule) || !rule.Fodder) continue;
+            config.Rules.TryGetValue(id, out var rule);
+            var isReroll = config.RerollResultsFirst && rolled.ContainsKey(id) && !(rule is { UserSet: true, Fodder: false });
+            if (!isReroll && (rule == null || !rule.Fodder)) continue;
+            rule ??= new FodderRule();
             var mi = all[id];
             if (mi.Grade > config.MaxTransmuteGrade) continue;                    // master cap
             if (config.SkipTopGrade && mi.Grade >= mi.TopGrade) continue;         // can't upgrade
@@ -118,7 +121,7 @@ public sealed unsafe class Transmuter : IDisposable
     {
         if (Busy) return;
         BatchesDone = 0; Results.Clear(); batch = null;
-        runBefore = MateriaData.Count(MateriaData.Bags); runStarted = DateTime.Now; runIn.Clear(); runOut.Clear(); rolled.Clear(); summarized = false; Summary = ""; upgradesThisRun = 0;
+        runBefore = MateriaData.Count(MateriaData.Bags); runStarted = DateTime.Now; runIn.Clear(); runOut.Clear(); summarized = false; Summary = ""; upgradesThisRun = 0;
         tries = 0; talkedAt = DateTime.MinValue; bestDistance = float.MaxValue;
         Set(FindNpc() != null || NpcLocator.InTerritory(Npc, Plugin.ClientState.TerritoryType) != null ? Phase.Walking : Phase.Teleporting,
             "Heading to Mutamix Bubblypots...");
@@ -371,6 +374,7 @@ public sealed unsafe class Transmuter : IDisposable
             if (got != null) { runOut.Add(got); rolled[got.ItemId] = rolled.GetValueOrDefault(got.ItemId) + 1; }
             // Results used up in this batch come off the reroll list.
             foreach (var used in batch.Items) if (rolled.TryGetValue(used.ItemId, out var rc)) { if (rc <= 1) rolled.Remove(used.ItemId); else rolled[used.ItemId] = rc - 1; }
+            config.Save();
             Log(new
             {
                 type = "batch", time = DateTime.Now.ToString("s"), grade = batch.Grade,
@@ -381,8 +385,11 @@ public sealed unsafe class Transmuter : IDisposable
             if (got != null)
             {
                 // Keep rolling: a result at a grade you're transmuting is used too, unless you set it yourself.
+                // Also upgrades (one grade up), so they roll on too instead of each sitting in its own slot.
+                // The grade cap and the top-grade rule still apply when the plan is built.
                 if (config.RollResults && !(config.Rules.TryGetValue(got.ItemId, out var gr) && gr.UserSet) &&
-                    config.Rules.Any(r => r.Value.Fodder && MateriaData.All().TryGetValue(r.Key, out var mi) && mi.Grade == got.Grade))
+                    (got.Grade == batch!.Grade + 1 ||
+                     config.Rules.Any(r => r.Value.Fodder && MateriaData.All().TryGetValue(r.Key, out var mi) && mi.Grade == got.Grade)))
                 {
                     if (!config.Rules.TryGetValue(got.ItemId, out var nr)) config.Rules[got.ItemId] = nr = new FodderRule();
                     nr.Fodder = true;

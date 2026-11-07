@@ -28,7 +28,7 @@ public class RetainerRule
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     // ---- saddlebag
     /// <summary>Opening the saddlebag moves bag materia into it (paused while materia is held for transmuting).</summary>
@@ -66,6 +66,8 @@ public class Configuration : IPluginConfiguration
     public bool RollResults { get; set; } = true;
     /// <summary>Results from the current trip go first in the next batches and aren't held back for the retainer.</summary>
     public bool RerollResultsFirst { get; set; } = true;
+    /// <summary>Transmute results not rolled again yet (item id -> count), kept across trips.</summary>
+    public Dictionary<uint, int> Rerolls { get; set; } = new();
     /// <summary>Master cap: nothing above this grade is ever transmuted, whatever is ticked.</summary>
     public int MaxTransmuteGrade { get; set; } = 11;
     /// <summary>Never transmute materia already at its type's highest grade (it can't upgrade, only change type).</summary>
@@ -93,6 +95,29 @@ public class Configuration : IPluginConfiguration
     public void Migrate()
     {
         if (Version < 2) { AutoStoreSaddlebag = AutoStore; Version = 2; }
+        if (Version < 3) { SeedRerollsFromLog(); Version = 3; }
+    }
+
+    /// <summary>v3: results from earlier trips (net gains in the transmute log) join the reroll list.</summary>
+    private void SeedRerollsFromLog()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "transmute_log.jsonl");
+            if (!System.IO.File.Exists(path)) return;
+            var net = new Dictionary<uint, int>();
+            foreach (var line in System.IO.File.ReadLines(path))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(line);
+                var e = doc.RootElement;
+                if (e.GetProperty("type").GetString() != "batch") continue;
+                foreach (var i in e.GetProperty("in").EnumerateArray()) { var id = i.GetProperty("id").GetUInt32(); net[id] = net.GetValueOrDefault(id) - 1; }
+                if (e.TryGetProperty("out", out var o) && o.ValueKind == System.Text.Json.JsonValueKind.Object)
+                { var id = o.GetProperty("id").GetUInt32(); net[id] = net.GetValueOrDefault(id) + 1; }
+            }
+            foreach (var (id, n) in net) if (n > 0) Rerolls[id] = n;
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't read the transmute log for rerolls"); }
     }
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);

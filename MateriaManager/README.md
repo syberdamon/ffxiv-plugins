@@ -42,8 +42,9 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
   upgrades, and per grade how many were in your bags before and after. Every batch (what went in,
   what came out, upgrade or not) and every trip summary is appended to
   `pluginConfigs/MateriaManager/transmute_log.jsonl` for later analysis.
-- **Rerolls first** (on): what you get back during a trip goes first in the next batches, and
-  isn't held back for the retainer even if it still needs that materia.
+- **Rerolls first** (on): what you get back goes first in the next batches (also on later trips),
+  and isn't held back for the retainer even if it still needs that materia. Upgrades roll on too
+  (within the grade cap). Within a grade, singles pair up: 1 Might + 1 Crafting + 3 Aim.
 - By default it won't use what your materia retainer still needs to reach its maximum (as last
   seen), so pull, transmute and balance don't fight each other.
 
