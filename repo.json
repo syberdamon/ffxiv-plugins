@@ -79,7 +79,7 @@
     "Author": "syberdamon",
     "Name": "Materia Manager",
     "InternalName": "MateriaManager",
-    "AssemblyVersion": "0.4.3.0",
+    "AssemblyVersion": "0.4.4.0",
     "Description": "Shows your materia by type and grade in your bags, saddlebag and materia retainer. Storage: opening the saddlebag stores bag materia; \"pull all\" brings it back for transmuting; your materia retainer is topped up to a minimum/maximum of each materia (e.g. 800) when you open it, splitting stacks for exact amounts, and the rest stays in your bags. Transmutation: pick fodder and keep-at-least numbers; it plans batches of five and takes you to Mutamix Bubblypots. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -97,9 +97,9 @@
     "LoadPriority": 0,
     "Punchline": "Materia in one place: auto-store to saddlebag or retainer, and plan transmutation batches with keep-at-least rules.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.3.0/MateriaManager.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.3.0/MateriaManager.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.3.0/MateriaManager.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.4.0/MateriaManager.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.4.0/MateriaManager.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MateriaManager-v0.4.4.0/MateriaManager.zip"
   },
   {
     "Author": "syberdamon",
