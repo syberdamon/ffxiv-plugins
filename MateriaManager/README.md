@@ -12,6 +12,7 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
   *held* there: auto-store won't put it back until you **Release** it (or your bags run out).
 - **Combat / Crafting / Gathering** switches (Storage tab) limit both pull buttons to those kinds;
   the Transmute tab has its own three (e.g. transmute combat materia but never crafting).
+- Purge selling recovers if the item menu stays open after **Sell** and saves dumps if it stalls.
 - **Pull by grade** (`/materia pull 11-12`, `/materia pull 1-6`; one number = that grade and up):
   materia of those grades comes into your bags from the saddlebag and/or the open retainer
   (tick which). The top grades for melding, the low ones for clearing out. Held in your bags
