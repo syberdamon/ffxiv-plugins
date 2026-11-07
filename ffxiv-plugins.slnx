@@ -5,6 +5,7 @@
   <Project Path="MitPlanner/MitPlanner.csproj" />
   <Project Path="PoeticsSpender/PoeticsSpender.csproj" />
   <Project Path="RaiseCallouts/RaiseCallouts.csproj" />
+  <Project Path="RescueHelper/RescueHelper.csproj" />
   <Project Path="RetainerGear/RetainerGear.csproj" />
   <Project Path="TurnInManager/TurnInManager.csproj" />
   <Project Path="TankStanceManager/TankStanceManager.csproj" />
