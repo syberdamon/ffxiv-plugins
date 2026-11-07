@@ -11,6 +11,8 @@ public class FodderRule
     public bool Fodder { get; set; }
     /// <summary>Never use the last N of this one (in your bags).</summary>
     public int Keep { get; set; }
+    /// <summary>You ticked/unticked it yourself (results never override that).</summary>
+    public bool UserSet { get; set; }
 }
 
 /// <summary>How much of one materia the materia retainer holds. Custom = false: use the defaults.</summary>
@@ -60,6 +62,8 @@ public class Configuration : IPluginConfiguration
     public bool SameGradeBatches { get; set; } = true;
     /// <summary>Stop after this many batches per trip (a safety cap).</summary>
     public int MaxBatchesPerRun { get; set; } = 10;
+    /// <summary>A result at a grade being transmuted is used in later batches (keep rolling until a grade runs short).</summary>
+    public bool RollResults { get; set; } = true;
     /// <summary>Don't transmute what the materia retainer still needs to reach its maximum.</summary>
     public bool ReserveForRetainer { get; set; } = true;
 
