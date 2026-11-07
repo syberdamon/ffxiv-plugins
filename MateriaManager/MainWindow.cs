@@ -235,6 +235,7 @@ public sealed class MainWindow : Window
         var t = plugin.Transmuter;
         if (t.Results.Count > 0)
             ImGui.TextDisabled($"This trip: {t.BatchesDone} batch(es); got {string.Join(", ", t.Results.GroupBy(r => r).Select(g => g.Count() > 1 ? $"{g.Count()}x {g.Key}" : g.Key))}");
+        if (t.Summary.Length > 0) ImGui.TextWrapped("Last trip: " + t.Summary);
         if (t.Busy) { if (ImGui.Button("Stop")) t.Stop(); }
         else
         {
