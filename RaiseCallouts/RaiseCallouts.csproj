@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>syberdamon</Author>
+    <Name>Raise Callouts</Name>
+    <Punchline>Says "Raising &lt;name&gt;" in party chat whenever you raise someone, however it was cast (RotationSolver, macros, hotbar).</Punchline>
+    <Description>Watches your own raise spells (Raise, Resurrection, Ascend, Egeiro, Verraise, Angel Whisper) and posts a callout when you start casting one, or when an instant (Swiftcast/Dualcast) raise lands. Works with rotation plugins because it watches the cast itself, not a hotbar button. One message per raise, skips targets already being raised, editable message, party chat or echo only.</Description>
+    <Tags>raise;resurrection;callout;party chat;healer</Tags>
+    <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>
