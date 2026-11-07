@@ -4,6 +4,7 @@
   <Project Path="MapClickNav/MapClickNav.csproj" />
   <Project Path="MitPlanner/MitPlanner.csproj" />
   <Project Path="PoeticsSpender/PoeticsSpender.csproj" />
+  <Project Path="RetainerGear/RetainerGear.csproj" />
   <Project Path="TurnInManager/TurnInManager.csproj" />
   <Project Path="TankStanceManager/TankStanceManager.csproj" />
 </Solution>
