@@ -50,6 +50,7 @@ public sealed unsafe class Transmuter : IDisposable
     public List<string> Results { get; } = new();
     private Batch? batch;
     private int added, stepTries;
+    private string lastMenu = "";
     private Dictionary<uint, int> bagsBefore = new();
 
     public Transmuter(Configuration config)
@@ -245,20 +246,28 @@ public sealed unsafe class Transmuter : IDisposable
         var menu = GameUi.Get("ContextMenu");
         if (menu != null)
         {
+            // The add option; never "Remove from ..." / "Return" (once a stack is in the window, its
+            // menu also offers removing it, which also mentions transmutation).
             var index = -1;
-            for (var i = 7; i < menu->AtkValuesCount && index < 0; i++)
+            var entries = new List<string>();
+            for (var i = 7; i < menu->AtkValuesCount; i++)
             {
                 var t = GameUi.Str(menu, i);
-                if (t.Contains("Transmut", StringComparison.OrdinalIgnoreCase) || t.Equals("Select", StringComparison.OrdinalIgnoreCase) ||
-                    t.Contains("Move to", StringComparison.OrdinalIgnoreCase)) index = i - 8;
+                if (t.Length == 0) continue;
+                entries.Add(t);
+                if (index >= 0 || t.Contains("Remove", StringComparison.OrdinalIgnoreCase) || t.Contains("Return", StringComparison.OrdinalIgnoreCase) ||
+                    t.Contains("Cancel", StringComparison.OrdinalIgnoreCase)) continue;
+                if (t.Contains("Move to", StringComparison.OrdinalIgnoreCase) || t.Contains("Transmut", StringComparison.OrdinalIgnoreCase) ||
+                    t.Equals("Select", StringComparison.OrdinalIgnoreCase) || t.Equals("Add", StringComparison.OrdinalIgnoreCase)) index = i - 8;
             }
-            if (index < 0) { GameUi.Dump("ContextMenu", "item menu with the transmute window open"); menu->FireCallbackInt(-1); Fail("No transmute option in the item menu (dump saved)."); return; }
+            lastMenu = string.Join(" | ", entries);
+            if (index < 0) { GameUi.Dump("ContextMenu", "item menu with the transmute window open"); menu->FireCallbackInt(-1); Fail($"No add option in the item menu: {lastMenu} (dump saved)."); return; }
             GameUi.Fire(menu, 0, index, 0);
             nextAction = DateTime.UtcNow.AddSeconds(0.7);
             return;
         }
 
-        if (++stepTries > 6) { GameUi.Dump(TradeWindow, $"stuck at {n}/5"); Fail($"Couldn't add materia ({n}/5 selected; dump saved)."); return; }
+        if (++stepTries > 6) { GameUi.Dump(TradeWindow, $"stuck at {n}/5; last item menu: {lastMenu}"); Fail($"Couldn't add materia ({n}/5 selected; last menu: {lastMenu}; dump saved)."); return; }
         // Which piece is next: the batch's items not yet placed, counted by how many are selected.
         var want = batch!.Items[Math.Clamp(n, 0, 4)].ItemId;
         if (FindStack(want) is not { } slot) { Fail($"{MateriaData.All()[want].Name} isn't in your bags anymore."); return; }
