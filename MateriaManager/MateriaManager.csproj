@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.4.5.0</Version>
+    <Version>0.4.6.0</Version>
     <Author>syberdamon</Author>
     <Name>Materia Manager</Name>
     <Punchline>Materia in one place: auto-store to saddlebag or retainer, and plan transmutation batches with keep-at-least rules.</Punchline>

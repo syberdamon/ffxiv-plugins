@@ -54,6 +54,8 @@ public sealed unsafe class Transmuter : IDisposable
     private DateTime runStarted;
     private readonly List<MateriaInfo> runIn = new(), runOut = new();
     private bool summarized = true;
+    /// <summary>Results received this trip (item id -> count): rolled again first, and never held back for the retainer.</summary>
+    private readonly Dictionary<uint, int> rolled = new();
     private Batch? batch;
     private int added, stepTries;
     private string lastMenu = "";
@@ -83,9 +85,12 @@ public sealed unsafe class Transmuter : IDisposable
             var mi = all[id];
             if (mi.Grade > config.MaxTransmuteGrade) continue;                    // master cap
             if (config.SkipTopGrade && mi.Grade >= mi.TopGrade) continue;         // can't upgrade
-            var n = count - Math.Max(0, rule.Keep);
+            var free = count - Math.Max(0, rule.Keep);
+            var n = free;
             if (config.ReserveForRetainer && config.TargetFor(all[id]) is { } t && config.RetainerId != 0)
                 n -= Math.Max(0, t.Max - config.RetainerSeen.GetValueOrDefault(id));   // the retainer still needs these
+            // Results from this trip are rolled again whatever the retainer still needs (you asked for rerolls first).
+            if (config.RerollResultsFirst && rolled.TryGetValue(id, out var r)) n = Math.Max(n, Math.Min(free, r));
             if (n > 0) spare.Add((all[id], n));
         }
         var batches = new List<Batch>();
@@ -97,7 +102,9 @@ public sealed unsafe class Transmuter : IDisposable
             // Smallest stacks first, used up completely: each emptied stack frees a bag slot
             // (3 Gatherer's Guile + 2 of a 48 stack before touching the rest of the 48).
             var pieces = new List<MateriaInfo>();
-            foreach (var (info, count) in items.OrderBy(i => i.Count).ThenBy(i => i.Info.Type))
+            // Rerolled results first, then the smallest stacks.
+            foreach (var (info, count) in items.OrderBy(i => config.RerollResultsFirst && rolled.ContainsKey(i.Info.ItemId) ? 0 : 1)
+                                              .ThenBy(i => i.Count).ThenBy(i => i.Info.Type))
                 for (var k = 0; k < count; k++) pieces.Add(info);
             for (var i = 0; i + 5 <= pieces.Count; i += 5)
                 batches.Add(new Batch(grade == 0 ? pieces[i].Grade : grade, pieces.GetRange(i, 5)));
@@ -111,7 +118,7 @@ public sealed unsafe class Transmuter : IDisposable
     {
         if (Busy) return;
         BatchesDone = 0; Results.Clear(); batch = null;
-        runBefore = MateriaData.Count(MateriaData.Bags); runStarted = DateTime.Now; runIn.Clear(); runOut.Clear(); summarized = false; Summary = ""; upgradesThisRun = 0;
+        runBefore = MateriaData.Count(MateriaData.Bags); runStarted = DateTime.Now; runIn.Clear(); runOut.Clear(); rolled.Clear(); summarized = false; Summary = ""; upgradesThisRun = 0;
         tries = 0; talkedAt = DateTime.MinValue; bestDistance = float.MaxValue;
         Set(FindNpc() != null || NpcLocator.InTerritory(Npc, Plugin.ClientState.TerritoryType) != null ? Phase.Walking : Phase.Teleporting,
             "Heading to Mutamix Bubblypots...");
@@ -361,7 +368,9 @@ public sealed unsafe class Transmuter : IDisposable
             var got = now.Where(kv => kv.Value > bagsBefore.GetValueOrDefault(kv.Key)).Select(kv => MateriaData.All()[kv.Key]).FirstOrDefault();
             BatchesDone++;
             runIn.AddRange(batch!.Items);
-            if (got != null) runOut.Add(got);
+            if (got != null) { runOut.Add(got); rolled[got.ItemId] = rolled.GetValueOrDefault(got.ItemId) + 1; }
+            // Results used up in this batch come off the reroll list.
+            foreach (var used in batch.Items) if (rolled.TryGetValue(used.ItemId, out var rc)) { if (rc <= 1) rolled.Remove(used.ItemId); else rolled[used.ItemId] = rc - 1; }
             Log(new
             {
                 type = "batch", time = DateTime.Now.ToString("s"), grade = batch.Grade,
