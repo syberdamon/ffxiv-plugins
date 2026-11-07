@@ -15,6 +15,7 @@ public sealed class GroupWindow : Window
     private const uint TextColor = 0xFFFFFFFF;
     private const uint ShadowColor = 0xFF000000;
     private const uint ChargeColor = 0xFF7FFFFF;    // ABGR: light yellow
+    private const uint PulseRgb = 0x0040D0FF;        // ABGR without alpha: gold
 
     private readonly Plugin plugin;
     public CooldownGroup Group { get; }
@@ -72,8 +73,10 @@ public sealed class GroupWindow : Window
         var config = plugin.Configuration;
         // Only abilities the game allows on a party member are cast on the co-tank.
         // Shirk always goes to the other tank, whichever group it's in.
-        var sendable = (Group.CastOnCoTank || entry.ActionId == Presets.Shirk) && entry.CanTargetAlly;
-        var coTank = sendable ? ActionState.CoTank() : null;
+        var toCoTank = (Group.CastOnCoTank || entry.ActionId == Presets.Shirk) && entry.CanTargetAlly;
+        var toTank = !toCoTank && Group.CastOnTank && entry.CanTargetAlly;
+        var sendable = toCoTank || toTank;
+        var coTank = toCoTank ? ActionState.CoTank() : toTank ? ActionState.Tank() : null;
         var status = coTank is { } ct ? ActionState.Get(entry.ActionId, ct.Id) : ActionState.Get(entry.ActionId);
         var texture = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(entry.Icon)).GetWrapOrEmpty();
 
@@ -91,6 +94,16 @@ public sealed class GroupWindow : Window
             draw.AddRectFilled(topLeft, bottomRight, DimColor);
         else if (config.TintUnusable && !status.Usable)
             draw.AddRectFilled(topLeft, bottomRight, UnusableColor);
+
+        // Due now (buster/raidwide coming, upkeep missing on the tank): pulsing gold border.
+        if (Alerts.ShouldPulse(config, Group, entry.ActionId, status))
+        {
+            var t = (float)(DateTime.UtcNow.TimeOfDay.TotalSeconds % 1.0);
+            var alpha = (uint)(120 + 135 * (0.5 + 0.5 * Math.Sin(t * Math.PI * 2)));
+            var color = (alpha << 24) | PulseRgb;
+            draw.AddRect(topLeft - new Vector2(1), bottomRight + new Vector2(1), color, 3f, ImDrawFlags.None, 3f);
+            draw.AddRectFilled(topLeft, bottomRight, (alpha / 4 << 24) | PulseRgb);
+        }
 
         // Seconds remaining, centered.
         if (config.ShowCooldownNumbers && status.Remaining > 0.05f)
@@ -117,7 +130,7 @@ public sealed class GroupWindow : Window
         if (hovered && config.ShowTooltips)
         {
             var state = status.OnCooldown ? $"{status.Remaining:0.0}s" : status.Usable ? "Ready" : "Can't use right now";
-            var to = sendable ? (coTank is { } c ? $"\n-> {c.Name}" : "\nNo other tank in the party") : "";
+            var to = sendable ? (coTank is { } c ? $"\n-> {c.Name}" : toTank ? "\nNo tank in the party" : "\nNo other tank in the party") : "";
             var units = ActionCatalog.IsGeneralAction(entry.ActionId) ? "bars" : "charges";
             ImGui.SetTooltip(status.MaxCharges > 1
                 ? $"{entry.Name}\n{status.Charges}/{status.MaxCharges} {units} - {state}{to}"
@@ -128,7 +141,7 @@ public sealed class GroupWindow : Window
         {
             if (!sendable) ActionState.Use(entry.ActionId);
             else if (coTank is { } target) ActionState.Use(entry.ActionId, target.Id);
-            else Plugin.ChatGui.Print($"[CooldownGrid] {entry.Name}: no other tank in the party to send it to.");
+            else Plugin.ChatGui.Print($"[CooldownGrid] {entry.Name}: no {(toTank ? "" : "other ")}tank in the party to send it to.");
         }
     }
 }

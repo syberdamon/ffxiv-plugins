@@ -47,6 +47,7 @@ public sealed class Plugin : IDalamudPlugin
         Tracker = new PlanTracker(Configuration, Runner, Targeting);
         Guard = new BusterGuard(Configuration, Runner, Targeting, Tracker);
         Trash = new TrashMode(Configuration, Runner);
+        RegisterIpc();
 
         configWindow = new ConfigWindow(this);
         windowSystem.AddWindow(configWindow);
@@ -63,8 +64,34 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi += ToggleConfig;
     }
 
+    // ---- IPC for other plugins (Cooldown Grid's healer alerts).
+    // "MitPlanner.NextMechanicIn"(type): seconds until the next timeline line of that kind, or
+    // float.MaxValue. type 1 = tank buster (incl. shared), 2 = raidwide (incl. stacks).
+    private Dalamud.Plugin.Ipc.ICallGateProvider<int, float>? nextMechanicIpc;
+
+    private void RegisterIpc()
+    {
+        nextMechanicIpc = PluginInterface.GetIpcProvider<int, float>("MitPlanner.NextMechanicIn");
+        nextMechanicIpc.RegisterFunc(NextMechanicIn);
+    }
+
+    private float NextMechanicIn(int type)
+    {
+        if (!Runner.Running || Runner.Preview || Runner.Fight is not { } fight) return float.MaxValue;
+        var now = Runner.Now;
+        foreach (var e in Runner.Upcoming(60, e => e.Time >= now))
+        {
+            var t = Configuration.TagFor(fight, e.Label);
+            var match = type == 1 ? t is MechanicType.TankBuster or MechanicType.SharedTankBuster
+                      : type == 2 && t is MechanicType.Raidwide or MechanicType.Stack;
+            if (match) return e.Time - now;
+        }
+        return float.MaxValue;
+    }
+
     public void Dispose()
     {
+        nextMechanicIpc?.UnregisterFunc();
         PluginInterface.UiBuilder.Draw -= windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfig;

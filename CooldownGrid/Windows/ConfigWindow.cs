@@ -190,6 +190,9 @@ public sealed class ConfigWindow : Window
                 var coTank = g.CastOnCoTank;
                 if (ImGui.Checkbox("Cast on the other tank (OT Sent Mits)", ref coTank)) { g.CastOnCoTank = coTank; Config.Save(); }
                 if (ImGui.IsItemHovered()) ImGui.SetTooltip("Clicking an icon in this group casts it on the other tank in your party, without targeting them.");
+                var onTank = g.CastOnTank;
+                if (ImGui.Checkbox("Cast on the tank (healers)", ref onTank)) { g.CastOnTank = onTank; if (onTank) g.CastOnCoTank = false; Config.Save(); }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Clicking an icon in this group casts it on the tank who's tanking (the one enemies are attacking), without targeting them.");
 
                 var columns = g.Columns;
                 if (ImGui.SliderInt("Columns", ref columns, 1, 12)) { g.Columns = columns; Config.Save(); }
@@ -222,6 +225,19 @@ public sealed class ConfigWindow : Window
 
         var tint = Config.TintUnusable;
         if (ImGui.Checkbox("Tint red when off cooldown but unusable (no target, out of range...)", ref tint)) { Config.TintUnusable = tint; Config.Save(); }
+
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Alerts (in combat; icons pulse gold when due)");
+        var b = Config.PulseBeforeBusters;
+        if (ImGui.Checkbox("Tank-group icons before tank busters", ref b)) { Config.PulseBeforeBusters = b; Config.Save(); }
+        var r = Config.PulseBeforeRaidwides;
+        if (ImGui.Checkbox("Defensive (group) icons before raidwides and stacks", ref r)) { Config.PulseBeforeRaidwides = r; Config.Save(); }
+        var u = Config.PulseMissingUpkeep;
+        if (ImGui.Checkbox("Regen / Aspected Benefic / Kardia when it's not on the tank", ref u)) { Config.PulseMissingUpkeep = u; Config.Save(); }
+        var lead = Config.AlertLeadSeconds;
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.SliderFloat("Seconds of warning", ref lead, 1, 15, "%.0f")) { Config.AlertLeadSeconds = lead; Config.Save(); }
+        ImGui.TextDisabled("Buster/raidwide timing comes from Mit Planner's timeline, or BossMod if Mit Planner has none.");
 
         ImGui.Spacing();
         ImGui.TextDisabled("Tip: turn off a group's title bar and lock it to make it look like a hotbar.");
