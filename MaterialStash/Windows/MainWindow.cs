@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
         if (ImGui.BeginTabItem("Categories")) { DrawCategories(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Crystals")) { DrawCrystals(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Stock")) { DrawStock(me); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Selling")) { DrawSelling(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Keep on me")) { DrawKeep(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Rules")) { DrawRules(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
@@ -692,6 +693,99 @@ public sealed class MainWindow : Window
                 ImGui.TextUnformatted($"{d.At:HH:mm} {d.Retainer} -> {d.Item} (~{d.Yield}; {d.Why})");
 
         if (changed) { C.Save(); nextNeeds = DateTime.MinValue; }
+    }
+
+    // ================================================================ selling
+
+    private void DrawSelling(CharacterData me)
+    {
+        var changed = false;
+        var mv = C.MoneyVentures;
+        if (ImGui.Checkbox("Money ventures: when nothing on the stock list fits a retainer, send it for what sells best", ref mv)) { C.MoneyVentures = mv; changed = true; }
+        ImGui.TextColored(Dim, $"Home world: {(Selling.HomeWorld() is { Length: > 0 } w ? w : "(log in)")}.  {plugin.Market.Status}");
+        ImGui.TextColored(Dim, "Value = items the venture brings back x the lower of the lowest listing and the median sale (last 7 days), less 5% tax.\n" +
+                               "Demand = items sold per day on your home world (from the sale history: Universalis's own velocity counts sales, not items).");
+        var f = C.DemandFactor;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputFloat("Must sell at least this many ventures' worth a day", ref f, 0.5f, 1f, "%.1f")) { C.DemandFactor = Math.Clamp(f, 0.5f, 50f); changed = true; }
+        var comb = C.DemandCombined;
+        if (ImGui.Checkbox("Count what other retainers are already fetching, and what I hold to sell, against that", ref comb)) { C.DemandCombined = comb; changed = true; }
+        var mvv = C.MinVentureValue;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Minimum value of a money venture (gil)", ref mvv, 50, 500)) { C.MinVentureValue = Math.Max(0, mvv); changed = true; }
+        var pr = C.PriceRefreshMinutes;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Refresh prices after (minutes)", ref pr, 10, 30)) { C.PriceRefreshMinutes = Math.Clamp(pr, 10, 720); changed = true; }
+
+        // What each retainer would go for right now
+        if (ImGui.CollapsingHeader("What each retainer would go for now"))
+        {
+            var incoming = plugin.Director.Incoming();
+            foreach (var r in Director.Retainers())
+            {
+                var why = me.NoRedirect.Contains(r.Id) ? "keeps its ventures" : null;
+                var stats = plugin.Director.Stats(r.Name);
+                var stock = why == null ? plugin.Director.Choose(r) : null;
+                var pick = why == null && stock == null ? plugin.Selling.Choose(r, stats, incoming) : null;
+                var line = why ?? (stock is { } s ? $"stock: {s.Need.Name} (~{s.Yield})"
+                    : pick is { } p ? $"money: {Items.Info(p.Task.ItemId)?.Name} x{p.Yield} at {p.UnitPrice:N0} = ~{p.Value:N0} gil (sells {p.UnitsPerDay:N0}/day, needs {p.Demand:N0})"
+                    : "nothing passes: AutoRetainer's own plan");
+                ImGui.BulletText($"{r.Name}: {line}");
+            }
+        }
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("When money-venture items come back");
+        var snd = C.SellSound;
+        if (ImGui.Checkbox("Play a sound", ref snd)) { C.SellSound = snd; changed = true; }
+        ImGui.SameLine();
+        var sid = C.SellSoundId;
+        ImGui.SetNextItemWidth(90);
+        if (ImGui.InputInt("<se.#>", ref sid, 1, 1)) { C.SellSoundId = Math.Clamp(sid, 1, 16); changed = true; }
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Test")) unsafe { FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)C.SellSoundId); }
+        var hl = C.SellHighlight;
+        if (ImGui.Checkbox("Box them in my bags", ref hl)) { C.SellHighlight = hl; changed = true; }
+        ImGui.TextColored(Dim, "They stay in your bags (Stash leaves them alone) and chat lists them.");
+
+        ImGui.Separator();
+        var auto = C.AutoSell;
+        if (ImGui.Checkbox("Auto-sell: list them on the market at a selling retainer", ref auto)) { C.AutoSell = auto; changed = true; }
+        if (auto)
+        {
+            ImGui.SetNextItemWidth(200);
+            if (ImGui.BeginCombo("Selling retainer", me.SellRetainer == 0 ? "pick one..." : plugin.Tracker.NameOf(me.SellRetainer)))
+            {
+                foreach (var id in me.Order)
+                    if (ImGui.Selectable(plugin.Tracker.NameOf(id), me.SellRetainer == id)) { me.SellRetainer = id; changed = true; }
+                ImGui.EndCombo();
+            }
+            var after = C.SellAfterStash;
+            if (ImGui.Checkbox("Also at the end of every Stash run", ref after)) { C.SellAfterStash = after; changed = true; }
+            var uc = C.Undercut;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("Undercut the lowest home-world listing by (gil)", ref uc, 1, 10)) { C.Undercut = Math.Max(0, uc); changed = true; }
+            var mpl = C.MaxPerListing;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("Most items per listing", ref mpl, 1, 10)) { C.MaxPerListing = Math.Clamp(mpl, 1, 9999); changed = true; }
+            ImGui.TextColored(Dim, "Lists with the game's own call (no dialogs), up to the retainer's 20 market slots.\n" +
+                                   "No listings on your world: the median sale price. Dagobert can keep re-pricing them as usual.");
+        }
+
+        ImGui.Separator();
+        var queued = plugin.Selling.InBags();
+        ImGui.TextUnformatted($"To sell ({me.SellQueue.Count} item(s) queued, {queued.Sum(q => q.Value)} in your bags)");
+        foreach (var id in me.SellQueue.ToList())
+        {
+            ImGui.PushID((int)id);
+            var info = plugin.Market.Get(id);
+            ImGui.BulletText($"{Items.Info(id)?.Name}: {queued.GetValueOrDefault(id)} in bags" +
+                             (info != null ? $", lowest {info.Lowest:N0}, median {info.Median:N0}, {info.UnitsPerDay:N0}/day" : ""));
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Not for sale")) { me.SellQueue.Remove(id); changed = true; }
+            ImGui.PopID();
+        }
+        if (changed) C.Save();
     }
 
     // ================================================================ rules

@@ -91,6 +91,25 @@ retainer, AutoRetainer does what it would anyway.
 - Venture amounts are estimated from AutoRetainer's recorded perception / item level (the game's thresholds); unknown
   stats count as the lowest amount.
 
+## Money ventures (Selling tab)
+When nothing on the stock list fits a retainer (and it isn't marked "keep its ventures"), it goes for the venture worth
+the most on your **home world** instead, if one passes:
+- **Value** = items it brings back × the lower of the lowest listing and the median sale (last 7 days), less 5% tax;
+  at least the minimum (200 gil by default).
+- **Demand**: the item must sell at least N ventures' worth a day (N = 3 by default, adjustable). Counted in items per
+  day from the sale history; Universalis's own "velocity" counts sales, not items. Optionally (on by default) what
+  other retainers are already fetching and what you hold to sell count against that.
+- Nothing passes: AutoRetainer's own plan, as before. Prices: Universalis, NQ, refreshed hourly in the background.
+- The "What each retainer would go for now" list shows the choice and the numbers behind it.
+
+What comes back goes on the **to-sell list**: it stays in your bags (Stash leaves it), a sound plays (`<se.6>` by
+default), chat lists it with an estimated value, and the stacks are boxed in your inventory (each stack in the
+expanded layout; the window and bag/slot numbers in the smaller ones).
+
+**Auto-sell** (off by default): pick a selling retainer; **Sell (N)** at the bell (or `/stash sell`, or at the end of
+every Stash run) lists them with the game's own listing call: lowest home-world listing minus your undercut (1 gil),
+else the median sale; up to 99 per listing and the retainer's 20 market slots.
+
 ## Crystals
 Shards, crystals and clusters fill retainers in the bell's list order, each to 9,999 of a type before the next.
 **Keep N on me** (global, or per type) leaves that many with you; below it, the run takes the difference back from
@@ -103,6 +122,9 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 
 ## Unverified (needs an in-game check)
 - Closing the retainer inventory with the window's close (selecting a retainer from the list is confirmed in game).
+- Auto-sell: the "Sell items in your inventory on the market" menu row and the game's direct listing call
+  (`MoveToRetainerMarket`, as Restocker uses it).
+- The boxes around inventory slots (slot order read from the expanded inventory's grids).
 - The item sort commands for a retainer (`/itemsort clear|condition|execute retainer`).
 - Moving part of a crystal stack: the item menu's "Entrust..." / "Retrieve..." then the number prompt. Whole stacks
   move directly. A wrong menu guess skips that crystal and saves a dump in `pluginConfigs/MaterialStash/dumps/`.

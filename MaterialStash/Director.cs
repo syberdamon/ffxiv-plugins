@@ -36,6 +36,8 @@ public sealed unsafe class Director : IDisposable
     private readonly Dictionary<ulong, (uint Task, DateTime At)> recent = new();
 
     public List<Decision> Log { get; } = new();
+    /// <summary>Money ventures, when nothing on the stock list fits (set by the plugin after both exist).</summary>
+    public Selling? Selling { get; set; }
 
     public Director(Configuration config, Tracker tracker)
     {
@@ -131,7 +133,21 @@ public sealed unsafe class Director : IDisposable
             if (!config.RedirectVentures) return;
             var r = Retainers().FirstOrDefault(x => x.Name == retainerName);
             if (r.Id == 0) return;
-            if (Choose(r) is not { } c) return;
+            if (tracker.Me() is { } me0 && me0.NoRedirect.Contains(r.Id)) return;
+            if (Choose(r) is not { } c)
+            {
+                // Nothing on the stock list for this retainer: the best money venture, if any passes.
+                if (Selling?.Choose(r, Stats(r.Name)) is not { } m) return;
+                setVenture.InvokeAction(m.Task.TaskId);
+                recent[r.Id] = (m.Task.TaskId, DateTime.UtcNow);
+                Selling.Queue(m.Task.ItemId);
+                var name = Items.Info(m.Task.ItemId)?.Name ?? $"#{m.Task.ItemId}";
+                var mwhy = $"money: ~{m.Value:N0} gil at {m.UnitPrice:N0} each, sells {m.UnitsPerDay:N0}/day";
+                Log.Insert(0, new Decision(DateTime.Now, retainerName, name, m.Yield, mwhy));
+                if (Log.Count > 30) Log.RemoveAt(Log.Count - 1);
+                if (config.AnnounceRedirects) Plugin.ChatGui.Print($"[Stash] {retainerName} -> {name} (~{m.Yield}; {mwhy})");
+                return;
+            }
             setVenture.InvokeAction(c.Task.TaskId);
             recent[r.Id] = (c.Task.TaskId, DateTime.UtcNow);
             var why = c.Need.BelowMin ? $"below minimum: {c.Need.Total:N0}/{c.Need.Min:N0}" : $"toward target: {c.Need.Total:N0}/{c.Need.Target:N0}";
