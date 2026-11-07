@@ -150,8 +150,8 @@ public sealed unsafe class Storage : IDisposable
             var result = mode switch
             {
                 Mode.StoreSaddlebag => MoveAnyStack(MateriaData.Bags, MateriaData.Saddlebag),
-                Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags),
-                Mode.PullGrades => MoveAnyStack(Sources(), MateriaData.Bags, id => MateriaData.All()[id].Grade is var g && g >= pullFrom && g <= pullTo),
+                Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags, id => config.PullKind(MateriaData.All()[id].Kind)),
+                Mode.PullGrades => MoveAnyStack(Sources(), MateriaData.Bags, id => MateriaData.All()[id] is var m && m.Grade >= pullFrom && m.Grade <= pullTo && config.PullKind(m.Kind)),
                 _ => BalanceStep(),
             };
             if (result == null) { steps++; Status = $"{Describe()}: {steps} step(s)..."; return; }

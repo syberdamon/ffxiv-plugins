@@ -47,6 +47,17 @@ public class Configuration : IPluginConfiguration
     /// <summary>Top up from the saddlebag too when it's open (bags first).</summary>
     public bool FillFromSaddlebag { get; set; } = true;
 
+    // ---- which kinds the pull buttons and transmuting may touch
+    public bool PullCombat { get; set; } = true;
+    public bool PullCrafting { get; set; } = true;
+    public bool PullGathering { get; set; } = true;
+    public bool TransmuteCombat { get; set; } = true;
+    public bool TransmuteCrafting { get; set; } = true;
+    public bool TransmuteGathering { get; set; } = true;
+
+    public bool PullKind(MateriaKind k) => k switch { MateriaKind.Crafting => PullCrafting, MateriaKind.Gathering => PullGathering, _ => PullCombat };
+    public bool TransmuteKind(MateriaKind k) => k switch { MateriaKind.Crafting => TransmuteCrafting, MateriaKind.Gathering => TransmuteGathering, _ => TransmuteCombat };
+
     // ---- pull by grade (into your bags, from the saddlebag and/or the open retainer)
     public int PullGradeFrom { get; set; } = 11;
     public int PullGradeTo { get; set; } = 12;

@@ -6,8 +6,14 @@ using Lumina.Excel.Sheets;
 namespace MateriaManager;
 
 /// <summary>One materia item: its type ("Savage Might") and grade (1 = I ... 12 = XII).</summary>
+public enum MateriaKind { Combat, Crafting, Gathering }
+
 public sealed record MateriaInfo(uint ItemId, string Type, int Grade, string Name, uint Icon)
 {
+    /// <summary>Crafting = Craftsman's ..., Gathering = Gatherer's ..., everything else combat (English names).</summary>
+    public MateriaKind Kind => Type.StartsWith("Craftsman's") ? MateriaKind.Crafting
+                             : Type.StartsWith("Gatherer's") ? MateriaKind.Gathering : MateriaKind.Combat;
+
     /// <summary>The highest grade this type comes in (transmuting it can't upgrade).</summary>
     public int TopGrade { get; init; } = Grade;
 }
