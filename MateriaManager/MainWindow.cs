@@ -54,6 +54,21 @@ public sealed class MainWindow : Window
         }
 
         ImGui.Separator();
+        ImGui.TextUnformatted("Pull by grade into my bags (melding: the top grades; clearing out: the low ones)");
+        int gf = C.PullGradeFrom, gt = C.PullGradeTo;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.SliderInt("From grade", ref gf, 1, 12, MateriaData.Roman(gf))) { C.PullGradeFrom = gf; changed = true; }
+        ImGui.SameLine(); ImGui.SetNextItemWidth(110);
+        if (ImGui.SliderInt("to grade", ref gt, 1, 12, MateriaData.Roman(gt))) { C.PullGradeTo = gt; changed = true; }
+        var ps = C.PullFromSaddlebag; var pr = C.PullFromRetainer;
+        if (ImGui.Checkbox("from the saddlebag", ref ps)) { C.PullFromSaddlebag = ps; changed = true; }
+        ImGui.SameLine();
+        if (ImGui.Checkbox("from the open retainer", ref pr)) { C.PullFromRetainer = pr; changed = true; }
+        ImGui.SameLine();
+        if (ImGui.Button($"Pull {MateriaData.Roman(Math.Min(gf, gt))}-{MateriaData.Roman(Math.Max(gf, gt))}")) s.PullGrades(gf, gt);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Held in your bags afterwards (auto-store waits). /materia pull 11-12, /materia pull 1-6");
+
+        ImGui.Separator();
         ImGui.TextUnformatted("Materia retainer");
         var retainers = Storage.Retainers();
         var names = new[] { "(none)" }.Concat(retainers.Select(r => r.Name)).ToArray();

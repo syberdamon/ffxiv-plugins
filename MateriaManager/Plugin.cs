@@ -37,7 +37,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(main);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Materia Manager. /materia store on|off | pull | balance | release | transmute | stop",
+            HelpMessage = "Materia Manager. /materia store on|off | pull (all from saddlebag) | pull 11-12 (by grade) | balance | release | transmute | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += main.Toggle;
@@ -47,7 +47,19 @@ public sealed class Plugin : IDalamudPlugin
     private void OnCommand(string cmd, string args)
     {
         var c = Configuration;
-        switch (args.Trim().ToLowerInvariant())
+        var a = args.Trim().ToLowerInvariant();
+        // "/materia pull 11-12" or "/materia pull 11" (that grade and up)
+        if (a.StartsWith("pull ") && a.Length > 5)
+        {
+            var parts = a[5..].Split('-', System.StringSplitOptions.TrimEntries);
+            if (int.TryParse(parts[0], out var from))
+            {
+                var to = parts.Length > 1 && int.TryParse(parts[1], out var t) ? t : 12;
+                Storage.PullGrades(System.Math.Clamp(from, 1, 12), System.Math.Clamp(to, 1, 12));
+                return;
+            }
+        }
+        switch (a)
         {
             case "store on": c.AutoStoreSaddlebag = true; break;
             case "store off": c.AutoStoreSaddlebag = false; break;

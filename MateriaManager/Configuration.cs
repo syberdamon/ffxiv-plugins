@@ -44,6 +44,12 @@ public class Configuration : IPluginConfiguration
     public int RetainerMinGrade { get; set; } = 1;
     /// <summary>Top up from the saddlebag too when it's open (bags first).</summary>
     public bool FillFromSaddlebag { get; set; } = true;
+
+    // ---- pull by grade (into your bags, from the saddlebag and/or the open retainer)
+    public int PullGradeFrom { get; set; } = 11;
+    public int PullGradeTo { get; set; } = 12;
+    public bool PullFromSaddlebag { get; set; } = true;
+    public bool PullFromRetainer { get; set; } = true;
     public Dictionary<uint, RetainerRule> RetainerRules { get; set; } = new();
     /// <summary>What the materia retainer held when last opened (item id -> count), for display.</summary>
     public Dictionary<uint, int> RetainerSeen { get; set; } = new();
