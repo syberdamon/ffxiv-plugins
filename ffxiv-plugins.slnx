@@ -2,6 +2,7 @@
   <Project Path="CombatRecorder/CombatRecorder.csproj" />
   <Project Path="CooldownGrid/CooldownGrid.csproj" />
   <Project Path="MapClickNav/MapClickNav.csproj" />
+  <Project Path="MateriaManager/MateriaManager.csproj" />
   <Project Path="MitPlanner/MitPlanner.csproj" />
   <Project Path="PoeticsSpender/PoeticsSpender.csproj" />
   <Project Path="RaiseCallouts/RaiseCallouts.csproj" />
