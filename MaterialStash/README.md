@@ -52,7 +52,7 @@ retainer, AutoRetainer does what it would anyway.
   met: **spread evenly** (lowest % of target first) or **closest to its target first** (your choice).
 - **Who can go:** any retainer whose class (combat for hunting drops, MIN/BTN/FSH for gathered items and crystals) and
   level fit, with AutoRetainer's recorded gathering / item level, and (gatherers) only for items you've gathered yourself.
-  Untick a retainer under **Keep its ventures** (Retainers tab) to leave it alone.
+  Tick **Keep its ventures** for a retainer (Retainers tab) to leave it alone.
 - Items no venture brings back (vendor or crafted-only) are listed as "craft/buy/gather yourself".
 - Venture amounts are estimated from AutoRetainer's recorded perception / item level (the game's thresholds); unknown
   stats count as the lowest amount.
