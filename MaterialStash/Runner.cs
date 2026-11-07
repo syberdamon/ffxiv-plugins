@@ -20,7 +20,7 @@ namespace MaterialStash;
 public sealed unsafe class Runner : IDisposable
 {
     private enum Phase { Idle, Select, OpenMenu, OpenInventory, Work, CloseInventory, Quit, BackToList }
-    public enum RunMode { Stash, Scan, Tidy }
+    public enum RunMode { Stash, Scan, Tidy, Sell }
 
     private sealed class CrystalOp
     {
@@ -37,6 +37,11 @@ public sealed unsafe class Runner : IDisposable
     private readonly Tracker tracker;
     private readonly Planner planner;
     private readonly AutoRetainerIpc autoRetainer;
+    private readonly Selling selling;
+    private bool sellAfter;
+    private int listed;
+    private readonly HashSet<int> usedMarketSlots = new();
+    private readonly HashSet<string> noPrice = new();
 
     private Phase phase = Phase.Idle;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue;
@@ -46,6 +51,7 @@ public sealed unsafe class Runner : IDisposable
     private RunMode mode;
     private bool scanOnly => mode == RunMode.Scan;
     private bool tidy => mode == RunMode.Tidy;
+    private bool sell => mode == RunMode.Sell;
     private int laps, lapMoves, withdrawn;
     private int sortStep;
     private bool bagsFull;
@@ -64,8 +70,9 @@ public sealed unsafe class Runner : IDisposable
     public bool Scanning => Busy && scanOnly;
     public bool Tidying => Busy && tidy;
 
-    public Runner(Configuration config, Tracker tracker, Planner planner, AutoRetainerIpc autoRetainer)
+    public Runner(Configuration config, Tracker tracker, Planner planner, AutoRetainerIpc autoRetainer, Selling selling)
     {
+        this.selling = selling;
         this.config = config;
         this.tracker = tracker;
         this.planner = planner;
@@ -99,14 +106,23 @@ public sealed unsafe class Runner : IDisposable
         stacksMoved = crystalsMoved = 0;
         visited.Clear(); skipStacks.Clear(); skipWithdraw.Clear(); refused.Clear();
         crystal = null; lastMove = null; bagsFull = false;
+        listed = 0; usedMarketSlots.Clear(); noPrice.Clear();
+        sellAfter = m == RunMode.Stash && config.AutoSell && config.SellAfterStash && me.SellRetainer != 0 && selling.InBags().Count > 0;
         PruneCarry(me);
         queue.Clear();
+        if (m == RunMode.Sell)
+        {
+            if (me.SellRetainer == 0 || !me.Order.Contains(me.SellRetainer)) { Status = "Pick a selling retainer first (Selling tab)."; return; }
+            if (selling.InBags().Count == 0) { Status = "Nothing to sell in your bags."; return; }
+        }
         var list = m switch
         {
             RunMode.Scan => me.Order,
             RunMode.Tidy => planner.TidyVisits(),
+            RunMode.Sell => new List<ulong> { me.SellRetainer },
             _ => planner.RetainersToVisit(),
         };
+        if (list.Count == 0 && sellAfter) { mode = RunMode.Sell; sellAfter = false; list = new List<ulong> { me.SellRetainer }; }
         if (list.Count == 0)
         {
             Status = m == RunMode.Tidy ? "Already tidy (as far as the records show: Scan all to refresh)."
@@ -115,7 +131,7 @@ public sealed unsafe class Runner : IDisposable
         }
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
-        Status = m switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", _ => "Stashing..." };
+        Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", _ => "Stashing..." };
     }
 
     /// <summary>Forget carried items that aren't in your bags any more.</summary>
@@ -179,9 +195,17 @@ public sealed unsafe class Runner : IDisposable
         phase = Phase.Idle;
         tracker.Save(force: true);
         if (tracker.Me() is { } me) PruneCarry(me);
+        var sold = listed > 0 || mode == RunMode.Sell
+            ? $" Listed {listed} stack(s) on the market." + (noPrice.Count > 0 ? $" No price data for: {string.Join(", ", noPrice)}." : "") +
+              (selling.InBags().Count > 0 ? " Some to-sell items are still in your bags (no free market slots?)." : "")
+            : "";
         if (scanOnly)
         {
             Status = $"Scanned {visited.Count} retainer(s).";
+        }
+        else if (mode == RunMode.Sell && stacksMoved == 0)
+        {
+            Status = sold.Trim();
         }
         else if (tidy)
         {
@@ -199,6 +223,7 @@ public sealed unsafe class Runner : IDisposable
             Status = $"Stashed {stacksMoved} stack(s)" + (crystalsMoved > 0 ? $" and {crystalsMoved:N0} crystals" : "") +
                      $" on {visited.Count} retainer(s)." + (noRoom > 0 ? $" {noRoom} stack(s) had nowhere to go." : "");
         }
+        if (mode == RunMode.Sell && stacksMoved > 0) Status += sold;
         Plugin.ChatGui.Print($"[Stash] {Status}");
     }
 
@@ -266,10 +291,17 @@ public sealed unsafe class Runner : IDisposable
                 else { Finish(); return; }
             }
             // A second pass for anything a full retainer bounced to another one already passed.
-            else if (!scanOnly && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
+            else if (!scanOnly && !sell && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
             {
                 pass++;
                 foreach (var id in again) queue.Enqueue(id);
+            }
+            // Stash done: on to the selling retainer, if auto-sell is on.
+            else if (sellAfter && tracker.Me() is { SellRetainer: not 0 } sm && selling.InBags().Count > 0)
+            {
+                sellAfter = false;
+                mode = RunMode.Sell;
+                queue.Enqueue(sm.SellRetainer);
             }
             else { Finish(); return; }
         }
@@ -278,7 +310,7 @@ public sealed unsafe class Runner : IDisposable
         var me = tracker.Me();
         var index = me?.Order.IndexOf(current) ?? -1;
         if (index < 0) { phaseStart = DateTime.UtcNow; return; } // gone from the list; next one
-        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : "Stashing")}: {tracker.NameOf(current)}...";
+        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : sell ? "Selling" : "Stashing")}: {tracker.NameOf(current)}...";
         GameUi.Fire(list, 2, index);
         Set(Phase.OpenMenu);
         next = DateTime.UtcNow.AddSeconds(0.8);
@@ -295,12 +327,13 @@ public sealed unsafe class Runner : IDisposable
             return;
         }
         var rows = MenuRows(ss);
-        var row = rows.FindIndex(r => r.Contains("Entrust or withdraw items", StringComparison.OrdinalIgnoreCase));
+        var want = sell ? "Sell items in your inventory on the market" : "Entrust or withdraw items";
+        var row = rows.FindIndex(r => r.Contains(want, StringComparison.OrdinalIgnoreCase));
         if (row < 0)
         {
             // The menu can be visible a frame or two before its rows are filled in: look again.
             if (++menuTries < 8) return;
-            Fail($"No 'Entrust or withdraw items' in the retainer menu: {string.Join(" | ", rows)}", "SelectString");
+            Fail($"No '{want}' in the retainer menu: {string.Join(" | ", rows)}", "SelectString");
             return;
         }
         menuTries = 0;
@@ -310,6 +343,15 @@ public sealed unsafe class Runner : IDisposable
 
     private void TickOpenInventory()
     {
+        if (sell)
+        {
+            if (!GameUi.IsOpen("RetainerSellList") || !Tracker.Loaded(new[] { InventoryType.RetainerMarket })) return;
+            visited.Add(current);
+            usedMarketSlots.Clear();
+            Set(Phase.Work);
+            next = DateTime.UtcNow.AddSeconds(1);
+            return;
+        }
         if (!Tracker.RetainerInventoryOpen || !Tracker.Loaded(Tracker.RetainerPages)) return;
         tracker.RecordOpen();
         visited.Add(current);
@@ -322,6 +364,13 @@ public sealed unsafe class Runner : IDisposable
 
     private void TickWork()
     {
+        if (sell)
+        {
+            if (!GameUi.IsOpen("RetainerSellList")) { Fail("The retainer's sell list closed."); return; }
+            if (SellStep()) { phaseStart = DateTime.UtcNow; return; }
+            Set(Phase.CloseInventory);
+            return;
+        }
         if (!Tracker.RetainerInventoryOpen) { Fail("The retainer's inventory closed."); return; }
         if (crystal != null) { TickCrystal(); return; }
         tracker.RecordOpen();
@@ -335,7 +384,7 @@ public sealed unsafe class Runner : IDisposable
     {
         tracker.RecordOpen();
         GameUi.Close("ContextMenu");
-        foreach (var name in new[] { "InventoryRetainerLarge", "InventoryRetainer" })
+        foreach (var name in new[] { "RetainerSellList", "InventoryRetainerLarge", "InventoryRetainer" })
         {
             var inv = GameUi.Get(name);
             if (inv != null) { inv->Close(true); return; }
@@ -401,6 +450,44 @@ public sealed unsafe class Runner : IDisposable
             im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
             stacksMoved++;
             lapMoves++;
+            return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ selling
+
+    /// <summary>
+    /// List one queued stack from your bags on the open retainer's market (the game's own listing call,
+    /// as Restocker does; needs the sell list open). Price: lowest home-world listing minus your undercut,
+    /// else the median sale. True if something was listed.
+    /// </summary>
+    private bool SellStep()
+    {
+        var me = tracker.Me();
+        var im = InventoryManager.Instance();
+        if (me == null || im == null) return false;
+        var market = im->GetInventoryContainer(InventoryType.RetainerMarket);
+        if (market == null || !market->IsLoaded) return false;
+        var dst = -1;
+        for (var i = 0; i < market->Size; i++)
+        {
+            if (usedMarketSlots.Contains(i)) continue;
+            var ms = market->GetInventorySlot(i);
+            if (ms != null && ms->ItemId == 0) { dst = i; break; }
+        }
+        if (dst < 0) return false; // market full
+        foreach (var s in Tracker.Stacks(Tracker.Bags, id => me.SellQueue.Contains(id % 1_000_000)))
+        {
+            if (skipStacks.Contains((s.Type, s.Slot))) continue;
+            var price = selling.ListPrice(s.ItemId);
+            if (price <= 0) { noPrice.Add(Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}"); skipStacks.Add((s.Type, s.Slot)); continue; }
+            var qty = Math.Min(s.Qty, Math.Max(1, config.MaxPerListing));
+            im->MoveToRetainerMarket(s.Type, (ushort)s.Slot, InventoryType.RetainerMarket, (ushort)dst, (uint)qty, (uint)Math.Min(price, uint.MaxValue));
+            usedMarketSlots.Add(dst);
+            listed++;
+            Plugin.Log.Info($"Stash: listed {Items.Info(s.ItemId)?.Name} x{qty} at {price:N0} on market slot {dst}");
+            next = DateTime.UtcNow.AddSeconds(1.2);
             return true;
         }
         return false;

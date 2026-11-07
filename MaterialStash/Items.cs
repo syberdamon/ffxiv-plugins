@@ -68,6 +68,7 @@ public static class Items
     {
         var id = itemId % 1_000_000;
         if (IsCrystal(id) || id == 0) return false;
+        if (me != null && me.SellQueue.Contains(id)) return false; // to sell: stays in your bags
         if (me != null && me.TidyCarry.Contains(id)) return true;
         if (c.KeepOnMe.Contains(id) || c.Exclude.Contains(id)) return false;
         if (c.Include.Contains(id)) return true;

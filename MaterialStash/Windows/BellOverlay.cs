@@ -86,6 +86,16 @@ public sealed unsafe class BellOverlay : Window
             if (ImGui.Button($"Tidy ({tidyMoves})##tidy")) r.Start(Runner.RunMode.Tidy);
             ImGui.EndDisabled();
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGui.SetTooltip(why ?? tidyTip);
+            if (plugin.Configuration.AutoSell)
+            {
+                var toSell = plugin.Selling.InBags().Sum(x => x.Value);
+                ImGui.SameLine();
+                ImGui.BeginDisabled(why != null || toSell == 0);
+                if (ImGui.Button($"Sell ({toSell})##sell")) r.Start(Runner.RunMode.Sell);
+                ImGui.EndDisabled();
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip(why ?? "List the to-sell items at your selling retainer. /stash sell");
+            }
             ImGui.SameLine();
             if (ImGui.SmallButton("...##stashcfg")) plugin.ToggleMain();
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Material Stash settings (/stash)");

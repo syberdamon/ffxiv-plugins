@@ -50,6 +50,10 @@ public class CharacterData
     public List<NameRule> NameRules { get; set; } = new();
     /// <summary>Items a tidy run took out of a retainer and hasn't put back yet (NQ ids): deposited next run.</summary>
     public HashSet<uint> TidyCarry { get; set; } = new();
+    /// <summary>Items fetched by a money venture, to sell (NQ ids): they stay in your bags, highlighted.</summary>
+    public HashSet<uint> SellQueue { get; set; } = new();
+    /// <summary>The retainer that lists them on the market (auto-sell).</summary>
+    public ulong SellRetainer { get; set; }
 }
 
 [Serializable]
@@ -164,6 +168,30 @@ public class Configuration : IPluginConfiguration
     public Dictionary<uint, CrystalStock> CrystalStockPer { get; set; } = new();
     /// <summary>Print each redirect to chat.</summary>
     public bool AnnounceRedirects { get; set; } = true;
+
+    // ---- money ventures: when nothing on the stock list fits a retainer
+    public bool MoneyVentures { get; set; } = true;
+    /// <summary>The item must sell at least this many ventures' worth a day on your home world.</summary>
+    public float DemandFactor { get; set; } = 3f;
+    /// <summary>Count what other retainers are already fetching, and what you hold to sell, against that demand.</summary>
+    public bool DemandCombined { get; set; } = true;
+    /// <summary>A money venture must be worth at least this (after the 5% market tax).</summary>
+    public int MinVentureValue { get; set; } = 200;
+    /// <summary>Prices older than this are refreshed (minutes).</summary>
+    public int PriceRefreshMinutes { get; set; } = 60;
+    // ---- to-sell alert
+    public bool SellSound { get; set; } = true;
+    /// <summary>Chat sound effect number (the &lt;se.N&gt; sounds, 1-16).</summary>
+    public int SellSoundId { get; set; } = 6;
+    public bool SellHighlight { get; set; } = true;
+    // ---- auto-sell
+    public bool AutoSell { get; set; } = false;
+    /// <summary>After a Stash run, go to the selling retainer and list what's queued.</summary>
+    public bool SellAfterStash { get; set; } = true;
+    /// <summary>List at the lowest home-world listing minus this.</summary>
+    public int Undercut { get; set; } = 1;
+    /// <summary>Most items in one listing.</summary>
+    public int MaxPerListing { get; set; } = 99;
 
     // ---- other plugins / UI
     public bool UseAllaganTools { get; set; } = true;

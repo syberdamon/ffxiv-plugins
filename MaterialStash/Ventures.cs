@@ -49,6 +49,12 @@ public static class Ventures
         return byItem!.TryGetValue(itemId % 1_000_000, out var l) ? l : Array.Empty<VentureTask>();
     }
 
+    public static IEnumerable<VentureTask> AllTasks()
+    {
+        Build();
+        return byTask!.Values;
+    }
+
     public static VentureTask? Task(uint taskId)
     {
         Build();
