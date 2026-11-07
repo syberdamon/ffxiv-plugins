@@ -25,7 +25,7 @@ public sealed class MainWindow : Window
 
     private void SetUse(IEnumerable<uint> ids, bool use)
     {
-        foreach (var id in ids) Rule(id).Fodder = use;
+        foreach (var id in ids) { var r = Rule(id); r.Fodder = use; r.UserSet = true; }
         C.Save();
     }
 
@@ -211,7 +211,7 @@ public sealed class MainWindow : Window
         ImGui.Separator();
         var plan = plugin.Transmuter.Plan();
         ImGui.TextUnformatted($"Planned: {plan.Count} batch(es) of five ({plan.Count * 5} materia in, {plan.Count} out), lowest grade first.");
-        ImGui.TextDisabled("Lowest first: an upgraded result can complete a batch of the next grade. The plan updates as your bags change.");
+        ImGui.TextDisabled("Lowest grade first (an upgrade can complete a batch of the next grade); smallest stacks first (frees bag slots). Updates as your bags change.");
         foreach (var g in plan.GroupBy(b => b.Grade))
             ImGui.BulletText($"Grade {MateriaData.Roman(g.Key)}: {g.Count()} batch(es) from " +
                 string.Join(", ", g.SelectMany(b => b.Items).GroupBy(i => i.Type).Select(x => $"{x.Count()} {x.Key}")));
@@ -222,6 +222,8 @@ public sealed class MainWindow : Window
         var cap = C.MaxBatchesPerRun;
         ImGui.SetNextItemWidth(110);
         if (ImGui.InputInt("Batches per trip (safety cap)", ref cap, 1, 10)) { C.MaxBatchesPerRun = Math.Clamp(cap, 1, 999); C.Save(); }
+        var roll = C.RollResults;
+        if (ImGui.Checkbox("Keep rolling: use results at a grade I'm transmuting (unless I set that materia myself)", ref roll)) { C.RollResults = roll; C.Save(); }
         var reserve = C.ReserveForRetainer;
         if (ImGui.Checkbox("Don't use what my materia retainer still needs (up to its maximum)", ref reserve)) { C.ReserveForRetainer = reserve; C.Save(); }
         var t = plugin.Transmuter;
@@ -318,7 +320,7 @@ public sealed class MainWindow : Window
                 if (!C.Rules.TryGetValue(m.ItemId, out var rule)) rule = new FodderRule();
                 ImGui.TableNextColumn();
                 var use = rule.Fodder;
-                if (ImGui.Checkbox("##use", ref use)) { rule.Fodder = use; C.Rules[m.ItemId] = rule; C.Save(); }
+                if (ImGui.Checkbox("##use", ref use)) { rule.Fodder = use; rule.UserSet = true; C.Rules[m.ItemId] = rule; C.Save(); }
                 ImGui.TableNextColumn();
                 var keep = rule.Keep;
                 ImGui.SetNextItemWidth(-1);

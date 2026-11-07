@@ -85,13 +85,11 @@ public sealed unsafe class Transmuter : IDisposable
             : new[] { (Grade: 0, Items: spare) };
         foreach (var (grade, items) in groups.OrderBy(g => g.Grade))   // lowest first: an upgrade can complete a batch of the next grade
         {
-            // Expand to single pieces, biggest surplus first, so each batch mixes types where it can.
-            var pool = items.OrderByDescending(i => i.Count).ToList();
+            // Smallest stacks first, used up completely: each emptied stack frees a bag slot
+            // (3 Gatherer's Guile + 2 of a 48 stack before touching the rest of the 48).
             var pieces = new List<MateriaInfo>();
-            var left = pool.Select(p => p.Count).ToArray();
-            while (left.Any(n => n > 0))
-                for (var i = 0; i < pool.Count; i++)
-                    if (left[i] > 0) { pieces.Add(pool[i].Info); left[i]--; }
+            foreach (var (info, count) in items.OrderBy(i => i.Count).ThenBy(i => i.Info.Type))
+                for (var k = 0; k < count; k++) pieces.Add(info);
             for (var i = 0; i + 5 <= pieces.Count; i += 5)
                 batches.Add(new Batch(grade == 0 ? pieces[i].Grade : grade, pieces.GetRange(i, 5)));
         }
@@ -305,6 +303,14 @@ public sealed unsafe class Transmuter : IDisposable
             BatchesDone++;
             if (got != null)
             {
+                // Keep rolling: a result at a grade you're transmuting is used too, unless you set it yourself.
+                if (config.RollResults && !(config.Rules.TryGetValue(got.ItemId, out var gr) && gr.UserSet) &&
+                    config.Rules.Any(r => r.Value.Fodder && MateriaData.All().TryGetValue(r.Key, out var mi) && mi.Grade == got.Grade))
+                {
+                    if (!config.Rules.TryGetValue(got.ItemId, out var nr)) config.Rules[got.ItemId] = nr = new FodderRule();
+                    nr.Fodder = true;
+                    config.Save();
+                }
                 var up = got.Grade > batch!.Grade ? " (upgrade!)" : "";
                 Results.Add($"{got.Name}{up}");
                 Plugin.ChatGui.Print($"[Materia] Batch {BatchesDone}: got {got.Name}{up}");
