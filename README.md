@@ -10,6 +10,7 @@ Personal Dalamud plugins (API 15).
 | [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job MT/OT cooldown plans with callouts, starter-plan generator, optional auto-use. |
 | [Turn-In Manager](TurnInManager/README.md) | Grand Company expert delivery with guardrails (gearsets, ilvl, rarity, HQ/NQ), materia retrieval first, and seal spending up to stock targets. |
 | [Poetics Spender](PoeticsSpender/README.md) | One click turns all your Poetics into Grade 3 topsoil (Idyllshire); movable near-cap alert. Needs vnavmesh. |
+| [Raise Callouts](RaiseCallouts/README.md) | Says "Raising <name>" in party chat when you raise someone, however it was cast (works with RotationSolver Reborn). |
 | [Retainer Gear](RetainerGear/README.md) | Tracks retainer gear; lists the best non-raid upgrades (crafted, dungeon, uncapped tomestones) per retainer, plus a shopping list with Universalis prices. |
 | [Tank Stance Manager](TankStanceManager/README.md) | MT: stance always on. OT: holds a configurable enmity band of the MT. |
 
