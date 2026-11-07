@@ -93,7 +93,7 @@ public sealed unsafe class Purger : IDisposable
 
     public void Stop() { vnav.Stop(); State = Phase.Idle; Status = $"Stopped ({sold} sold)."; }
 
-    private void Begin(Phase p, string status) { State = p; Status = status; phaseStarted = DateTime.UtcNow; tries = 0; sold = p == Phase.Selling || p == Phase.Walking ? 0 : sold; current = null; menuFires = 0; stalls = 0; lastProgress = DateTime.UtcNow; occupiedSince = DateTime.MinValue; }
+    private void Begin(Phase p, string status) { State = p; Status = status; phaseStarted = DateTime.UtcNow; tries = 0; sold = p == Phase.Selling || p == Phase.Walking ? 0 : sold; current = null; menuFires = 0; stalls = 0; sellProgress = DateTime.UtcNow; occupiedSince = DateTime.MinValue; }
 
     private void Fail(string why) { vnav.Stop(); State = Phase.Idle; Status = why; Plugin.ChatGui.PrintError($"[Materia] {why}"); }
 
@@ -168,23 +168,23 @@ public sealed unsafe class Purger : IDisposable
     }
 
     private int menuFires, stalls;
-    private DateTime lastProgress = DateTime.UtcNow, occupiedSince = DateTime.MinValue;
+    private DateTime sellProgress = DateTime.UtcNow, occupiedSince = DateTime.MinValue;
 
     private void TickSell()
     {
         nextAction = DateTime.UtcNow.AddSeconds(0.5);
         if (!ShopOpen && !RetainerOpen) { Fail($"Shop/retainer closed ({sold} sold)."); return; }
-        if (sold == 0 && current == null && menuFires == 0) lastProgress = DateTime.UtcNow;
+        if (sold == 0 && current == null && menuFires == 0) sellProgress = DateTime.UtcNow;
 
         // Watchdog: nothing sold for 8 s -> save dumps, close stray menus and start the item over.
-        if ((DateTime.UtcNow - lastProgress).TotalSeconds > 8)
+        if ((DateTime.UtcNow - sellProgress).TotalSeconds > 8)
         {
             stalls++;
             Plugin.Log.Warning($"[Purge] stall #{stalls}: item={current?.Item} tries={tries} menuFires={menuFires} occ39={Plugin.Condition[ConditionFlag.Occupied39]}");
             foreach (var n in new[] { "ContextMenu", "SelectYesno", "InputNumeric", "Shop" }) GameUi.Dump(n);
             foreach (var n in new[] { "ContextMenu", "SelectYesno", "InputNumeric" }) GameUi.Close(n);
             if (stalls >= 3) { Fail($"Selling stalled ({sold} sold). Dumps saved."); return; }
-            current = null; menuFires = 0; tries = 0; lastProgress = DateTime.UtcNow;
+            current = null; menuFires = 0; tries = 0; sellProgress = DateTime.UtcNow;
             nextAction = DateTime.UtcNow.AddSeconds(1);
             return;
         }
@@ -213,7 +213,7 @@ public sealed unsafe class Purger : IDisposable
             var slot = InventoryManager.Instance()->GetInventorySlot(c.Type, c.Slot);
             if (slot == null || slot->ItemId != c.Item)
             {
-                sold++; current = null; tries = 0; menuFires = 0; stalls = 0; lastProgress = DateTime.UtcNow;
+                sold++; current = null; tries = 0; menuFires = 0; stalls = 0; sellProgress = DateTime.UtcNow;
                 Plugin.Log.Info($"[Purge] sold {c.Item} ({sold})");
                 GameUi.Close("ContextMenu");
                 return;
