@@ -165,6 +165,14 @@ public class TrashSettings
     public float GatherShare { get; set; } = 0.7f;      // share of mobs on you within GatherRadius
     /// <summary>Below this HP (with 2+ mobs on you) it acts even while you're moving/gathering.</summary>
     public float MovingHpPercent { get; set; } = 60f;
+    /// <summary>While gathering, press the short mit (Bloodwhetting etc.) below this HP with enough mobs on
+    /// you. From the Lunar Subterrane log (2026-11-04): HP fell from ~90% to 57-65% during big gathers.</summary>
+    public float PullShortHpPercent { get; set; } = 80f;
+    public int PullShortMinMobs { get; set; } = 3;
+    /// <summary>No new big mit while HP is at least this and incoming damage is below IdleDamagePctPerSec
+    /// (Rampart was going out at 100% HP, ~0%/s, with the pull nearly dead).</summary>
+    public float IdleHpPercent { get; set; } = 95f;
+    public float IdleDamagePctPerSec { get; set; } = 3f;
 
     // ---- rotation
     public float HeavyMinPullSeconds { get; set; } = 12f;   // 40% only if the pull lasts this much longer

@@ -93,7 +93,13 @@ def is_auto(name):
 
 def pulls(log):
     """Yield (boss name, killed, [ability uses]) per boss pull."""
-    my_mhp = log.mhp.get("me", 0) or 1
+    # Compare against the sturdiest party member (a tank), so a healer's log doesn't turn big trash
+    # into "bosses".
+    my_mhp = max(log.mhp.values(), default=0) or 1
+    deaths = {}
+    for e in log.events:
+        if e["e"] == "death" and str(e.get("who", "")).startswith("e"):
+            deaths.setdefault(e["who"], e["t"])
     for start, end, evs in log.segments():
         enemies = {e["who"] for e in evs if e["e"] in ("act", "cast") and str(e.get("who", "")).startswith("e")}
         for e in evs:
@@ -110,7 +116,8 @@ def pulls(log):
                     t0 = e["t"]; break
             if t0 is None:
                 continue
-            killed = any(e["e"] == "death" and e.get("who") == boss for e in evs)
+            # Died during the pull, or just after combat dropped (the death can land after "combat off").
+            killed = boss in deaths and t0 <= deaths[boss] <= end + 5
             casts = {}  # (who, act) -> cast start
             last_cast = None  # (t of the latest cast's resolution, its target)
             uses = []

@@ -72,5 +72,44 @@ public static class CuratedFights
             ["Photon Burst"] = MechanicType.Mechanic,
             ["Diamond Shrapnel"] = MechanicType.Mechanic,
         }),
+
+        // ---- From Combat Recorder logs, 2026-11-04 (one run each; review with more runs).
+        // Each: what cactbot left untagged or mis-tagged, and what the log showed it doing.
+
+        // The Lunar Subterrane: Antipodal Assault hit all 4 for ~35% (line stack); Void Dark II spreads
+        // hit ~3.7 of 4 for ~28% at once (party mit helps; cactbot: mechanic).
+        [1164] = new(new Dictionary<string, MechanicType>
+        {
+            ["Antipodal Assault"] = MechanicType.Stack,
+            ["Void Dark II (spread)"] = MechanicType.Raidwide,
+        }),
+
+        // Alexandria: Amalgamight cast on the tank for ~29%; Light of Salvation hit all 4 for ~37%;
+        // Quarantine (3 of 4, ~40%) and Overexposure (all 4, ~17%) are stacks.
+        [1199] = new(new Dictionary<string, MechanicType>
+        {
+            ["Amalgamight"] = MechanicType.TankBuster,
+            ["Light of Salvation"] = MechanicType.Raidwide,
+            ["Quarantine"] = MechanicType.Stack,
+            ["Overexposure"] = MechanicType.Stack,
+        }),
+
+        // Alexander - The Burden of the Son (A8N): J Kick all 8 for ~34%, Mind Blast all 8 for ~16%,
+        // Long Needle a stack (6 of 8, ~27%).
+        [523] = new(new Dictionary<string, MechanicType>
+        {
+            ["J Kick"] = MechanicType.Raidwide,
+            ["Mind Blast"] = MechanicType.Raidwide,
+            ["Long Needle"] = MechanicType.Stack,
+        }),
+
+        // AAC Heavyweight M2 (normal): Hot Impact hit both tanks (11-19%); Deep Impact cast on one tank;
+        // Pyrotation hit all 8 for ~16%.
+        [1322] = new(new Dictionary<string, MechanicType>
+        {
+            ["Hot Impact"] = MechanicType.SharedTankBuster,
+            ["Deep Impact"] = MechanicType.TankBuster,
+            ["Pyrotation"] = MechanicType.Raidwide,
+        }),
     };
 }
