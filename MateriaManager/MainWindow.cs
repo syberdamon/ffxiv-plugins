@@ -222,6 +222,12 @@ public sealed class MainWindow : Window
         var cap = C.MaxBatchesPerRun;
         ImGui.SetNextItemWidth(110);
         if (ImGui.InputInt("Batches per trip (safety cap)", ref cap, 1, 10)) { C.MaxBatchesPerRun = Math.Clamp(cap, 1, 999); C.Save(); }
+        var maxG = C.MaxTransmuteGrade;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderInt("Never transmute above grade", ref maxG, 1, 12, MateriaData.Roman(maxG))) { C.MaxTransmuteGrade = maxG; C.Save(); }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Master override: nothing above this grade is used, whatever is ticked.");
+        var top = C.SkipTopGrade;
+        if (ImGui.Checkbox("Never transmute materia at its highest grade (can't upgrade, only changes type)", ref top)) { C.SkipTopGrade = top; C.Save(); }
         var roll = C.RollResults;
         if (ImGui.Checkbox("Keep rolling: use results at a grade I'm transmuting (unless I set that materia myself)", ref roll)) { C.RollResults = roll; C.Save(); }
         var reserve = C.ReserveForRetainer;

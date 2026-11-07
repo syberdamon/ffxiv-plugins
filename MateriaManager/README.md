@@ -31,6 +31,9 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
   vnavmesh and talks to him. In his transmute window (the game's multi-item hand-in window) it adds
   each batch through the items' right-click menus, confirms, and repeats, lowest grade first, up
   to a per-trip cap (default 10). It reports each result, and upgrades.
+- **Master cap:** nothing above a grade you set (default XI) is ever transmuted, whatever is
+  ticked; and materia already at its type's highest grade is skipped by default (it can't
+  upgrade, only change type).
 - Within a grade, **smallest stacks go first** and are used up completely, so each batch frees bag
   slots (3 Gatherer's Guile I go before a stack of 48 Craftsman's Command I).
 - **Keep rolling** (on): a result at a grade you're transmuting is ticked for use too, so it keeps

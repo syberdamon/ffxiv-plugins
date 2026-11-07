@@ -74,6 +74,9 @@ public sealed unsafe class Transmuter : IDisposable
         foreach (var (id, count) in bags)
         {
             if (!config.Rules.TryGetValue(id, out var rule) || !rule.Fodder) continue;
+            var mi = all[id];
+            if (mi.Grade > config.MaxTransmuteGrade) continue;                    // master cap
+            if (config.SkipTopGrade && mi.Grade >= mi.TopGrade) continue;         // can't upgrade
             var n = count - Math.Max(0, rule.Keep);
             if (config.ReserveForRetainer && config.TargetFor(all[id]) is { } t && config.RetainerId != 0)
                 n -= Math.Max(0, t.Max - config.RetainerSeen.GetValueOrDefault(id));   // the retainer still needs these
