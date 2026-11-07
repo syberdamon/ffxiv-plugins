@@ -57,8 +57,7 @@ public sealed class MainWindow : Window
         var auto = C.AutoStoreSaddlebag;
         if (ImGui.Checkbox("Auto-store: opening the saddlebag moves materia from my bags into it", ref auto)) { C.AutoStoreSaddlebag = auto; changed = true; }
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turn off while melding. /materia store on|off");
-        KindBoxes("pull", "Pull:", () => (C.PullCombat, C.PullCrafting, C.PullGathering),
-            (a, b, c) => { C.PullCombat = a; C.PullCrafting = b; C.PullGathering = c; });
+        KindBoxes("pullall", "Pull all from saddlebag:", C.PullAllKinds);
         if (ImGui.Button("Pull all materia from the saddlebag")) s.PullAllFromSaddlebag();
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("Into your bags, for transmuting or the retainer. Held there: auto-store won't put it back. /materia pull");
         ImGui.SameLine();
@@ -76,6 +75,7 @@ public sealed class MainWindow : Window
         if (ImGui.SliderInt("From grade", ref gf, 1, 12, MateriaData.Roman(gf))) { C.PullGradeFrom = gf; changed = true; }
         ImGui.SameLine(); ImGui.SetNextItemWidth(110);
         if (ImGui.SliderInt("to grade", ref gt, 1, 12, MateriaData.Roman(gt))) { C.PullGradeTo = gt; changed = true; }
+        KindBoxes("pullgrade", "Kinds:", C.PullGradeKinds);
         var ps = C.PullFromSaddlebag; var pr = C.PullFromRetainer;
         if (ImGui.Checkbox("from the saddlebag", ref ps)) { C.PullFromSaddlebag = ps; changed = true; }
         ImGui.SameLine();
@@ -109,6 +109,8 @@ public sealed class MainWindow : Window
         ImGui.SetNextItemWidth(110);
         if (ImGui.SliderInt("Only grades from", ref grade, 1, 12, MateriaData.Roman(grade))) { C.RetainerMinGrade = grade; changed = true; }
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("Lower grades stay with you. Per-materia overrides are in the table below.");
+        KindBoxes("bal", "Balance:", C.BalanceKinds);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Unchecked kinds are left alone in the retainer (not topped up, not sent back).");
         var fromSaddle = C.FillFromSaddlebag;
         if (ImGui.Checkbox("Also top up from the saddlebag when it's open (bags first)", ref fromSaddle)) { C.FillFromSaddlebag = fromSaddle; changed = true; }
         if (ImGui.Button("Balance now")) s.BalanceNow();
@@ -183,14 +185,15 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>Three checkboxes: combat, crafting, gathering materia.</summary>
-    private void KindBoxes(string id, string label, Func<(bool, bool, bool)> get, Action<bool, bool, bool> set)
+    /// <summary>Three checkboxes: combat, crafting, gathering materia.</summary>
+    private void KindBoxes(string id, string label, KindSet k)
     {
-        var (a, b, c) = get();
+        bool a = k.Combat, b = k.Crafting, c = k.Gathering;
         ImGui.TextUnformatted(label);
         ImGui.SameLine(); var ch = ImGui.Checkbox($"Combat##{id}", ref a);
         ImGui.SameLine(); ch |= ImGui.Checkbox($"Crafting##{id}", ref b);
         ImGui.SameLine(); ch |= ImGui.Checkbox($"Gathering##{id}", ref c);
-        if (ch) { set(a, b, c); C.Save(); }
+        if (ch) { k.Combat = a; k.Crafting = b; k.Gathering = c; C.Save(); }
     }
 
     private static void IconText(MateriaInfo m)
@@ -235,8 +238,7 @@ public sealed class MainWindow : Window
         var cap = C.MaxBatchesPerRun;
         ImGui.SetNextItemWidth(110);
         if (ImGui.InputInt("Batches per trip (safety cap)", ref cap, 1, 10)) { C.MaxBatchesPerRun = Math.Clamp(cap, 1, 999); C.Save(); }
-        KindBoxes("tm", "Transmute:", () => (C.TransmuteCombat, C.TransmuteCrafting, C.TransmuteGathering),
-            (a, b, c) => { C.TransmuteCombat = a; C.TransmuteCrafting = b; C.TransmuteGathering = c; });
+        KindBoxes("tm", "Transmute:", C.TransmuteKinds);
         var maxG = C.MaxTransmuteGrade;
         ImGui.SetNextItemWidth(120);
         if (ImGui.SliderInt("Never transmute above grade", ref maxG, 1, 12, MateriaData.Roman(maxG))) { C.MaxTransmuteGrade = maxG; C.Save(); }
@@ -284,6 +286,7 @@ public sealed class MainWindow : Window
         if (ImGui.InputInt("Fewer than", ref under, 1, 1)) { C.PurgeUnder = Math.Clamp(under, 1, 999); changed = true; }
         var mix = C.PurgeSpareMixable;
         if (ImGui.Checkbox("Keep them if their grade still has five in total (they can be transmuted mixed)", ref mix)) { C.PurgeSpareMixable = mix; changed = true; }
+        KindBoxes("purge", "Sell:", C.PurgeKinds);
         if (changed) C.Save();
 
         var list = p.Candidates();

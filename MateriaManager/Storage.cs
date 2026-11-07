@@ -150,8 +150,8 @@ public sealed unsafe class Storage : IDisposable
             var result = mode switch
             {
                 Mode.StoreSaddlebag => MoveAnyStack(MateriaData.Bags, MateriaData.Saddlebag),
-                Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags, id => config.PullKind(MateriaData.All()[id].Kind)),
-                Mode.PullGrades => MoveAnyStack(Sources(), MateriaData.Bags, id => MateriaData.All()[id] is var m && m.Grade >= pullFrom && m.Grade <= pullTo && config.PullKind(m.Kind)),
+                Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags, id => config.PullAllKinds.Has(MateriaData.All()[id].Kind)),
+                Mode.PullGrades => MoveAnyStack(Sources(), MateriaData.Bags, id => MateriaData.All()[id] is var m && m.Grade >= pullFrom && m.Grade <= pullTo && config.PullGradeKinds.Has(m.Kind)),
                 _ => BalanceStep(),
             };
             if (result == null) { steps++; Status = $"{Describe()}: {steps} step(s)..."; return; }
@@ -232,6 +232,7 @@ public sealed unsafe class Storage : IDisposable
 
         foreach (var m in all.Values.OrderBy(x => x.Type).ThenByDescending(x => x.Grade))
         {
+            if (!config.BalanceKinds.Has(m.Kind)) continue;                 // kind switched off: left alone
             if (config.TargetFor(m) is not { } t) continue;
             var have = inRetainer.GetValueOrDefault(m.ItemId);
             if (have > t.Max)
