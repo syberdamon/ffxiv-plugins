@@ -32,6 +32,9 @@ public static unsafe class ActionCatalog
     // Cooldown group 58 is the shared GCD; everything else is a real cooldown.
     private const byte GcdGroup = 58;
 
+    /// <summary>GCD spells allowed on the grid anyway, as upkeep reminders (Regen, Aspected Benefic).</summary>
+    public static readonly HashSet<uint> UpkeepGcds = new() { 137, 3595 };
+
     private static uint cachedJob;
     private static int cachedLevel = -1;
     private static List<CatalogEntry> cached = new();
@@ -67,7 +70,7 @@ public static unsafe class ActionCatalog
         foreach (var row in Plugin.DataManager.GetExcelSheet<Action>())
         {
             if (!row.IsPlayerAction || row.IsPvP) continue;
-            if (row.Recast100ms == 0 || row.CooldownGroup == GcdGroup) continue;
+            if ((row.Recast100ms == 0 || row.CooldownGroup == GcdGroup) && !UpkeepGcds.Contains(row.RowId)) continue;
             if (row.ClassJobLevel > level) continue;
             if (!CategoryAllows(row.ClassJobCategory.ValueNullable, abbreviation)) continue;
 

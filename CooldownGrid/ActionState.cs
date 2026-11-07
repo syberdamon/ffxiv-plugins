@@ -1,3 +1,4 @@
+using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
@@ -78,6 +79,33 @@ public static unsafe class ActionState
 
     // ClassJob row ids for tanks: GLA/PLD, MRD/WAR, DRK, GNB.
     private static readonly System.Collections.Generic.HashSet<uint> TankJobs = new() { 1, 19, 3, 21, 32, 37 };
+
+    /// <summary>
+    /// The tank who's tanking: the party tank your target (or else any enemy in combat) is attacking;
+    /// otherwise the first tank in the party. Can be you.
+    /// </summary>
+    public static (ulong Id, string Name)? Tank()
+    {
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me == null) return null;
+        var tanks = new System.Collections.Generic.List<Dalamud.Game.ClientState.Objects.Types.IGameObject>();
+        foreach (var member in Plugin.PartyList)
+            if (TankJobs.Contains(member.ClassJob.RowId) && Plugin.ObjectTable.SearchByEntityId(member.EntityId) is { } obj) tanks.Add(obj);
+        if (tanks.Count == 0 && TankJobs.Contains(me.ClassJob.RowId)) tanks.Add(me);   // solo tank
+        if (tanks.Count == 0) return null;
+
+        ulong? held = null;
+        if (Plugin.TargetManager.Target is Dalamud.Game.ClientState.Objects.Types.IBattleNpc t) held = t.TargetObjectId;
+        if (held == null || tanks.All(x => x.GameObjectId != held))
+            foreach (var o in Plugin.ObjectTable)
+                if (o is Dalamud.Game.ClientState.Objects.Types.IBattleNpc n &&
+                    (n.StatusFlags & Dalamud.Game.ClientState.Objects.Enums.StatusFlags.Hostile) != 0 &&
+                    (n.StatusFlags & Dalamud.Game.ClientState.Objects.Enums.StatusFlags.InCombat) != 0 &&
+                    tanks.Any(x => x.GameObjectId == n.TargetObjectId))
+                { held = n.TargetObjectId; break; }
+        var tank = tanks.FirstOrDefault(x => x.GameObjectId == held) ?? tanks[0];
+        return (tank.GameObjectId, tank.Name.TextValue);
+    }
 
     /// <summary>The other tank in the party, or null if there isn't one.</summary>
     public static (ulong Id, string Name)? CoTank()

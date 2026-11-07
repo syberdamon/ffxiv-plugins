@@ -33,6 +33,27 @@ Commands: `/cdgrid` (settings), `/cdgrid lock`, `/cdgrid unlock`, `/cdgrid show`
    Limit Break. Shirk lives in OT Sent Mits: it always goes to the other tank,
    whichever group you put it in (0.4.1 moves it there in existing layouts). Every other class starts with Sprint + Limit Break in Support.
 
+**Healers** (WHM, SCH, AST, SGE) start with a **Tank** group: clicking casts on the tank
+who's tanking (the one enemies are attacking), no targeting needed.
+
+| | Tank | Defensive (group) |
+|---|---|---|
+| WHM | Divine Benison, Aquaveil, Tetragrammaton, Benediction, Regen | Temperance, Plenary Indulgence, Asylum, Liturgy of the Bell |
+| SCH | Protraction, Excogitation, Lustrate, Aetherpact | Sacred Soil, Expedient, Fey Illumination, Indomitability, Whispering Dawn, Seraph, Seraphism |
+| AST | Essential Dignity, Celestial Intersection, Exaltation, Synastry, Aspected Benefic | Neutral Sect, Collective Unconscious, Earthly Star, Horoscope, Macrocosmos, Celestial Opposition |
+| SGE | Kardia, Taurochole, Druochole, Haima, Krasis | Kerachole, Holos, Panhaima, Physis II, Ixochole, Philosophia |
+
+Support: job buffs plus Swiftcast, Lucid Dreaming, Surecast, Rescue, Sprint, Limit Break.
+Regen and Aspected Benefic are GCD spells, on the grid only as upkeep reminders.
+
+## Alerts (in combat; Display tab)
+Icons pulse gold when they're due:
+- **Tank group**, a few seconds (default 5) before a tank buster.
+- **Defensive (group)**, before a raidwide or stack (tanks too: Reprisal, Divine Veil...).
+- **Regen / Aspected Benefic / Kardia** while yours isn't on the tank.
+Buster/raidwide timing comes from Mit Planner's timeline (0.9.7+), or BossMod's when Mit
+Planner has none for the fight.
+
 ## How the icons read
 - Dark with a number: on cooldown (for charge abilities: out of charges; the
   number is time to the next charge).

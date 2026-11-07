@@ -23,6 +23,9 @@ public class CooldownGroup
 
     /// <summary>Clicking an icon casts it on the other tank in the party (OT Sent Mits).</summary>
     public bool CastOnCoTank { get; set; } = false;
+
+    /// <summary>Clicking an icon casts it on the tank who's tanking (healers' "Tank" group).</summary>
+    public bool CastOnTank { get; set; } = false;
 }
 
 /// <summary>An ability placed in a group, for one job. List order is display order.</summary>
@@ -40,8 +43,9 @@ public class Configuration : IPluginConfiguration
     public static readonly Guid DefensiveGroupId = new("6f1c1d0a-0000-4000-8000-000000000002");
     public static readonly Guid SupportId = new("6f1c1d0a-0000-4000-8000-000000000003");
     public static readonly Guid OtSentMitsId = new("6f1c1d0a-0000-4000-8000-000000000004");
+    public static readonly Guid TankId = new("6f1c1d0a-0000-4000-8000-000000000005");
 
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     public List<CooldownGroup> Groups { get; set; } = new();
 
@@ -52,6 +56,12 @@ public class Configuration : IPluginConfiguration
     public bool ShowTooltips { get; set; } = true;
     public bool TintUnusable { get; set; } = true;
 
+    // ---- Alerts: icons pulse when they're due.
+    public bool PulseBeforeBusters { get; set; } = true;     // icons in a "cast on the tank" group
+    public bool PulseBeforeRaidwides { get; set; } = true;   // icons in Defensive (group)
+    public bool PulseMissingUpkeep { get; set; } = true;     // Regen / Aspected Benefic / Kardia not on the tank
+    public float AlertLeadSeconds { get; set; } = 5f;
+
     /// <summary>Make sure the three default groups exist (first run, or a damaged config).</summary>
     public void EnsureDefaults()
     {
@@ -59,18 +69,33 @@ public class Configuration : IPluginConfiguration
         AddDefault(DefensiveGroupId, "Defensive (group)");
         AddDefault(SupportId, "Support");
         AddDefault(OtSentMitsId, "OT Sent Mits", castOnCoTank: true);
+        AddDefault(TankId, "Tank", castOnTank: true);
     }
 
-    private void AddDefault(Guid id, string name, bool castOnCoTank = false)
+    private void AddDefault(Guid id, string name, bool castOnCoTank = false, bool castOnTank = false)
     {
         if (Groups.Any(g => g.Id == id)) return;
-        Groups.Add(new CooldownGroup { Id = id, Name = name, IsDefault = true, CastOnCoTank = castOnCoTank });
+        Groups.Add(new CooldownGroup { Id = id, Name = name, IsDefault = true, CastOnCoTank = castOnCoTank, CastOnTank = castOnTank });
     }
 
     /// <summary>v2: Shirk moves from Support to OT Sent Mits (it always targets the other tank).</summary>
     public void Migrate()
     {
-        if (Version >= 2) return;
+        if (Version < 2) MigrateShirk();
+        if (Version < 3)
+        {
+            // v3: healers get a starter layout. Replace a healer job's list only if it's still the
+            // old untouched default (just Sprint + Limit Break).
+            foreach (var job in Presets.HealerJobs)
+                if (Jobs.TryGetValue(job, out var list) && list.All(a => a.GroupId == SupportId) &&
+                    list.Select(a => a.ActionId).OrderBy(x => x).SequenceEqual(Presets.EveryoneIds.OrderBy(x => x)))
+                    Jobs[job] = Presets.For(job);
+            Version = 3;
+        }
+    }
+
+    private void MigrateShirk()
+    {
         foreach (var list in Jobs.Values)
         {
             var shirks = list.Where(a => a.ActionId == Presets.Shirk).ToList();
@@ -79,7 +104,6 @@ public class Configuration : IPluginConfiguration
             list.RemoveAll(a => a.ActionId == Presets.Shirk);
             list.Insert(Math.Min(at, list.Count), new Assignment { ActionId = Presets.Shirk, GroupId = OtSentMitsId });
         }
-        Version = 2;
     }
 
     public List<Assignment> ForJob(uint jobId)
