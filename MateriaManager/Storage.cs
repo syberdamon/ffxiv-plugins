@@ -21,7 +21,7 @@ namespace MateriaManager;
 /// </summary>
 public sealed unsafe class Storage : IDisposable
 {
-    private enum Mode { None, StoreSaddlebag, PullSaddlebag, Balance }
+    private enum Mode { None, StoreSaddlebag, PullSaddlebag, Balance, PullGrades }
 
     private readonly Configuration config;
     private DateTime nextStep = DateTime.MinValue;
@@ -93,6 +93,27 @@ public sealed unsafe class Storage : IDisposable
         Begin(Mode.Balance);
     }
 
+    /// <summary>Pull materia of these grades into your bags from the saddlebag and/or the open retainer.</summary>
+    public void PullGrades(int from, int to)
+    {
+        if (from > to) (from, to) = (to, from);
+        var src = Sources();
+        if (src.Length == 0) { Status = "Open your saddlebag or a retainer's inventory first (and tick it as a source)."; return; }
+        pullFrom = from; pullTo = to;
+        Holding = true;
+        Begin(Mode.PullGrades);
+    }
+
+    private int pullFrom = 1, pullTo = 12;
+
+    private InventoryType[] Sources()
+    {
+        var list = new List<InventoryType>();
+        if (config.PullFromSaddlebag && SaddlebagOpen) list.AddRange(MateriaData.Saddlebag);
+        if (config.PullFromRetainer && RetainerOpen) list.AddRange(MateriaData.Retainer);
+        return list.ToArray();
+    }
+
     public void Release() { Holding = false; Status = "Bag materia released: the saddlebag will take it next time."; }
     public void Stop() { mode = Mode.None; pendingSplit = null; Status = "Stopped."; }
 
@@ -121,6 +142,7 @@ public sealed unsafe class Storage : IDisposable
             {
                 Mode.StoreSaddlebag or Mode.PullSaddlebag => saddle,
                 Mode.Balance => MateriaRetainerOpen,
+                Mode.PullGrades => saddle || retainer,
                 _ => false,
             };
             if (!open) { Finish($"window closed after {steps} step(s)"); return; }
@@ -129,6 +151,7 @@ public sealed unsafe class Storage : IDisposable
             {
                 Mode.StoreSaddlebag => MoveAnyStack(MateriaData.Bags, MateriaData.Saddlebag),
                 Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags),
+                Mode.PullGrades => MoveAnyStack(Sources(), MateriaData.Bags, id => MateriaData.All()[id].Grade is var g && g >= pullFrom && g <= pullTo),
                 _ => BalanceStep(),
             };
             if (result == null) { steps++; Status = $"{Describe()}: {steps} step(s)..."; return; }
@@ -147,6 +170,7 @@ public sealed unsafe class Storage : IDisposable
         Mode.StoreSaddlebag => "Bags -> saddlebag",
         Mode.PullSaddlebag => "Saddlebag -> bags",
         Mode.Balance => $"Balancing {config.RetainerName}",
+        Mode.PullGrades => $"Pulling grade {MateriaData.Roman(pullFrom)}-{MateriaData.Roman(pullTo)} into bags",
         _ => "",
     };
 
@@ -170,11 +194,12 @@ public sealed unsafe class Storage : IDisposable
     }
 
     /// <summary>One whole stack of any materia from -> to. null = moved (keep going), else the end reason.</summary>
-    private string? MoveAnyStack(InventoryType[] from, InventoryType[] to)
+    private string? MoveAnyStack(InventoryType[] from, InventoryType[] to, Func<uint, bool>? which = null)
     {
         var im = InventoryManager.Instance();
         foreach (var (type, slot, item, qty) in Stacks(im, from))
         {
+            if (which != null && !which(item)) continue;
             if (FindSlot(im, to, item) is not { } dst) return "no room left";
             im->MoveItemSlot(type, (ushort)slot, dst.Type, (ushort)dst.Slot, true);
             return null;
