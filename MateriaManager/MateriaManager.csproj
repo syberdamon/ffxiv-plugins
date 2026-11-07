@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.1.0.0</Version>
+    <Version>0.2.0.0</Version>
     <Author>syberdamon</Author>
     <Name>Materia Manager</Name>
     <Punchline>Materia in one place: auto-store to saddlebag or retainer, and plan transmutation batches with keep-at-least rules.</Punchline>
-    <Description>Shows the materia in your bags by type and grade. Storage: when you open your chocobo saddlebag or a retainer's inventory, all materia in your bags moves there (saddlebag or retainer, your choice; pause it while melding), and saddlebag materia can be moved to a retainer. Transmutation: pick which types and grades are fodder and how many of each to keep; it plans batches of five from your bags and takes you to Mutamix Bubblypots. English client.</Description>
+    <Description>Shows your materia by type and grade in your bags, saddlebag and materia retainer. Storage: opening the saddlebag stores bag materia; "pull all" brings it back for transmuting; your materia retainer is topped up to a minimum/maximum of each materia (e.g. 800) when you open it, splitting stacks for exact amounts, and the rest stays in your bags. Transmutation: pick fodder and keep-at-least numbers; it plans batches of five and takes you to Mutamix Bubblypots. English client.</Description>
     <Tags>materia;saddlebag;retainer;transmutation;storage</Tags>
     <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
