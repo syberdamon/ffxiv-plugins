@@ -58,6 +58,10 @@ public class Configuration : IPluginConfiguration
     // ---- transmutation (item id -> rule)
     public Dictionary<uint, FodderRule> Rules { get; set; } = new();
     public bool SameGradeBatches { get; set; } = true;
+    /// <summary>Stop after this many batches per trip (a safety cap).</summary>
+    public int MaxBatchesPerRun { get; set; } = 10;
+    /// <summary>Don't transmute what the materia retainer still needs to reach its maximum.</summary>
+    public bool ReserveForRetainer { get; set; } = true;
 
     // ---- purge: sell low-grade odds and ends that can't make a batch of five
     public int PurgeBelowGrade { get; set; } = 7;

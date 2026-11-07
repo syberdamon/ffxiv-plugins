@@ -10,6 +10,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using MateriaManager.Core;
@@ -32,7 +33,7 @@ public sealed unsafe class Transmuter : IDisposable
     public const string Npc = "Mutamix Bubblypots";
     private const string Aetheryte = "Black Brush Station";
 
-    public enum Phase { Idle, Teleporting, Walking, Talking, WindowOpen, Done }
+    public enum Phase { Idle, Teleporting, Walking, Talking, Adding, Confirming, Done }
 
     private readonly Configuration config;
     private readonly VNavIpc vnav = new();
@@ -44,7 +45,12 @@ public sealed unsafe class Transmuter : IDisposable
 
     public Phase State { get; private set; } = Phase.Idle;
     public string Status { get; private set; } = "";
-    public bool Busy => State is Phase.Teleporting or Phase.Walking or Phase.Talking;
+    public bool Busy => State is Phase.Teleporting or Phase.Walking or Phase.Talking or Phase.Adding or Phase.Confirming;
+    public int BatchesDone { get; private set; }
+    public List<string> Results { get; } = new();
+    private Batch? batch;
+    private int added, stepTries;
+    private Dictionary<uint, int> bagsBefore = new();
 
     public Transmuter(Configuration config)
     {
@@ -66,6 +72,8 @@ public sealed unsafe class Transmuter : IDisposable
         {
             if (!config.Rules.TryGetValue(id, out var rule) || !rule.Fodder) continue;
             var n = count - Math.Max(0, rule.Keep);
+            if (config.ReserveForRetainer && config.TargetFor(all[id]) is { } t && config.RetainerId != 0)
+                n -= Math.Max(0, t.Max - config.RetainerSeen.GetValueOrDefault(id));   // the retainer still needs these
             if (n > 0) spare.Add((all[id], n));
         }
         var batches = new List<Batch>();
@@ -92,6 +100,7 @@ public sealed unsafe class Transmuter : IDisposable
     public void Start()
     {
         if (Busy) return;
+        BatchesDone = 0; Results.Clear(); batch = null;
         tries = 0; talkedAt = DateTime.MinValue; bestDistance = float.MaxValue;
         Set(FindNpc() != null || NpcLocator.InTerritory(Npc, Plugin.ClientState.TerritoryType) != null ? Phase.Walking : Phase.Teleporting,
             "Heading to Mutamix Bubblypots...");
@@ -127,6 +136,8 @@ public sealed unsafe class Transmuter : IDisposable
                 case Phase.Teleporting: TickTeleport(); break;
                 case Phase.Walking: TickWalk(); break;
                 case Phase.Talking: TickTalk(); break;
+                case Phase.Adding: TickAdd(); break;
+                case Phase.Confirming: TickConfirm(); break;
             }
         }
         catch (Exception ex) { Fail("Error: " + ex.Message); Plugin.Log.Error(ex, "Transmuter failed"); }
@@ -173,20 +184,9 @@ public sealed unsafe class Transmuter : IDisposable
             return;
         }
 
-        // After talking: a new window that isn't the menu/dialogue is the transmute window. Dump it.
-        if (talkedAt != DateTime.MinValue && (DateTime.UtcNow - talkedAt).TotalSeconds > 1.5)
-        {
-            var opened = VisibleAddons().Except(visibleBefore).Where(n => n is not ("Talk" or "SelectString" or "SelectIconString")).ToList();
-            if (opened.Count > 0)
-            {
-                foreach (var name in opened) GameUi.Dump(name, "opened after talking to Mutamix");
-                Set(Phase.WindowOpen, $"Transmute window open ({string.Join(", ", opened)}). Hand in the planned batches; layout saved for automating next version.");
-                Plugin.ChatGui.Print($"[Materia] {Status}");
-                return;
-            }
-            if ((DateTime.UtcNow - talkedAt).TotalSeconds > 8) { Fail("Talked to Mutamix but no transmute window appeared."); return; }
-            return;
-        }
+        // The transmute window is the game's multi-item hand-in window.
+        if (GameUi.IsOpen(TradeWindow)) { NextBatch(); return; }
+        if (talkedAt != DateTime.MinValue && (DateTime.UtcNow - talkedAt).TotalSeconds < 8) return;
 
         if (++tries > 3) { Fail("Couldn't talk to Mutamix."); return; }
         var npc = FindNpc();
@@ -195,6 +195,137 @@ public sealed unsafe class Transmuter : IDisposable
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
         talkedAt = DateTime.UtcNow;
         nextAction = DateTime.UtcNow.AddSeconds(1.5);
+    }
+
+    // ================================================================ hand-in
+    // Window: "TradeMultiple" (value [0] = "n/5", Confirm button). Materia goes in through each
+    // item's right-click menu while the window is open; the inventory shows "Transmutation".
+
+    private const string TradeWindow = "TradeMultiple";
+
+    private void NextBatch()
+    {
+        if (BatchesDone >= config.MaxBatchesPerRun) { Finish($"Stopped after {BatchesDone} batch(es) (the per-trip cap)."); return; }
+        batch = Plan().FirstOrDefault();
+        if (batch == null) { Finish($"Done: {BatchesDone} batch(es) transmuted."); return; }
+        added = 0; stepTries = 0;
+        bagsBefore = MateriaData.Count(MateriaData.Bags);
+        Set(Phase.Adding, $"Batch {BatchesDone + 1}: adding {string.Join(", ", batch.Items.GroupBy(i => i.Name).Select(g => $"{g.Count()} {g.Key}"))}");
+    }
+
+    private void Finish(string msg)
+    {
+        Set(Phase.Done, msg);
+        Plugin.ChatGui.Print($"[Materia] {msg}");
+        var w = GameUi.Get(TradeWindow);
+        if (w != null) w->FireCallbackInt(-1);
+    }
+
+    private static int Selected(AtkUnitBase* w)
+    {
+        var s = GameUi.Str(w, 0);   // "3/5"
+        var slash = s.IndexOf('/');
+        return slash > 0 && int.TryParse(s[..slash], out var n) ? n : -1;
+    }
+
+    private void TickAdd()
+    {
+        nextAction = DateTime.UtcNow.AddSeconds(0.5);
+        var w = GameUi.Get(TradeWindow);
+        if (w == null) { Fail("The transmute window closed."); return; }
+        var yesno = GameUi.Get("SelectYesno");
+        if (yesno != null) { yesno->FireCallbackInt(0); return; }
+        var numeric = GameUi.Get("InputNumeric");
+        if (numeric != null) { numeric->FireCallbackInt(1); nextAction = DateTime.UtcNow.AddSeconds(0.6); return; }   // one at a time
+
+        var n = Selected(w);
+        if (n >= 5) { Set(Phase.Confirming, $"Batch {BatchesDone + 1}: confirming..."); stepTries = 0; return; }
+        if (n > added) { added = n; stepTries = 0; }
+
+        var menu = GameUi.Get("ContextMenu");
+        if (menu != null)
+        {
+            var index = -1;
+            for (var i = 7; i < menu->AtkValuesCount && index < 0; i++)
+            {
+                var t = GameUi.Str(menu, i);
+                if (t.Contains("Transmut", StringComparison.OrdinalIgnoreCase) || t.Equals("Select", StringComparison.OrdinalIgnoreCase) ||
+                    t.Contains("Move to", StringComparison.OrdinalIgnoreCase)) index = i - 8;
+            }
+            if (index < 0) { GameUi.Dump("ContextMenu", "item menu with the transmute window open"); menu->FireCallbackInt(-1); Fail("No transmute option in the item menu (dump saved)."); return; }
+            GameUi.Fire(menu, 0, index, 0);
+            nextAction = DateTime.UtcNow.AddSeconds(0.7);
+            return;
+        }
+
+        if (++stepTries > 6) { GameUi.Dump(TradeWindow, $"stuck at {n}/5"); Fail($"Couldn't add materia ({n}/5 selected; dump saved)."); return; }
+        // Which piece is next: the batch's items not yet placed, counted by how many are selected.
+        var want = batch!.Items[Math.Clamp(n, 0, 4)].ItemId;
+        if (FindStack(want) is not { } slot) { Fail($"{MateriaData.All()[want].Name} isn't in your bags anymore."); return; }
+        AgentInventoryContext.Instance()->OpenForItemSlot(slot.Type, slot.Slot, 0, InventoryOwnerId());
+        nextAction = DateTime.UtcNow.AddSeconds(0.7);
+    }
+
+    private void TickConfirm()
+    {
+        nextAction = DateTime.UtcNow.AddSeconds(0.6);
+        var yesno = GameUi.Get("SelectYesno");
+        if (yesno != null) { yesno->FireCallbackInt(0); nextAction = DateTime.UtcNow.AddSeconds(1); return; }
+        if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
+
+        // Done when five materia left the bags.
+        var now = MateriaData.Count(MateriaData.Bags);
+        var gone = bagsBefore.Sum(kv => Math.Max(0, kv.Value - now.GetValueOrDefault(kv.Key)));
+        if (gone >= 5)
+        {
+            var got = now.Where(kv => kv.Value > bagsBefore.GetValueOrDefault(kv.Key)).Select(kv => MateriaData.All()[kv.Key]).FirstOrDefault();
+            BatchesDone++;
+            if (got != null)
+            {
+                var up = got.Grade > batch!.Grade ? " (upgrade!)" : "";
+                Results.Add($"{got.Name}{up}");
+                Plugin.ChatGui.Print($"[Materia] Batch {BatchesDone}: got {got.Name}{up}");
+            }
+            if (GameUi.IsOpen(TradeWindow)) { NextBatch(); return; }
+            // Window closed after the trade: talk to him again.
+            tries = 0; talkedAt = DateTime.MinValue;
+            Set(Phase.Talking, "Talking to Mutamix again...");
+            return;
+        }
+
+        var w = GameUi.Get(TradeWindow);
+        if (w == null) return;   // a cutscene/dialogue in between
+        if (++stepTries > 8) { GameUi.Dump(TradeWindow, "confirm didn't go through"); Fail("Confirm didn't go through (dump saved)."); return; }
+        if (GameUi.FindButton(w, "Confirm") is { } btn) GameUi.ClickButton(w, btn);
+        else { GameUi.Dump(TradeWindow, "no Confirm button found"); Fail("No Confirm button found (dump saved)."); }
+        nextAction = DateTime.UtcNow.AddSeconds(1.2);
+    }
+
+    private static (FFXIVClientStructs.FFXIV.Client.Game.InventoryType Type, int Slot)? FindStack(uint itemId)
+    {
+        var im = FFXIVClientStructs.FFXIV.Client.Game.InventoryManager.Instance();
+        foreach (var t in MateriaData.Bags)
+        {
+            var c = im->GetInventoryContainer(t);
+            if (c == null || !c->IsLoaded) continue;
+            for (var i = 0; i < c->Size; i++)
+            {
+                var s = c->GetInventorySlot(i);
+                if (s != null && s->ItemId == itemId && s->Quantity > 0) return (t, i);
+            }
+        }
+        return null;
+    }
+
+    private static uint InventoryOwnerId()
+    {
+        var mgr = RaptureAtkUnitManager.Instance();
+        foreach (var name in new[] { "InventoryExpansion", "InventoryLarge", "Inventory" })
+        {
+            var a = mgr->GetAddonByName(name);
+            if (a != null && a->IsVisible) return a->Id;
+        }
+        return 0;
     }
 
     /// <summary>Names of every visible game window (to spot the one that opened).</summary>

@@ -28,13 +28,16 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
 - Tick which materia may be used and how many of each to **keep**; only materia in your bags is
   used. Batches are five of the same grade by default, mixing types.
 - **Go to Mutamix** teleports to Black Brush Station (Lifestream if installed), walks there with
-  vnavmesh and talks to him. This first version stops at the transmute window (and saves its
-  layout to `pluginConfigs/MateriaManager/dumps`); you hand in the planned batches. Next version
-  automates the hand-in from that layout.
+  vnavmesh and talks to him. In his transmute window (the game's multi-item hand-in window) it adds
+  each batch through the items' right-click menus, confirms, and repeats, lowest grade first, up
+  to a per-trip cap (default 10). It reports each result, and upgrades.
+- By default it won't use what your materia retainer still needs to reach its maximum (as last
+  seen), so pull, transmute and balance don't fight each other.
 
 ## Unverified (needs an in-game check)
 - Saddlebag window name (InventoryBuddy) and the stack split (InventoryManager.SplitItem) puts the new stack in a free slot of the same bags.
-- Mutamix's menu wording (looks for "transmut" or "Materia").
+- Mutamix's menu wording (looks for "transmut" or "Materia"); the item-menu option that adds
+  materia to the transmute window; the window's Confirm button.
 
 ## Purge
 Sells low-grade materia you have fewer than five of (not enough to transmute): below a grade you

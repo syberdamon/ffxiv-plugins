@@ -105,6 +105,27 @@ public static unsafe class GameUi
         talk->ReceiveEvent(AtkEventType.MouseClick, 0, evt, data);
     }
 
+    /// <summary>A button in a window whose label is this text (e.g. "Confirm").</summary>
+    public static AtkComponentButton* FindButton(AtkUnitBase* addon, string label)
+    {
+        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
+        {
+            var node = addon->UldManager.NodeList[i];
+            if (node == null || (int)node->Type < 1000) continue;
+            var comp = ((AtkComponentNode*)node)->Component;
+            if (comp == null || comp->GetComponentType() != ComponentType.Button) continue;
+            for (var k = 0; k < comp->UldManager.NodeListCount; k++)
+            {
+                var child = comp->UldManager.NodeList[k];
+                if (child == null || child->Type != NodeType.Text) continue;
+                var ptr = *(nint*)&((AtkTextNode*)child)->NodeText;
+                if (ptr != 0 && MemoryHelper.ReadSeStringNullTerminated(ptr).TextValue.Trim().Equals(label, StringComparison.OrdinalIgnoreCase))
+                    return (AtkComponentButton*)comp;
+            }
+        }
+        return null;
+    }
+
     public static string Str(AtkUnitBase* addon, int index)
     {
         if (index < 0 || index >= addon->AtkValuesCount) return "";
