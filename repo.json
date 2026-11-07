@@ -129,6 +129,32 @@
   },
   {
     "Author": "syberdamon",
+    "Name": "Raise Callouts",
+    "InternalName": "RaiseCallouts",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Watches your own raise spells (Raise, Resurrection, Ascend, Egeiro, Verraise, Angel Whisper) and posts a callout when you start casting one, or when an instant (Swiftcast/Dualcast) raise lands. Works with rotation plugins because it watches the cast itself, not a hotbar button. One message per raise, skips targets already being raised, editable message, party chat or echo only.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "raise",
+      "resurrection",
+      "callout",
+      "party chat",
+      "healer"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "Says \"Raising <name>\" in party chat whenever you raise someone, however it was cast (RotationSolver, macros, hotbar).",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RaiseCallouts-v0.1.0.0/RaiseCallouts.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RaiseCallouts-v0.1.0.0/RaiseCallouts.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RaiseCallouts-v0.1.0.0/RaiseCallouts.zip"
+  },
+  {
+    "Author": "syberdamon",
     "Name": "Retainer Gear",
     "InternalName": "RetainerGear",
     "AssemblyVersion": "0.1.0.0",
