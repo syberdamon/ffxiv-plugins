@@ -51,6 +51,8 @@ public sealed unsafe class Transmuter : IDisposable
     private Batch? batch;
     private int added, stepTries;
     private string lastMenu = "";
+    private readonly Dictionary<uint, int> selectedOf = new();
+    private uint pendingItem;
     private Dictionary<uint, int> bagsBefore = new();
 
     public Transmuter(Configuration config)
@@ -209,7 +211,7 @@ public sealed unsafe class Transmuter : IDisposable
         if (BatchesDone >= config.MaxBatchesPerRun) { Finish($"Stopped after {BatchesDone} batch(es) (the per-trip cap)."); return; }
         batch = Plan().FirstOrDefault();
         if (batch == null) { Finish($"Done: {BatchesDone} batch(es) transmuted."); return; }
-        added = 0; stepTries = 0;
+        added = 0; stepTries = 0; selectedOf.Clear(); pendingItem = 0;
         bagsBefore = MateriaData.Count(MateriaData.Bags);
         Set(Phase.Adding, $"Batch {BatchesDone + 1}: adding {string.Join(", ", batch.Items.GroupBy(i => i.Name).Select(g => $"{g.Count()} {g.Key}"))}");
     }
@@ -236,12 +238,19 @@ public sealed unsafe class Transmuter : IDisposable
         if (w == null) { Fail("The transmute window closed."); return; }
         var yesno = GameUi.Get("SelectYesno");
         if (yesno != null) { yesno->FireCallbackInt(0); return; }
+        // How many to add from this stack: all of this materia the batch still needs, in one go.
         var numeric = GameUi.Get("InputNumeric");
-        if (numeric != null) { numeric->FireCallbackInt(1); nextAction = DateTime.UtcNow.AddSeconds(0.6); return; }   // one at a time
+        if (numeric != null)
+        {
+            var need = Math.Max(1, NeededOf(pendingItem));
+            numeric->FireCallbackInt(need);
+            nextAction = DateTime.UtcNow.AddSeconds(0.6);
+            return;
+        }
 
         var n = Selected(w);
         if (n >= 5) { Set(Phase.Confirming, $"Batch {BatchesDone + 1}: confirming..."); stepTries = 0; return; }
-        if (n > added) { added = n; stepTries = 0; }
+        if (n > added) { selectedOf[pendingItem] = selectedOf.GetValueOrDefault(pendingItem) + (n - added); added = n; stepTries = 0; }
 
         var menu = GameUi.Get("ContextMenu");
         if (menu != null)
@@ -268,12 +277,17 @@ public sealed unsafe class Transmuter : IDisposable
         }
 
         if (++stepTries > 6) { GameUi.Dump(TradeWindow, $"stuck at {n}/5; last item menu: {lastMenu}"); Fail($"Couldn't add materia ({n}/5 selected; last menu: {lastMenu}; dump saved)."); return; }
-        // Which piece is next: the batch's items not yet placed, counted by how many are selected.
-        var want = batch!.Items[Math.Clamp(n, 0, 4)].ItemId;
+        // Next: the first materia in the batch that still needs pieces.
+        var want = batch!.Items.Select(i => i.ItemId).Distinct().FirstOrDefault(id => NeededOf(id) > 0);
+        if (want == 0) { Set(Phase.Confirming, $"Batch {BatchesDone + 1}: confirming..."); stepTries = 0; return; }
+        pendingItem = want;
         if (FindStack(want) is not { } slot) { Fail($"{MateriaData.All()[want].Name} isn't in your bags anymore."); return; }
         AgentInventoryContext.Instance()->OpenForItemSlot(slot.Type, slot.Slot, 0, InventoryOwnerId());
         nextAction = DateTime.UtcNow.AddSeconds(0.7);
     }
+
+    private int NeededOf(uint itemId) =>
+        batch == null ? 0 : batch.Items.Count(i => i.ItemId == itemId) - selectedOf.GetValueOrDefault(itemId);
 
     private void TickConfirm()
     {
