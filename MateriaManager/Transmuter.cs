@@ -296,7 +296,8 @@ public sealed unsafe class Transmuter : IDisposable
         var w = GameUi.Get(TradeWindow);
         if (w == null) return;   // a cutscene/dialogue in between
         if (++stepTries > 8) { GameUi.Dump(TradeWindow, "confirm didn't go through"); Fail("Confirm didn't go through (dump saved)."); return; }
-        if (GameUi.FindButton(w, "Confirm") is { } btn) GameUi.ClickButton(w, btn);
+        var btn = GameUi.FindButton(w, "Confirm");
+        if (btn != null) GameUi.ClickButton(w, btn);
         else { GameUi.Dump(TradeWindow, "no Confirm button found"); Fail("No Confirm button found (dump saved)."); }
         nextAction = DateTime.UtcNow.AddSeconds(1.2);
     }
