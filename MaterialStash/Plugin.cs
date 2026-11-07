@@ -18,6 +18,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
     [PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
+    [PluginService] internal static ICondition Condition { get; private set; } = null!;
 
     private const string CommandName = "/stash";
 
@@ -34,10 +35,13 @@ public sealed class Plugin : IDalamudPlugin
     private readonly MainWindow main;
     private readonly BellOverlay bell;
     private readonly SaddleOverlay saddle;
+    private readonly VentureWindow ventures;
 
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.EnsureGroups();
+        Configuration.Save();
         Tracker = new Tracker(Configuration);
         Planner = new Planner(Configuration, Tracker);
         Runner = new Runner(Configuration, Tracker, Planner, AutoRetainer);
@@ -46,12 +50,14 @@ public sealed class Plugin : IDalamudPlugin
         main = new MainWindow(this);
         bell = new BellOverlay(this);
         saddle = new SaddleOverlay(this);
+        ventures = new VentureWindow(this);
         windows.AddWindow(main);
         windows.AddWindow(bell);
         windows.AddWindow(saddle);
+        windows.AddWindow(ventures);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -66,6 +72,8 @@ public sealed class Plugin : IDalamudPlugin
         {
             case "deposit": Runner.Start(scan: false); Report(); return;
             case "scan": Runner.Start(scan: true); Report(); return;
+            case "tidy": Runner.Start(Runner.RunMode.Tidy); Report(); return;
+            case "ventures": Configuration.ShowVentureWindow = !Configuration.ShowVentureWindow; Configuration.Save(); return;
             case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
             case "saddle out": Saddle.Start(SaddleMover.Direction.ToBags); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
             case "stop": Runner.Stop(); Saddle.Stop(); return;

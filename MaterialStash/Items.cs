@@ -49,7 +49,7 @@ public static class Items
     {
         var id = itemId % 1_000_000;
         if (IsCrystal(id)) return false;
-        if (c.Exclude.Contains(id)) return false;
+        if (c.KeepOnMe.Contains(id) || c.Exclude.Contains(id)) return false;
         if (c.Include.Contains(id)) return true;
         return Info(id)?.Rule switch
         {
@@ -57,6 +57,26 @@ public static class Items
             StashKind.MobDrop => c.IncludeMobDrops,
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// Does Stash take this out of your bags? Materials by the material rules (if the Materials group's
+    /// switch is on); other groups whole, if their "stash from bags" switch is on; never "keep on me".
+    /// Items a tidy carried out of a retainer always go back.
+    /// </summary>
+    public static bool Depositable(uint itemId, Configuration c, CharacterData? me = null)
+    {
+        var id = itemId % 1_000_000;
+        if (IsCrystal(id) || id == 0) return false;
+        if (me != null && me.TidyCarry.Contains(id)) return true;
+        if (c.KeepOnMe.Contains(id) || c.Exclude.Contains(id)) return false;
+        if (c.Include.Contains(id)) return true;
+        var matsOn = c.Groups.FirstOrDefault(g => g.Name == Configuration.MaterialsGroup)?.StashFromBags ?? true;
+        if (Stashable(id, c)) return matsOn;
+        var info = Info(id);
+        if (info == null) return false;
+        var group = c.GroupOf(info.CategoryId);
+        return group != null && group.Name != Configuration.MaterialsGroup && group.StashFromBags;
     }
 
     /// <summary>All items the rules accept (for the category list).</summary>

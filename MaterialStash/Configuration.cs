@@ -42,6 +42,33 @@ public class CharacterData
     /// <summary>Saddlebag contents when last open (item id incl. HQ offset -> quantity).</summary>
     public Dictionary<uint, int> Saddlebag { get; set; } = new();
     public DateTime? SaddlebagSeen { get; set; }
+    /// <summary>Group name -> its home retainers.</summary>
+    public Dictionary<string, List<ulong>> GroupHomes { get; set; } = new();
+    /// <summary>One item (NQ id) -> its home retainers. Beats every other rule.</summary>
+    public Dictionary<uint, List<ulong>> ItemPins { get; set; } = new();
+    /// <summary>"Name contains ..." -> home retainers (e.g. Totem). After item pins, before categories.</summary>
+    public List<NameRule> NameRules { get; set; } = new();
+    /// <summary>Items a tidy run took out of a retainer and hasn't put back yet (NQ ids): deposited next run.</summary>
+    public HashSet<uint> TidyCarry { get; set; } = new();
+}
+
+[Serializable]
+public class NameRule
+{
+    public string Text { get; set; } = "";
+    public List<ulong> Homes { get; set; } = new();
+}
+
+/// <summary>A bundle of the game's item categories sharing one home list (e.g. Housing).</summary>
+[Serializable]
+public class CategoryGroup
+{
+    public string Name { get; set; } = "";
+    public HashSet<uint> Categories { get; set; } = new();
+    /// <summary>Stash also takes this group's items from your bags (Materials: the material rules apply).</summary>
+    public bool StashFromBags { get; set; }
+    /// <summary>Tidy may move this group's items between retainers.</summary>
+    public bool Tidy { get; set; } = true;
 }
 
 /// <summary>Keep at least Min of an item (bags + saddlebag + retainers); ventures refill it toward Target.</summary>
@@ -81,6 +108,19 @@ public class StockRecipe
 public class Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 1;
+
+    /// <summary>Category groups (seeded with defaults on first load; see EnsureGroups).</summary>
+    public List<CategoryGroup> Groups { get; set; } = new();
+    /// <summary>Never taken out of your bags by Stash or the saddlebag buttons (raid food, dark matter...). NQ ids.</summary>
+    public HashSet<uint> KeepOnMe { get; set; } = new();
+    /// <summary>After tidying a retainer, run the game's item sort on it (also merges part stacks).</summary>
+    public bool TidySort { get; set; } = true;
+    /// <summary>Laps around the retainers a tidy may take.</summary>
+    public int TidyMaxLaps { get; set; } = 4;
+
+    // ---- venture timer window
+    public bool ShowVentureWindow { get; set; } = true;
+    public bool VentureWindowAlways { get; set; } = false;
 
     public Dictionary<ulong, CharacterData> Characters { get; set; } = new();
 
@@ -153,6 +193,49 @@ public class Configuration : IPluginConfiguration
     }
 
     public int KeepOf(uint crystalId) => CrystalKeepPer.TryGetValue(crystalId, out var k) ? k : CrystalKeep;
+
+    public const string MaterialsGroup = "Materials";
+
+    /// <summary>Default groups from the game's own category ordering (OrderMajor); one-time, then yours to edit.</summary>
+    public void EnsureGroups()
+    {
+        if (Version < 2)
+        {
+            // 0.1-0.3 "never stash" list becomes "keep on me"
+            foreach (var id in Exclude) KeepOnMe.Add(id);
+            Exclude.Clear();
+        }
+        if (Groups.Count == 0)
+        {
+            var housing = new HashSet<uint> { 57, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 82, 95 };
+            var collect = new HashSet<uint> { 81, 85, 86, 94, 112 };
+            var byMajor = new Dictionary<int, HashSet<uint>>();
+            foreach (var cat in Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.ItemUICategory>())
+            {
+                if (cat.RowId == 0 || cat.Name.ExtractText().Length == 0 || cat.RowId == 59 /* crystals: own rules */) continue;
+                if (housing.Contains(cat.RowId) || collect.Contains(cat.RowId) || cat.RowId == 58) continue;
+                int major = cat.OrderMajor;
+                if (!byMajor.TryGetValue(major, out var set)) byMajor[major] = set = new();
+                set.Add(cat.RowId);
+            }
+            HashSet<uint> Of(params int[] majors) => majors.SelectMany(m => byMajor.GetValueOrDefault(m) ?? new()).ToHashSet();
+            Groups = new List<CategoryGroup>
+            {
+                new() { Name = MaterialsGroup, Categories = Of(6), StashFromBags = true },
+                new() { Name = "Housing", Categories = housing },
+                new() { Name = "Armor", Categories = Of(3) },
+                new() { Name = "Accessories", Categories = Of(4) },
+                new() { Name = "Weapons & tools", Categories = Of(1, 2) },
+                new() { Name = "Food & potions", Categories = Of(5) },
+                new() { Name = "Collectibles", Categories = collect },
+                new() { Name = "Materia", Categories = new() { 58 }, Tidy = false },
+                new() { Name = "Other", Categories = Of(7) },
+            };
+        }
+        Version = 2;
+    }
+
+    public CategoryGroup? GroupOf(uint categoryId) => Groups.FirstOrDefault(g => g.Categories.Contains(categoryId));
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }
