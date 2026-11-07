@@ -36,6 +36,34 @@ public class CharacterData
     public List<ulong> Overflow { get; set; } = new();
     /// <summary>Retainers never used for stashing (e.g. your materia retainer).</summary>
     public HashSet<ulong> Excluded { get; set; } = new();
+    /// <summary>Retainers whose AutoRetainer ventures are never redirected for stock.</summary>
+    public HashSet<ulong> NoRedirect { get; set; } = new();
+    /// <summary>Saddlebag contents when last open (item id incl. HQ offset -> quantity).</summary>
+    public Dictionary<uint, int> Saddlebag { get; set; } = new();
+    public DateTime? SaddlebagSeen { get; set; }
+}
+
+/// <summary>Keep at least Min of an item (bags + saddlebag + retainers); ventures refill it toward Target.</summary>
+[Serializable]
+public class StockItem
+{
+    public uint ItemId { get; set; }
+    public int Min { get; set; }
+    public int Target { get; set; }
+}
+
+/// <summary>
+/// Keep enough materials to make Min / Target of a recipe's result (in items made, not crafts:
+/// the recipe's yield is applied). Crafted ingredients are broken down to their own materials
+/// unless listed in KeepAsIs.
+/// </summary>
+[Serializable]
+public class StockRecipe
+{
+    public uint RecipeId { get; set; }
+    public int Min { get; set; }
+    public int Target { get; set; }
+    public HashSet<uint> KeepAsIs { get; set; } = new();
 }
 
 [Serializable]
@@ -67,9 +95,20 @@ public class Configuration : IPluginConfiguration
     /// <summary>Below the keep amount, take crystals back from the last retainer holding them.</summary>
     public bool CrystalWithdrawToKeep { get; set; } = true;
 
+    // ---- stock (refilled through AutoRetainer ventures)
+    public List<StockItem> StockItems { get; set; } = new();
+    public List<StockRecipe> StockRecipes { get; set; } = new();
+    /// <summary>When AutoRetainer sends a retainer out, send it for the most-needed stock item it can bring back.</summary>
+    public bool RedirectVentures { get; set; } = true;
+    /// <summary>Once every minimum is met: 0 = spread evenly (lowest % of target first), 1 = closest to its target first.</summary>
+    public int AfterMinimumMode { get; set; } = 0;
+    /// <summary>Print each redirect to chat.</summary>
+    public bool AnnounceRedirects { get; set; } = true;
+
     // ---- other plugins / UI
     public bool UseAllaganTools { get; set; } = true;
     public bool ShowBellButtons { get; set; } = true;
+    public bool ShowSaddlebagButtons { get; set; } = true;
     /// <summary>Nudge for the buttons above the retainer list (pixels).</summary>
     public float BellOffsetX { get; set; } = 0;
     public float BellOffsetY { get; set; } = 0;
