@@ -200,6 +200,10 @@ public sealed class TrashMode : IDisposable
                 if (hp < S.HealHpPercent) { if (!TryPress(kit.Short, "short", "winding down, low HP", me, kit, sig)) TryHeal(me, kit, sig, hp); }
                 break;
             case PullState.Pulling:
+                // The short mit is cheap and quick to come back: use it while gathering a big pack
+                // rather than letting HP drain until the pull is set.
+                if (sig.MobsOnMe >= S.PullShortMinMobs && hp < S.PullShortHpPercent && !Active(kit.Short) &&
+                    TryPress(kit.Short, "pull/short", $"gathering, HP<{S.PullShortHpPercent:0}%", me, kit, sig)) break;
                 Skip("moving", "pulling/moving: holding mits");
                 break;
         }
@@ -270,7 +274,9 @@ public sealed class TrashMode : IDisposable
 
         // 3. One big mit at a time; refill when it expires while the pull is still long.
         var majorActive = Active(kit.Big) || Active(kit.Rampart) || Active(ArmsLength);
-        if (!majorActive && (!majorUsedThisSet || PullLasts(S.GapMinPullSeconds) || hp < S.EscalateHpPercent))
+        var idle = hp >= S.IdleHpPercent && sig.GrossPctPerSec < S.IdleDamagePctPerSec;
+        if (!majorActive && idle) Skip("idle", $"HP {hp:0}%, {sig.GrossPctPerSec:0.0}%/s incoming: holding big mits");
+        else if (!majorActive && (!majorUsedThisSet || PullLasts(S.GapMinPullSeconds) || hp < S.EscalateHpPercent))
         {
             var bigOk = Ready(kit.Big) && (PullLasts(S.HeavyMinPullSeconds) || hp < S.EscalateHpPercent);
             var warHold = kit.Job == "Warrior" && Active(kit.Short) && hp >= S.WarRampartAfterBloodwhettingHp;

@@ -189,3 +189,10 @@ with thresholds that still hold up with weak healers. How we get there:
 - Icy Veins, Introduction to Tanking in FFXIV: https://www.icy-veins.com/ffxiv/introduction-to-tanking
 - FFXIV Wiki (consolegameswiki), Tank Guide: https://ffxiv.consolegameswiki.com/wiki/Tank_Guide
 - The Balance, Warrior Basic Guide: https://www.thebalanceffxiv.com/jobs/tanks/warrior/basic-guide/
+
+## Changes from log review 2026-11-04 (Mit Planner 0.9.5)
+- **Short mit while gathering:** with 3+ mobs on you and HP below 80%, the short mit (Bloodwhetting,
+  Sheltron, ...) goes out while you're still moving. Lunar Subterrane WAR 90: HP fell from ~90% to
+  57-65% while gathering 8-9 mobs, and one pull bottomed at 40% right after.
+- **No big mit at full HP with little incoming:** HP >= 95% and < 3%/s incoming holds Rampart and
+  friends. Rampart went out twice at 100% HP, ~0%/s, with the pull nearly dead.
