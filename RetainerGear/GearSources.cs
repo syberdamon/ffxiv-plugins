@@ -92,7 +92,7 @@ public sealed class GearSources
         {
             var esc = it.EquipSlotCategory.ValueNullable;
             if (esc == null || it.EquipSlotCategory.RowId == 0) continue;
-            if (it.LevelEquip > level || it.EquipRestriction > 1) continue;   // race/sex-locked gear skipped
+            if (it.LevelEquip > level || it.EquipRestriction.RowId > 1) continue;   // race/sex-locked gear skipped
             if (it.ClassJobCategory.ValueNullable is not { } cat || categoryProp.GetValue(cat) is not true) continue;
             var slot = SlotOf(esc.Value);
             if (slot < 0) continue;
