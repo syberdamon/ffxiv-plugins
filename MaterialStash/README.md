@@ -30,6 +30,33 @@ For each stack, the first retainer with room from:
 every retainer. Retainers marked **never use** (e.g. your materia retainer) are skipped. A second pass picks up
 anything a full retainer bounced back to one already visited.
 
+## Saddlebag
+With the saddlebag open, two buttons sit on top of it: **Mats -> saddlebag** and **Mats -> bags** (stashable materials
+only, stacking onto existing stacks first). Also `/stash saddle in` and `/stash saddle out`.
+
+## Stock (refilled through AutoRetainer ventures)
+On the **Stock** tab, keep a **minimum** and a **target** of:
+- **items**, or
+- **recipes**: "Caramel Popcorn, min 150 / target 300" means materials for that many made (the recipe's yield is applied,
+  so 300 popcorn = 100 crafts). Crafted ingredients are broken down to their own materials unless you tick
+  **stock as is** for one. Several recipes using the same material add up.
+
+"Have" counts bags + saddlebag (as last seen) + every retainer (as last seen), NQ and HQ together, plus what ventures
+already out will bring back.
+
+When AutoRetainer is about to send a retainer out, Material Stash picks the most-needed item that retainer can bring
+back and hands AutoRetainer that venture (AutoRetainer's own override, `OnSendRetainerToVenture` / `SetVenture`; only
+that one send changes, your AutoRetainer plans don't). If nothing is short, or nothing short can come from that
+retainer, AutoRetainer does what it would anyway.
+- **Order:** items under their minimum first, the furthest under (as a % of the minimum) first. Once every minimum is
+  met: **spread evenly** (lowest % of target first) or **closest to its target first** (your choice).
+- **Who can go:** any retainer whose class (combat for hunting drops, MIN/BTN/FSH for gathered items and crystals) and
+  level fit, with AutoRetainer's recorded gathering / item level, and (gatherers) only for items you've gathered yourself.
+  Untick a retainer under **Keep its ventures** (Retainers tab) to leave it alone.
+- Items no venture brings back (vendor or crafted-only) are listed as "craft/buy/gather yourself".
+- Venture amounts are estimated from AutoRetainer's recorded perception / item level (the game's thresholds); unknown
+  stats count as the lowest amount.
+
 ## Crystals
 Shards, crystals and clusters fill retainers in the bell's list order, each to 9,999 of a type before the next.
 **Keep N on me** (global, or per type) leaves that many with you; below it, the run takes the difference back from
@@ -45,4 +72,10 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - Moving part of a crystal stack: the item menu's "Entrust..." / "Retrieve..." then the number prompt. Whole stacks
   move directly. A wrong menu guess skips that crystal and saves a dump in `pluginConfigs/MaterialStash/dumps/`.
 - Allagan Tools' `GetCharacterItems` layout ([item, flags, owner, quantity] per stack).
-- AutoRetainer's `AutoRetainer.PluginState.IsBusy`.
+- Reading AutoRetainer's recorded retainer stats (`GetAdditionalRetainerData`) into our own type; if it fails, stats
+  count as unknown.
+- Whether AutoRetainer's venture override also applies in multi-character mode (confirmed for its normal bell run).
+- The "gathered it yourself" check uses a game-function signature (from AutoRetainer); after a patch it may be missing,
+  and then every gathering venture is assumed allowed.
+
+Confirmed from AutoRetainer's source: `AutoRetainer.PluginState.IsBusy`, `OnSendRetainerToVenture`, `SetVenture`.

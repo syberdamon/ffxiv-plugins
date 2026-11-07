@@ -40,6 +40,7 @@ public sealed class MainWindow : Window
         if (ImGui.BeginTabItem("Retainers")) { DrawRetainers(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Categories")) { DrawCategories(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Crystals")) { DrawCrystals(me); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Stock")) { DrawStock(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Rules")) { DrawRules(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
@@ -110,13 +111,14 @@ public sealed class MainWindow : Window
     {
         var changed = false;
         ImGui.TextWrapped("Records are refreshed whenever a retainer's inventory is open. \"Scan all\" above the retainer list opens each one once.");
-        if (ImGui.BeginTable("##ret", 5, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
+        if (ImGui.BeginTable("##ret", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
         {
             ImGui.TableSetupColumn("Retainer");
             ImGui.TableSetupColumn("Slots used", ImGuiTableColumnFlags.WidthFixed, 80);
             ImGui.TableSetupColumn("Mats held", ImGuiTableColumnFlags.WidthFixed, 75);
             ImGui.TableSetupColumn("Last seen", ImGuiTableColumnFlags.WidthFixed, 170);
             ImGui.TableSetupColumn("Never use", ImGuiTableColumnFlags.WidthFixed, 75);
+            ImGui.TableSetupColumn("Keep its ventures", ImGuiTableColumnFlags.WidthFixed, 115);
             ImGui.TableHeadersRow();
             foreach (var id in me.Order)
             {
@@ -135,6 +137,12 @@ public sealed class MainWindow : Window
                 if (ImGui.Checkbox("##ex", ref ex)) { if (ex) me.Excluded.Add(id); else me.Excluded.Remove(id); changed = true; }
                 ImGui.PopID();
                 if (ImGui.IsItemHovered()) ImGui.SetTooltip("Never stash on this retainer (e.g. your materia retainer).");
+                ImGui.TableNextColumn();
+                var nr = me.NoRedirect.Contains(id);
+                ImGui.PushID($"nr{id}");
+                if (ImGui.Checkbox("##nr", ref nr)) { if (nr) me.NoRedirect.Add(id); else me.NoRedirect.Remove(id); changed = true; }
+                ImGui.PopID();
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Never redirect this retainer's AutoRetainer ventures for stock\n(e.g. one you're levelling or keep on field explorations).");
             }
             ImGui.EndTable();
         }
@@ -165,6 +173,9 @@ public sealed class MainWindow : Window
         ImGui.Separator();
         var show = C.ShowBellButtons;
         if (ImGui.Checkbox("Show the Stash / Scan buttons above the retainer list", ref show)) { C.ShowBellButtons = show; changed = true; }
+        var showS = C.ShowSaddlebagButtons;
+        if (ImGui.Checkbox("Show the mats -> saddlebag / -> bags buttons above the saddlebag", ref showS)) { C.ShowSaddlebagButtons = showS; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("/stash saddle in | /stash saddle out");
         float ox = C.BellOffsetX, oy = C.BellOffsetY;
         ImGui.SetNextItemWidth(110);
         if (ImGui.DragFloat("Nudge X", ref ox, 1f)) { C.BellOffsetX = ox; changed = true; }
@@ -298,6 +309,173 @@ public sealed class MainWindow : Window
             ImGui.EndTable();
         }
         if (changed) C.Save();
+    }
+
+    // ================================================================ stock
+
+    private string itemSearch = "", recipeSearch = "";
+    private List<ItemInfo> itemHits = new();
+    private List<RecipeInfo> recipeHits = new();
+    private List<StockNeed> needs = new();
+    private Dictionary<uint, string> sources = new();
+    private DateTime nextNeeds = DateTime.MinValue;
+
+    private void RefreshNeeds(CharacterData me)
+    {
+        if (DateTime.UtcNow < nextNeeds) return;
+        nextNeeds = DateTime.UtcNow.AddSeconds(2);
+        needs = Stock.Needs(C, me, plugin.Director.Incoming());
+        var retainers = Director.Retainers();
+        var stats = retainers.ToDictionary(r => r.Id, r => plugin.Director.Stats(r.Name));
+        sources = new();
+        foreach (var n in needs)
+        {
+            var tasks = Ventures.For(n.ItemId);
+            if (tasks.Count == 0) { sources[n.ItemId] = "no venture: craft/buy/gather yourself"; continue; }
+            var who = retainers.Where(r => !me.NoRedirect.Contains(r.Id) && tasks.Any(t => Director.CantTake(t, r, stats[r.Id]) == null)).Select(r => r.Name).ToList();
+            var kinds = string.Join(", ", tasks.Select(t => $"{Ventures.CategoryName(t.Category)} {t.RetainerLevel}").Distinct());
+            if (who.Count > 0) sources[n.ItemId] = $"{kinds}: {string.Join(", ", who)}";
+            else
+            {
+                var reasons = retainers.SelectMany(r => tasks.Select(t => Director.CantTake(t, r, stats[r.Id]))).Where(x => x != null && x != "wrong class").Distinct().Take(2);
+                sources[n.ItemId] = $"{kinds}: no retainer can yet" + (reasons.Any() ? $" ({string.Join("; ", reasons)})" : " (no retainer of that class)");
+            }
+        }
+    }
+
+    private void DrawStock(CharacterData me)
+    {
+        var changed = false;
+        var redirect = C.RedirectVentures;
+        if (ImGui.Checkbox("When AutoRetainer sends a retainer out, send it for the most-needed stock item it can bring back", ref redirect)) { C.RedirectVentures = redirect; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Uses AutoRetainer's venture override for that one send. Nothing short (or nothing this retainer can bring back)\nand AutoRetainer does what it would anyway. Opt retainers out on the Retainers tab.");
+        var announce = C.AnnounceRedirects;
+        ImGui.SameLine();
+        if (ImGui.Checkbox("say so in chat", ref announce)) { C.AnnounceRedirects = announce; changed = true; }
+        string[] modes = { "Spread evenly (lowest % of target first)", "Closest to its target first" };
+        ImGui.SetNextItemWidth(280);
+        if (ImGui.BeginCombo("Once every minimum is met", modes[Math.Clamp(C.AfterMinimumMode, 0, 1)]))
+        {
+            for (var i = 0; i < modes.Length; i++)
+                if (ImGui.Selectable(modes[i], C.AfterMinimumMode == i)) { C.AfterMinimumMode = i; changed = true; }
+            ImGui.EndCombo();
+        }
+        ImGui.TextColored(Dim, "Below-minimum items always go first, the furthest below (as a % of the minimum) first.\n" +
+            $"Counts: bags + saddlebag (seen {(me.SaddlebagSeen?.ToString("g") ?? "never: open it once")}) + retainers as last seen, NQ and HQ together; plus ventures already out.");
+
+        RefreshNeeds(me);
+        ImGui.Separator();
+        if (needs.Count > 0 && ImGui.BeginTable("##need", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY, new Vector2(0, Math.Min(32 + needs.Count * 24, 300))))
+        {
+            ImGui.TableSetupColumn("Item");
+            ImGui.TableSetupColumn("Have", ImGuiTableColumnFlags.WidthFixed, 60);
+            ImGui.TableSetupColumn("Coming", ImGuiTableColumnFlags.WidthFixed, 55);
+            ImGui.TableSetupColumn("Min", ImGuiTableColumnFlags.WidthFixed, 55);
+            ImGui.TableSetupColumn("Target", ImGuiTableColumnFlags.WidthFixed, 55);
+            ImGui.TableSetupColumn("Ventures (who can go)");
+            ImGui.TableSetupScrollFreeze(0, 1);
+            ImGui.TableHeadersRow();
+            foreach (var n in needs)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TextColored(n.BelowMin ? new Vector4(1f, 0.45f, 0.45f, 1f) : n.BelowTarget ? Warn : Good, n.Name);
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Have.ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextColored(Dim, n.Incoming > 0 ? $"+{n.Incoming:N0}" : "");
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Min.ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Target.ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextColored(Dim, sources.GetValueOrDefault(n.ItemId, ""));
+            }
+            ImGui.EndTable();
+        }
+        else if (needs.Count == 0) ImGui.TextColored(Dim, "Nothing on the stock list yet: add items or recipes below.");
+
+        // ---- items
+        if (ImGui.CollapsingHeader($"Items ({C.StockItems.Count})###stockitems", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            foreach (var it in C.StockItems.ToList())
+            {
+                ImGui.PushID($"si{it.ItemId}");
+                ImGui.TextUnformatted(Items.Info(it.ItemId)?.Name ?? $"#{it.ItemId}");
+                ImGui.SameLine(240);
+                int mn = it.Min, tg = it.Target;
+                ImGui.SetNextItemWidth(90);
+                if (ImGui.InputInt("min", ref mn, 0, 0)) { it.Min = Math.Max(0, mn); if (it.Target < it.Min) it.Target = it.Min; changed = true; }
+                ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+                if (ImGui.InputInt("target", ref tg, 0, 0)) { it.Target = Math.Max(it.Min, tg); changed = true; }
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) { C.StockItems.Remove(it); changed = true; }
+                ImGui.PopID();
+            }
+            ImGui.SetNextItemWidth(240);
+            if (ImGui.InputTextWithHint("##itemsearch", "Add an item: type a name...", ref itemSearch, 64))
+                itemHits = Stock.SearchItems(itemSearch).Where(i => C.StockItems.All(x => x.ItemId != i.ItemId)).ToList();
+            foreach (var hit in itemHits.ToList())
+            {
+                var v = Ventures.For(hit.ItemId).Count > 0 ? " (venture)" : "";
+                if (ImGui.Selectable($"{hit.Name}{v}##ih{hit.ItemId}"))
+                {
+                    C.StockItems.Add(new StockItem { ItemId = hit.ItemId, Min = 0, Target = 0 });
+                    itemHits.Clear(); itemSearch = ""; changed = true;
+                }
+            }
+        }
+
+        // ---- recipes
+        if (ImGui.CollapsingHeader($"Recipes ({C.StockRecipes.Count})###stockrecipes", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.TextColored(Dim, "Min / target are items made (yield applied). Crafted ingredients are broken down to their materials unless ticked 'stock as is'.");
+            foreach (var r in C.StockRecipes.ToList())
+            {
+                var info = Stock.Recipe(r.RecipeId);
+                ImGui.PushID($"sr{r.RecipeId}");
+                var label = info == null ? $"#{r.RecipeId}" : $"{info.Name} ({info.Job}, makes {info.Yield})";
+                var open = ImGui.TreeNode($"{label}###t");
+                ImGui.SameLine(300);
+                int mn = r.Min, tg = r.Target;
+                ImGui.SetNextItemWidth(90);
+                if (ImGui.InputInt("min", ref mn, 0, 0)) { r.Min = Math.Max(0, mn); if (r.Target < r.Min) r.Target = r.Min; changed = true; }
+                ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+                if (ImGui.InputInt("target", ref tg, 0, 0)) { r.Target = Math.Max(r.Min, tg); changed = true; }
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Remove")) { C.StockRecipes.Remove(r); changed = true; }
+                if (open)
+                {
+                    if (info != null)
+                    {
+                        var crafted = Stock.CraftedIngredients(info);
+                        foreach (var id in crafted)
+                        {
+                            var keep = r.KeepAsIs.Contains(id);
+                            if (ImGui.Checkbox($"stock as is: {Items.Info(id)?.Name}##k{id}", ref keep)) { if (keep) r.KeepAsIs.Add(id); else r.KeepAsIs.Remove(id); changed = true; }
+                        }
+                        var mats = new Dictionary<uint, int>();
+                        Stock.Expand(info, Math.Max(r.Min, r.Target), r.KeepAsIs, mats, 0);
+                        ImGui.TextColored(Dim, $"For {Math.Max(r.Min, r.Target):N0}: " + string.Join(", ", mats.OrderBy(m => Items.IsCrystal(m.Key)).Select(m => $"{Items.Info(m.Key)?.Name} x{m.Value:N0}")));
+                    }
+                    ImGui.TreePop();
+                }
+                ImGui.PopID();
+            }
+            ImGui.SetNextItemWidth(240);
+            if (ImGui.InputTextWithHint("##recipesearch", "Add a recipe: type its name...", ref recipeSearch, 64))
+                recipeHits = Stock.SearchRecipes(recipeSearch).ToList();
+            foreach (var hit in recipeHits.ToList())
+            {
+                if (ImGui.Selectable($"{hit.Name} ({hit.Job}, makes {hit.Yield})##rh{hit.RecipeId}"))
+                {
+                    if (C.StockRecipes.All(x => x.RecipeId != hit.RecipeId)) C.StockRecipes.Add(new StockRecipe { RecipeId = hit.RecipeId });
+                    recipeHits.Clear(); recipeSearch = ""; changed = true;
+                }
+            }
+        }
+
+        // ---- log
+        if (plugin.Director.Log.Count > 0 && ImGui.CollapsingHeader("Recent redirects"))
+            foreach (var d in plugin.Director.Log)
+                ImGui.TextUnformatted($"{d.At:HH:mm} {d.Retainer} -> {d.Item} (~{d.Yield}; {d.Why})");
+
+        if (changed) { C.Save(); nextNeeds = DateTime.MinValue; }
     }
 
     // ================================================================ rules

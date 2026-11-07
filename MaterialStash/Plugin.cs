@@ -17,6 +17,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static ISigScanner SigScanner { get; private set; } = null!;
 
     private const string CommandName = "/stash";
 
@@ -24,12 +25,15 @@ public sealed class Plugin : IDalamudPlugin
     public Tracker Tracker { get; }
     public Planner Planner { get; }
     public Runner Runner { get; }
+    public Director Director { get; }
+    public SaddleMover Saddle { get; }
     public AutoRetainerIpc AutoRetainer { get; } = new();
     public AllaganIpc Allagan { get; } = new();
 
     private readonly WindowSystem windows = new("MaterialStash");
     private readonly MainWindow main;
     private readonly BellOverlay bell;
+    private readonly SaddleOverlay saddle;
 
     public Plugin()
     {
@@ -37,13 +41,17 @@ public sealed class Plugin : IDalamudPlugin
         Tracker = new Tracker(Configuration);
         Planner = new Planner(Configuration, Tracker);
         Runner = new Runner(Configuration, Tracker, Planner, AutoRetainer);
+        Director = new Director(Configuration, Tracker);
+        Saddle = new SaddleMover(Configuration);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
+        saddle = new SaddleOverlay(this);
         windows.AddWindow(main);
         windows.AddWindow(bell);
+        windows.AddWindow(saddle);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | scan (record every retainer) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -58,7 +66,9 @@ public sealed class Plugin : IDalamudPlugin
         {
             case "deposit": Runner.Start(scan: false); Report(); return;
             case "scan": Runner.Start(scan: true); Report(); return;
-            case "stop": Runner.Stop(); return;
+            case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
+            case "saddle out": Saddle.Start(SaddleMover.Direction.ToBags); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
+            case "stop": Runner.Stop(); Saddle.Stop(); return;
             default: main.Toggle(); return;
         }
     }
@@ -76,6 +86,8 @@ public sealed class Plugin : IDalamudPlugin
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
         Runner.Dispose();
+        Director.Dispose();
+        Saddle.Dispose();
         Tracker.Dispose();
     }
 }

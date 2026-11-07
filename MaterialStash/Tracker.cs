@@ -23,6 +23,7 @@ public sealed unsafe class Tracker : IDisposable
         InventoryType.RetainerPage1, InventoryType.RetainerPage2, InventoryType.RetainerPage3, InventoryType.RetainerPage4,
         InventoryType.RetainerPage5, InventoryType.RetainerPage6, InventoryType.RetainerPage7,
     };
+    public static readonly InventoryType[] Saddlebag = { InventoryType.SaddleBag1, InventoryType.SaddleBag2, InventoryType.PremiumSaddleBag1, InventoryType.PremiumSaddleBag2 };
     public const int RetainerSlots = 175;
 
     private readonly Configuration config;
@@ -53,6 +54,8 @@ public sealed unsafe class Tracker : IDisposable
         if (!config.Characters.TryGetValue(cid, out var d)) config.Characters[cid] = d = new CharacterData();
         return d;
     }
+
+    public static bool SaddlebagOpen => GameUi.IsOpen("InventoryBuddy") || GameUi.IsOpen("InventoryBuddy2");
 
     public static bool RetainerInventoryOpen => GameUi.IsOpen("InventoryRetainer") || GameUi.IsOpen("InventoryRetainerLarge");
 
@@ -175,6 +178,13 @@ public sealed unsafe class Tracker : IDisposable
         }
 
         if (RecordOpen()) changed = true;
+        if (SaddlebagOpen && Loaded(Saddlebag))
+        {
+            var bag = new Dictionary<uint, int>();
+            foreach (var st in Stacks(Saddlebag)) bag[st.ItemId] = bag.GetValueOrDefault(st.ItemId) + st.Qty;
+            if (!Same(bag, me.Saddlebag)) { me.Saddlebag = bag; changed = true; }
+            me.SaddlebagSeen = DateTime.Now;
+        }
         if (changed) Save();
     }
 
@@ -237,7 +247,7 @@ public sealed unsafe class Tracker : IDisposable
     public void Save(bool force = false)
     {
         var me = Me();
-        var key = me == null ? "" : string.Join("|", me.Retainers.Select(r => $"{r.Key}:{r.Value.UsedSlots}:{r.Value.Items.Count}:{r.Value.Items.Values.Sum()}:{r.Value.Crystals.Values.Sum()}:{r.Value.Name}")) + string.Join(",", me.Order);
+        var key = me == null ? "" : string.Join("|", me.Retainers.Select(r => $"{r.Key}:{r.Value.UsedSlots}:{r.Value.Items.Count}:{r.Value.Items.Values.Sum()}:{r.Value.Crystals.Values.Sum()}:{r.Value.Name}")) + string.Join(",", me.Order) + $"|s{me.Saddlebag.Values.Sum()}:{me.Saddlebag.Count}";
         if (!force && key == lastSaved) return;
         lastSaved = key;
         config.Save();
