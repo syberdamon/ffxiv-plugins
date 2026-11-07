@@ -35,3 +35,15 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
 ## Unverified (needs an in-game check)
 - Saddlebag window name (InventoryBuddy) and the stack split (InventoryManager.SplitItem) puts the new stack in a free slot of the same bags.
 - Mutamix's menu wording (looks for "transmut" or "Materia").
+
+## Purge
+Sells low-grade materia you have fewer than five of (not enough to transmute): below a grade you
+pick (default below VII), fewer than 5 owned across bags, saddlebag and materia retainer. Only
+sells from your bags, and never materia with a Keep or a retainer target. Optionally keeps them if
+their grade still has five in total (transmute batches can mix types).
+- **Go to the nearest vendor and sell** (`/materia purge vendor`): walks to the closest merchant
+  in sight, opens their shop, and sells each stack through its right-click "Sell".
+- **Sell here** (`/materia purge`): with a shop open, or a retainer open ("Have Retainer Sell Items").
+
+Transmute batches run lowest grade first, so an upgraded result can complete a batch of the next
+grade; "Use all" / "Use none" / "Set Keep for all" fill the table in one click.

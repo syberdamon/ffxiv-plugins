@@ -56,7 +56,7 @@ public sealed unsafe class Transmuter : IDisposable
 
     // ================================================================ planning
 
-    /// <summary>Batches of five from your bags, by grade, spending the biggest surpluses first.</summary>
+    /// <summary>Batches of five from your bags, lowest grade first, spending the biggest surpluses first.</summary>
     public List<Batch> Plan()
     {
         var bags = MateriaData.Count(MateriaData.Bags);
@@ -72,7 +72,7 @@ public sealed unsafe class Transmuter : IDisposable
         var groups = config.SameGradeBatches
             ? spare.GroupBy(s => s.Info.Grade).Select(g => (Grade: g.Key, Items: g.ToList()))
             : new[] { (Grade: 0, Items: spare) };
-        foreach (var (grade, items) in groups.OrderByDescending(g => g.Grade))
+        foreach (var (grade, items) in groups.OrderBy(g => g.Grade))   // lowest first: an upgrade can complete a batch of the next grade
         {
             // Expand to single pieces, biggest surplus first, so each batch mixes types where it can.
             var pool = items.OrderByDescending(i => i.Count).ToList();
