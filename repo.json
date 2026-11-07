@@ -103,6 +103,32 @@
   },
   {
     "Author": "syberdamon",
+    "Name": "Material Stash",
+    "InternalName": "MaterialStash",
+    "AssemblyVersion": "0.1.0.0",
+    "Description": "Sorts common crafting materials onto your retainers in the order you choose. Gathered materials (mining, botany, fishing) and white, tradeable mob drops used in recipes qualify; boss drops, crafted items and collectables don't, and you can include or exclude anything by hand. Each category (ore, lumber, hides...) gets an ordered list of home retainers, with an overflow order behind it, and items already on a retainer are kept together. Crystals fill retainers in the game's list order, keeping a set amount of each on you. Nothing runs by itself: press \"Stash\" above the retainer list (after AutoRetainer is done) and it visits each retainer, deposits, and moves on. English client.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
+    "Tags": [
+      "retainer",
+      "crafting",
+      "materials",
+      "storage",
+      "crystals"
+    ],
+    "DalamudApiLevel": 15,
+    "LoadRequiredState": 0,
+    "LoadSync": false,
+    "CanUnloadAsync": false,
+    "LoadPriority": 0,
+    "Punchline": "One button at the summoning bell puts your gathered and mob-dropped crafting mats and crystals on the right retainers.",
+    "AcceptsFeedback": true,
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.1.0.0/MaterialStash.zip"
+  },
+  {
+    "Author": "syberdamon",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
     "AssemblyVersion": "0.9.7.0",
