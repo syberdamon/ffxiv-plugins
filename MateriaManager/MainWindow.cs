@@ -219,7 +219,14 @@ public sealed class MainWindow : Window
             for (var i = 0; i < plan.Count; i++)
                 ImGui.TextDisabled($"  Batch {i + 1}: {string.Join(", ", plan[i].Items.Select(x => x.Name))}");
 
+        var cap = C.MaxBatchesPerRun;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Batches per trip (safety cap)", ref cap, 1, 10)) { C.MaxBatchesPerRun = Math.Clamp(cap, 1, 999); C.Save(); }
+        var reserve = C.ReserveForRetainer;
+        if (ImGui.Checkbox("Don't use what my materia retainer still needs (up to its maximum)", ref reserve)) { C.ReserveForRetainer = reserve; C.Save(); }
         var t = plugin.Transmuter;
+        if (t.Results.Count > 0)
+            ImGui.TextDisabled($"This trip: {t.BatchesDone} batch(es); got {string.Join(", ", t.Results.GroupBy(r => r).Select(g => g.Count() > 1 ? $"{g.Count()}x {g.Key}" : g.Key))}");
         if (t.Busy) { if (ImGui.Button("Stop")) t.Stop(); }
         else
         {
@@ -228,7 +235,7 @@ public sealed class MainWindow : Window
             if (plan.Count == 0) ImGui.EndDisabled();
         }
         ImGui.TextDisabled(t.Status);
-        ImGui.TextDisabled("First version: it takes you there and opens the window; you hand in the batches. The window's layout is saved so the hand-in can be automated next.");
+        ImGui.TextDisabled("It goes to Mutamix, adds each batch through the items' menus, confirms, and repeats up to the cap. Stops (with a saved dump) on anything unexpected.");
     }
 
     // ================================================================ purge
