@@ -57,11 +57,9 @@ public sealed unsafe class BellOverlay : Window
             tidyMoves = plan.Sum(m => m.Stacks);
             var merges = plan.Where(m => m.Merge).Sum(m => m.Stacks);
             tidyTip = tidyMoves == 0 ? "Everything is where it belongs (as last seen)."
-                : $"Move {tidyMoves} stack(s): {merges} merged with the rest of their item, {tidyMoves - merges} to their homes.
-" +
+                : $"Move {tidyMoves} stack(s): {merges} merged with the rest of their item, {tidyMoves - merges} to their homes.\n" +
                   string.Join("\n", plan.Take(12).Select(m => $"  {Items.Info(m.ItemId)?.Name}: {plugin.Tracker.NameOf(m.From)} -> {plugin.Tracker.NameOf(m.To)}")) +
                   (plan.Count > 12 ? $"\n  ... {plan.Count - 12} more" : "") + "\nGoes through your bags (uses your free slots). /stash tidy";
-        }
         }
 
         if (r.Busy)
