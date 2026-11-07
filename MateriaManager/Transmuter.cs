@@ -48,6 +48,12 @@ public sealed unsafe class Transmuter : IDisposable
     public bool Busy => State is Phase.Teleporting or Phase.Walking or Phase.Talking or Phase.Adding or Phase.Confirming;
     public int BatchesDone { get; private set; }
     public List<string> Results { get; } = new();
+    /// <summary>The last trip's summary (also printed to chat and logged).</summary>
+    public string Summary { get; private set; } = "";
+    private Dictionary<uint, int> runBefore = new();
+    private DateTime runStarted;
+    private readonly List<MateriaInfo> runIn = new(), runOut = new();
+    private bool summarized = true;
     private Batch? batch;
     private int added, stepTries;
     private string lastMenu = "";
@@ -105,6 +111,7 @@ public sealed unsafe class Transmuter : IDisposable
     {
         if (Busy) return;
         BatchesDone = 0; Results.Clear(); batch = null;
+        runBefore = MateriaData.Count(MateriaData.Bags); runStarted = DateTime.Now; runIn.Clear(); runOut.Clear(); summarized = false; Summary = ""; upgradesThisRun = 0;
         tries = 0; talkedAt = DateTime.MinValue; bestDistance = float.MaxValue;
         Set(FindNpc() != null || NpcLocator.InTerritory(Npc, Plugin.ClientState.TerritoryType) != null ? Phase.Walking : Phase.Teleporting,
             "Heading to Mutamix Bubblypots...");
@@ -112,11 +119,11 @@ public sealed unsafe class Transmuter : IDisposable
         if (State == Phase.Teleporting) Teleport();
     }
 
-    public void Stop() { vnav.Stop(); Set(Phase.Idle, "Stopped."); }
+    public void Stop() { vnav.Stop(); Set(Phase.Idle, "Stopped."); Summarize("stopped"); }
 
     private void Set(Phase p, string status) { State = p; Status = status; phaseStarted = DateTime.UtcNow; }
 
-    private void Fail(string why) { vnav.Stop(); Set(Phase.Idle, why); Plugin.ChatGui.PrintError($"[Materia] {why}"); }
+    private void Fail(string why) { vnav.Stop(); Set(Phase.Idle, why); Plugin.ChatGui.PrintError($"[Materia] {why}"); Summarize("failed: " + why); }
 
     private void Teleport()
     {
@@ -221,9 +228,58 @@ public sealed unsafe class Transmuter : IDisposable
     {
         Set(Phase.Done, msg);
         Plugin.ChatGui.Print($"[Materia] {msg}");
+        Summarize(msg);
         var w = GameUi.Get(TradeWindow);
         if (w != null) w->FireCallbackInt(-1);
     }
+
+    // ================================================================ summary + log
+    // Every batch and every trip summary is appended to pluginConfigs/MateriaManager/transmute_log.jsonl
+    // (one JSON object per line) for later analysis.
+
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
+
+    private static void Log(object record)
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "transmute_log.jsonl");
+            System.IO.File.AppendAllText(path, System.Text.Json.JsonSerializer.Serialize(record, JsonOpts) + Environment.NewLine);
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write the transmute log"); }
+    }
+
+    private void Summarize(string end)
+    {
+        if (summarized) return;
+        summarized = true;
+        if (BatchesDone == 0) return;
+        var after = MateriaData.Count(MateriaData.Bags);
+        var all = MateriaData.All();
+        int ByGrade(Dictionary<uint, int> d, int g) => d.Where(kv => all.TryGetValue(kv.Key, out var m) && m.Grade == g).Sum(kv => kv.Value);
+        var grades = runIn.Select(i => i.Grade).Concat(runOut.Select(o => o.Grade)).Distinct().OrderBy(g => g).ToList();
+        var upgrades = upgradesThisRun;
+        var perGrade = grades.Select(g => new
+        {
+            grade = g,
+            @in = runIn.Count(i => i.Grade == g),
+            @out = runOut.Count(o => o.Grade == g),
+            before = ByGrade(runBefore, g),
+            after = ByGrade(after, g),
+        }).ToList();
+        Summary = $"{BatchesDone} batch(es): {runIn.Count} materia in, {runOut.Count} out, {upgrades} upgrade(s). " +
+                  string.Join("; ", perGrade.Select(p => $"grade {MateriaData.Roman(p.grade)}: {p.before} -> {p.after} in bags (used {p.@in}, got {p.@out})"));
+        Plugin.ChatGui.Print($"[Materia] Transmute summary: {Summary}");
+        Log(new
+        {
+            type = "summary", start = runStarted.ToString("s"), end = DateTime.Now.ToString("s"), result = end,
+            batches = BatchesDone, materiaIn = runIn.Count, materiaOut = runOut.Count, upgrades,
+            grades = perGrade,
+            received = runOut.GroupBy(o => o.Name).Select(g => new { name = g.Key, count = g.Count() }),
+        });
+    }
+
+    private int upgradesThisRun;
 
     private static int Selected(AtkUnitBase* w)
     {
@@ -304,6 +360,15 @@ public sealed unsafe class Transmuter : IDisposable
         {
             var got = now.Where(kv => kv.Value > bagsBefore.GetValueOrDefault(kv.Key)).Select(kv => MateriaData.All()[kv.Key]).FirstOrDefault();
             BatchesDone++;
+            runIn.AddRange(batch!.Items);
+            if (got != null) runOut.Add(got);
+            Log(new
+            {
+                type = "batch", time = DateTime.Now.ToString("s"), grade = batch.Grade,
+                @in = batch.Items.Select(i => new { id = i.ItemId, name = i.Name, grade = i.Grade }),
+                @out = got == null ? null : new { id = got.ItemId, name = got.Name, grade = got.Grade },
+                upgrade = got != null && got.Grade > batch.Grade,
+            });
             if (got != null)
             {
                 // Keep rolling: a result at a grade you're transmuting is used too, unless you set it yourself.
@@ -315,6 +380,7 @@ public sealed unsafe class Transmuter : IDisposable
                     config.Save();
                 }
                 var up = got.Grade > batch!.Grade ? " (upgrade!)" : "";
+                if (up.Length > 0) upgradesThisRun++;
                 Results.Add($"{got.Name}{up}");
                 Plugin.ChatGui.Print($"[Materia] Batch {BatchesDone}: got {got.Name}{up}");
             }

@@ -38,6 +38,10 @@ retainer**, it's topped up to your targets; what's left over sits in your **bags
   slots (3 Gatherer's Guile I go before a stack of 48 Craftsman's Command I).
 - **Keep rolling** (on): a result at a grade you're transmuting is ticked for use too, so it keeps
   going until that grade runs short of five. Materia you ticked or unticked yourself is left alone.
+- **Summary** when a trip ends (finished, capped, stopped or failed): batches, materia in and out,
+  upgrades, and per grade how many were in your bags before and after. Every batch (what went in,
+  what came out, upgrade or not) and every trip summary is appended to
+  `pluginConfigs/MateriaManager/transmute_log.jsonl` for later analysis.
 - By default it won't use what your materia retainer still needs to reach its maximum (as last
   seen), so pull, transmute and balance don't fight each other.
 
