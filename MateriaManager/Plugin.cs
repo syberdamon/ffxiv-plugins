@@ -24,6 +24,7 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Configuration { get; }
     public Storage Storage { get; }
     public Transmuter Transmuter { get; }
+    public Purger Purger { get; }
     private readonly WindowSystem windows = new("MateriaManager");
     private readonly MainWindow main;
 
@@ -33,11 +34,12 @@ public sealed class Plugin : IDalamudPlugin
         Configuration.Migrate();
         Storage = new Storage(Configuration);
         Transmuter = new Transmuter(Configuration);
+        Purger = new Purger(Configuration);
         main = new MainWindow(this);
         windows.AddWindow(main);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Materia Manager. /materia store on|off | pull (all from saddlebag) | pull 11-12 (by grade) | balance | release | transmute | stop",
+            HelpMessage = "Materia Manager. /materia store on|off | pull (all from saddlebag) | pull 11-12 (by grade) | balance | release | transmute | purge [vendor] | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += main.Toggle;
@@ -67,7 +69,9 @@ public sealed class Plugin : IDalamudPlugin
             case "balance": Storage.BalanceNow(); return;
             case "release": Storage.Release(); return;
             case "transmute": Transmuter.Start(); return;
-            case "stop": Transmuter.Stop(); Storage.Stop(); return;
+            case "stop": Transmuter.Stop(); Storage.Stop(); Purger.Stop(); return;
+            case "purge": Purger.SellHere(); return;
+            case "purge vendor": Purger.GoToVendor(); return;
             default: main.Toggle(); return;
         }
         c.Save();
@@ -83,5 +87,6 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.RemoveHandler(CommandName);
         Storage.Dispose();
         Transmuter.Dispose();
+        Purger.Dispose();
     }
 }

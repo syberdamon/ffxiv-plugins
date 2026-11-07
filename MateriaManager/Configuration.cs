@@ -58,6 +58,12 @@ public class Configuration : IPluginConfiguration
     // ---- transmutation (item id -> rule)
     public Dictionary<uint, FodderRule> Rules { get; set; } = new();
     public bool SameGradeBatches { get; set; } = true;
+
+    // ---- purge: sell low-grade odds and ends that can't make a batch of five
+    public int PurgeBelowGrade { get; set; } = 7;
+    public int PurgeUnder { get; set; } = 5;
+    /// <summary>Also keep them if the grade still has five in total across types (they can batch mixed).</summary>
+    public bool PurgeSpareMixable { get; set; } = false;
     public bool UseLifestream { get; set; } = true;
 
     // ---- v1 (kept for migration)

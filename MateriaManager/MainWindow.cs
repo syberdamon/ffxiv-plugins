@@ -15,6 +15,19 @@ public sealed class MainWindow : Window
     private static readonly Vector4 Dim = new(0.6f, 0.6f, 0.6f, 1f);
     private readonly Plugin plugin;
     private bool showAll;
+    private int keepAll;
+
+    private FodderRule Rule(uint id)
+    {
+        if (!C.Rules.TryGetValue(id, out var r)) C.Rules[id] = r = new FodderRule();
+        return r;
+    }
+
+    private void SetUse(IEnumerable<uint> ids, bool use)
+    {
+        foreach (var id in ids) Rule(id).Fodder = use;
+        C.Save();
+    }
 
     public MainWindow(Plugin plugin) : base("Materia Manager###MateriaManagerMain")
     {
@@ -29,6 +42,7 @@ public sealed class MainWindow : Window
         if (!ImGui.BeginTabBar("##mm")) return;
         if (ImGui.BeginTabItem("Storage")) { DrawStorage(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Transmute")) { DrawTransmute(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Purge")) { DrawPurge(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
 
@@ -183,12 +197,21 @@ public sealed class MainWindow : Window
         ImGui.Checkbox("Show every materia (not just what's in my bags)", ref showAll);
 
         var bags = MateriaData.Count(MateriaData.Bags);
-        var ids = showAll ? MateriaData.All().Keys.Where(k => bags.ContainsKey(k) || C.Rules.ContainsKey(k)) : bags.Keys;
+        var ids = (showAll ? MateriaData.All().Keys.Where(k => bags.ContainsKey(k) || C.Rules.ContainsKey(k)) : bags.Keys).ToList();
+        if (ImGui.SmallButton("Use all")) SetUse(ids, true);
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Use none")) SetUse(ids, false);
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(90);
+        ImGui.InputInt("##keepall", ref keepAll, 1, 5);
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Set Keep for all")) { foreach (var id in ids) { var r = Rule(id); r.Keep = Math.Max(0, keepAll); } C.Save(); }
         Table(ids, id => (bags.GetValueOrDefault(id), 0), editable: true);
 
         ImGui.Separator();
         var plan = plugin.Transmuter.Plan();
-        ImGui.TextUnformatted($"Planned: {plan.Count} batch(es) of five ({plan.Count * 5} materia in, {plan.Count} out).");
+        ImGui.TextUnformatted($"Planned: {plan.Count} batch(es) of five ({plan.Count * 5} materia in, {plan.Count} out), lowest grade first.");
+        ImGui.TextDisabled("Lowest first: an upgraded result can complete a batch of the next grade. The plan updates as your bags change.");
         foreach (var g in plan.GroupBy(b => b.Grade))
             ImGui.BulletText($"Grade {MateriaData.Roman(g.Key)}: {g.Count()} batch(es) from " +
                 string.Join(", ", g.SelectMany(b => b.Items).GroupBy(i => i.Type).Select(x => $"{x.Count()} {x.Key}")));
@@ -206,6 +229,53 @@ public sealed class MainWindow : Window
         }
         ImGui.TextDisabled(t.Status);
         ImGui.TextDisabled("First version: it takes you there and opens the window; you hand in the batches. The window's layout is saved so the hand-in can be automated next.");
+    }
+
+    // ================================================================ purge
+
+    private void DrawPurge()
+    {
+        var p = plugin.Purger;
+        ImGui.TextWrapped("Sells low-grade materia you have fewer than five of (not enough to transmute). Counts what's in your bags, saddlebag and materia retainer; only sells from your bags. Never sells materia you set a Keep or a retainer target for.");
+        var changed = false;
+        int below = C.PurgeBelowGrade, under = C.PurgeUnder;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderInt("Below grade", ref below, 2, 13, below > 12 ? "any" : MateriaData.Roman(below))) { C.PurgeBelowGrade = below; changed = true; }
+        ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+        if (ImGui.InputInt("Fewer than", ref under, 1, 1)) { C.PurgeUnder = Math.Clamp(under, 1, 999); changed = true; }
+        var mix = C.PurgeSpareMixable;
+        if (ImGui.Checkbox("Keep them if their grade still has five in total (they can be transmuted mixed)", ref mix)) { C.PurgeSpareMixable = mix; changed = true; }
+        if (changed) C.Save();
+
+        var list = p.Candidates();
+        ImGui.TextUnformatted($"{list.Count} materia to sell ({list.Sum(x => x.InBags)} pieces).");
+        if (ImGui.BeginTable("##purge", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchProp,
+                new Vector2(0, Math.Min(300, Math.Max(80, ImGui.GetContentRegionAvail().Y - 90)))))
+        {
+            ImGui.TableSetupScrollFreeze(0, 1);
+            ImGui.TableSetupColumn("Materia"); ImGui.TableSetupColumn("Grade", ImGuiTableColumnFlags.WidthFixed, 40);
+            ImGui.TableSetupColumn("In bags", ImGuiTableColumnFlags.WidthFixed, 56); ImGui.TableSetupColumn("Owned", ImGuiTableColumnFlags.WidthFixed, 50);
+            ImGui.TableHeadersRow();
+            foreach (var (m, inBags, owned) in list)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); IconText(m);
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(MateriaData.Roman(m.Grade));
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(inBags.ToString());
+                ImGui.TableNextColumn(); ImGui.TextColored(Dim, owned.ToString());
+            }
+            ImGui.EndTable();
+        }
+        if (p.Busy) { if (ImGui.Button("Stop")) p.Stop(); }
+        else
+        {
+            if (list.Count == 0) ImGui.BeginDisabled();
+            if (ImGui.Button("Go to the nearest vendor and sell")) p.GoToVendor();
+            ImGui.SameLine();
+            if (ImGui.Button("Sell here (shop or retainer open)")) p.SellHere();
+            if (list.Count == 0) ImGui.EndDisabled();
+        }
+        ImGui.TextDisabled(p.Status.Length > 0 ? p.Status : "Materia in your saddlebag isn't sold: pull it into your bags first.");
     }
 
     // ================================================================ table
