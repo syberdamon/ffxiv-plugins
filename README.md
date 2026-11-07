@@ -7,6 +7,7 @@ Personal Dalamud plugins (API 15).
 | [Cooldown Grid](CooldownGrid/README.md) | Clickable cooldown windows: Defensive (self), Defensive (group), Support, OT Sent Mits (casts on the co-tank), plus custom groups. |
 | [Map Click Nav](MapClickNav/README.md) | Ctrl+click any map: teleports if faster, mounts, and flies there with vnavmesh. |
 | [Combat Recorder](CombatRecorder/README.md) | Records fights (actions, damage/heals, buffs, HP, positions) to local files for review; `/crec mark` to flag moments. |
+| [Materia Manager](MateriaManager/README.md) | Auto-stores materia to saddlebag or retainer when you open them; plans transmutation batches with keep-at-least rules and takes you to Mutamix. |
 | [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job MT/OT cooldown plans with callouts, starter-plan generator, optional auto-use. |
 | [Turn-In Manager](TurnInManager/README.md) | Grand Company expert delivery with guardrails (gearsets, ilvl, rarity, HQ/NQ), materia retrieval first, and seal spending up to stock targets. |
 | [Poetics Spender](PoeticsSpender/README.md) | One click turns all your Poetics into Grade 3 topsoil (Idyllshire); movable near-cap alert. Needs vnavmesh. |
