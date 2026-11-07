@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Configuration;
 
 namespace MaterialStash;
@@ -49,6 +50,16 @@ public class StockItem
 {
     public uint ItemId { get; set; }
     public int Min { get; set; }
+    public int Target { get; set; }
+}
+
+/// <summary>Crystal stock for one tier (shards, crystals or clusters), or one element's override.</summary>
+[Serializable]
+public class CrystalStock
+{
+    /// <summary>Below this (bags + all retainers combined) the type competes with other short stock items.</summary>
+    public int Min { get; set; }
+    /// <summary>Filled up to this after everything else; 0 = no limit (until the retainers' crystal tabs are full).</summary>
     public int Target { get; set; }
 }
 
@@ -102,6 +113,15 @@ public class Configuration : IPluginConfiguration
     public bool RedirectVentures { get; set; } = true;
     /// <summary>Once every minimum is met: 0 = spread evenly (lowest % of target first), 1 = closest to its target first.</summary>
     public int AfterMinimumMode { get; set; } = 0;
+    /// <summary>Venture for crystals at all (shards, crystals, clusters).</summary>
+    public bool CrystalStockOn { get; set; } = false;
+    /// <summary>Tier order once their minimums are met: 0 = shards, 1 = crystals, 2 = clusters.</summary>
+    /// <remarks>Starts empty (the settings loader would append to a pre-filled list); see TierOrder().</remarks>
+    public List<int> CrystalTierOrder { get; set; } = new();
+    /// <summary>Per tier (0 shards, 1 crystals, 2 clusters): minimum and target for each element.</summary>
+    public List<CrystalStock> CrystalTiers { get; set; } = new();
+    /// <summary>One element of one tier with its own numbers (crystal item id -> numbers).</summary>
+    public Dictionary<uint, CrystalStock> CrystalStockPer { get; set; } = new();
     /// <summary>Print each redirect to chat.</summary>
     public bool AnnounceRedirects { get; set; } = true;
 
@@ -114,6 +134,23 @@ public class Configuration : IPluginConfiguration
     public float BellOffsetY { get; set; } = 0;
     /// <summary>Pause between moves (seconds).</summary>
     public float StepDelay { get; set; } = 0.4f;
+
+    /// <summary>The tier order, repaired to exactly shards/crystals/clusters once each.</summary>
+    public List<int> TierOrder()
+    {
+        if (CrystalTierOrder.Count != 3 || CrystalTierOrder.Distinct().Count() != 3 || CrystalTierOrder.Any(t => t is < 0 or > 2))
+            CrystalTierOrder = new List<int> { 0, 1, 2 };
+        while (CrystalTiers.Count < 3) CrystalTiers.Add(new CrystalStock());
+        if (CrystalTiers.Count > 3) CrystalTiers.RemoveRange(3, CrystalTiers.Count - 3);
+        return CrystalTierOrder;
+    }
+
+    public CrystalStock CrystalStockFor(uint crystalId)
+    {
+        if (CrystalStockPer.TryGetValue(crystalId, out var own)) return own;
+        TierOrder();
+        return CrystalTiers[Items.CrystalTier(crystalId)];
+    }
 
     public int KeepOf(uint crystalId) => CrystalKeepPer.TryGetValue(crystalId, out var k) ? k : CrystalKeep;
 

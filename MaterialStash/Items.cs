@@ -23,6 +23,9 @@ public static class Items
     public const uint FirstCrystal = 2, LastCrystal = 19;
     public const int CrystalCap = 9999;
     public static bool IsCrystal(uint id) => id % 1_000_000 is >= FirstCrystal and <= LastCrystal;
+    /// <summary>0 = shard (ids 2-7), 1 = crystal (8-13), 2 = cluster (14-19).</summary>
+    public static int CrystalTier(uint id) => (int)((id % 1_000_000 - FirstCrystal) / 6);
+    public static readonly string[] CrystalTierNames = { "Shards", "Crystals", "Clusters" };
 
     private static Dictionary<uint, ItemInfo>? cache;
 

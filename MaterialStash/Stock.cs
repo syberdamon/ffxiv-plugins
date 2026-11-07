@@ -10,7 +10,7 @@ namespace MaterialStash;
 public sealed record RecipeInfo(uint RecipeId, uint ResultId, string Name, string Job, int Yield, List<(uint ItemId, int Amount)> Ingredients);
 
 /// <summary>One stock line after recipes are added in: what to keep and what you have.</summary>
-public sealed record StockNeed(uint ItemId, string Name, int Min, int Target, int Have, int Incoming)
+public sealed record StockNeed(uint ItemId, string Name, int Min, int Target, int Have, int Incoming, bool Crystal = false)
 {
     public int Total => Have + Incoming;
     public bool BelowMin => Min > 0 && Total < Min;
@@ -177,19 +177,48 @@ public static class Stock
     public static List<StockNeed> Needs(Configuration c, CharacterData me, Dictionary<uint, int> incoming)
     {
         var list = new List<StockNeed>();
-        foreach (var (id, (min, target)) in Wanted(c))
-            list.Add(new StockNeed(id, Items.Info(id)?.Name ?? $"#{id}", min, target, Have(id, me), incoming.GetValueOrDefault(id)));
-        return Order(list, c.AfterMinimumMode);
+        var wanted = Wanted(c);
+        foreach (var (id, (min, target)) in wanted)
+        {
+            if (Items.IsCrystal(id) && c.CrystalStockOn) continue; // folded into the crystal lines below
+            list.Add(new StockNeed(id, Items.Info(id)?.Name ?? $"#{id}", min, target, Have(id, me), incoming.GetValueOrDefault(id), Items.IsCrystal(id)));
+        }
+        if (c.CrystalStockOn)
+        {
+            // Crystal tabs hold 9,999 of a type: yours plus each retainer's ("never use" ones too: they still hold them).
+            var capacity = (me.Order.Count + 1) * Items.CrystalCap;
+            for (var id = Items.FirstCrystal; id <= Items.LastCrystal; id++)
+            {
+                var cs = c.CrystalStockFor(id);
+                var fromLists = wanted.GetValueOrDefault(id); // recipes / items asking for this crystal add on top
+                var min = cs.Min + fromLists.Min;
+                var target = cs.Target <= 0 ? capacity : Math.Max(min, cs.Target + fromLists.Target); // 0 = no limit
+                list.Add(new StockNeed(id, Items.Info(id)?.Name ?? $"#{id}", min, Math.Min(target, capacity), Have(id, me), incoming.GetValueOrDefault(id), true));
+            }
+        }
+        return Order(list, c.AfterMinimumMode, c.TierOrder());
     }
 
-    public static List<StockNeed> Order(List<StockNeed> list, int afterMinMode)
+    /// <summary>
+    /// 1. Everything under its minimum (crystals included), the furthest under (% of minimum) first.
+    /// 2. Other items between minimum and target, by the chosen rule.
+    /// 3. Crystals between minimum and target: your tier order (shards / crystals / clusters), then
+    ///    the lowest % of target first within a tier.
+    /// 4. Everything stocked.
+    /// </summary>
+    public static List<StockNeed> Order(List<StockNeed> list, int afterMinMode, List<int>? tierOrder = null)
     {
+        tierOrder ??= new List<int> { 0, 1, 2 };
+        int TierRank(StockNeed n) { var i = tierOrder.IndexOf(Items.CrystalTier(n.ItemId)); return i < 0 ? 9 : i; }
+        double Fill(StockNeed n) => n.Target == 0 ? 1 : n.Total / (double)n.Target;
+
         var below = list.Where(n => n.BelowMin).OrderByDescending(n => (n.Min - n.Total) / (double)n.Min);
-        var between = list.Where(n => !n.BelowMin && n.BelowTarget);
+        var between = list.Where(n => !n.Crystal && !n.BelowMin && n.BelowTarget);
         between = afterMinMode == 1
-            ? between.OrderBy(n => n.Target - n.Total)                                  // closest to target first
-            : between.OrderBy(n => n.Target == 0 ? 1 : n.Total / (double)n.Target);     // spread evenly
-        var done = list.Where(n => !n.BelowMin && !n.BelowTarget).OrderBy(n => n.Name);
-        return below.Concat(between).Concat(done).ToList();
+            ? between.OrderBy(n => n.Target - n.Total)  // closest to target first
+            : between.OrderBy(Fill);                    // spread evenly
+        var crystals = list.Where(n => n.Crystal && !n.BelowMin && n.BelowTarget).OrderBy(TierRank).ThenBy(Fill);
+        var done = list.Where(n => !n.BelowMin && !n.BelowTarget).OrderBy(n => n.Crystal).ThenBy(n => n.Name);
+        return below.Concat(between).Concat(crystals).Concat(done).ToList();
     }
 }

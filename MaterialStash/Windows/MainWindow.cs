@@ -383,12 +383,70 @@ public sealed class MainWindow : Window
                 ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Have.ToString("N0"));
                 ImGui.TableNextColumn(); ImGui.TextColored(Dim, n.Incoming > 0 ? $"+{n.Incoming:N0}" : "");
                 ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Min.ToString("N0"));
-                ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Target.ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(n.Crystal && n.Target >= (me.Order.Count + 1) * Items.CrystalCap ? "no limit" : n.Target.ToString("N0"));
                 ImGui.TableNextColumn(); ImGui.TextColored(Dim, sources.GetValueOrDefault(n.ItemId, ""));
             }
             ImGui.EndTable();
         }
         else if (needs.Count == 0) ImGui.TextColored(Dim, "Nothing on the stock list yet: add items or recipes below.");
+
+        // ---- crystals
+        if (ImGui.CollapsingHeader("Crystals, shards, clusters###stockcrystals"))
+        {
+            var on = C.CrystalStockOn;
+            if (ImGui.Checkbox("Venture for crystals too", ref on)) { C.CrystalStockOn = on; changed = true; }
+            ImGui.TextColored(Dim, "Counted across your crystal tab and every retainer's, combined. Below its minimum a type competes with the\n" +
+                "other short items; above it, crystals come last of all, in the tier order below. Target 0 = no limit\n" +
+                "(until every crystal tab is full). Crystals your recipes or items ask for are added on top.");
+            if (on)
+            {
+                C.TierOrder();
+                ImGui.TextUnformatted("Order once minimums are met:");
+                for (var i = 0; i < C.CrystalTierOrder.Count; i++)
+                {
+                    var tier = C.CrystalTierOrder[i];
+                    ImGui.PushID($"tier{i}");
+                    ImGui.TextUnformatted($"{i + 1}. {Items.CrystalTierNames[tier]}");
+                    ImGui.SameLine(130);
+                    if (ImGui.SmallButton("Up") && i > 0) { (C.CrystalTierOrder[i - 1], C.CrystalTierOrder[i]) = (C.CrystalTierOrder[i], C.CrystalTierOrder[i - 1]); changed = true; }
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("Down") && i < C.CrystalTierOrder.Count - 1) { (C.CrystalTierOrder[i + 1], C.CrystalTierOrder[i]) = (C.CrystalTierOrder[i], C.CrystalTierOrder[i + 1]); changed = true; }
+                    ImGui.SameLine(260);
+                    var t = C.CrystalTiers[tier];
+                    int mn = t.Min, tg = t.Target;
+                    ImGui.SetNextItemWidth(90);
+                    if (ImGui.InputInt("min each", ref mn, 0, 0)) { t.Min = Math.Max(0, mn); changed = true; }
+                    ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+                    if (ImGui.InputInt("target each", ref tg, 0, 0)) { t.Target = Math.Max(0, tg); changed = true; }
+                    ImGui.PopID();
+                }
+                if (ImGui.TreeNode("One element with its own numbers###crystalown"))
+                {
+                    for (var id = Items.FirstCrystal; id <= Items.LastCrystal; id++)
+                    {
+                        ImGui.PushID((int)id);
+                        var own = C.CrystalStockPer.ContainsKey(id);
+                        if (ImGui.Checkbox($"{Items.Info(id)?.Name}##own", ref own))
+                        {
+                            if (own) { var b = C.CrystalTiers[Items.CrystalTier(id)]; C.CrystalStockPer[id] = new CrystalStock { Min = b.Min, Target = b.Target }; }
+                            else C.CrystalStockPer.Remove(id);
+                            changed = true;
+                        }
+                        if (own)
+                        {
+                            var cs = C.CrystalStockPer[id];
+                            int mn = cs.Min, tg = cs.Target;
+                            ImGui.SameLine(200); ImGui.SetNextItemWidth(90);
+                            if (ImGui.InputInt("min", ref mn, 0, 0)) { cs.Min = Math.Max(0, mn); changed = true; }
+                            ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+                            if (ImGui.InputInt("target", ref tg, 0, 0)) { cs.Target = Math.Max(0, tg); changed = true; }
+                        }
+                        ImGui.PopID();
+                    }
+                    ImGui.TreePop();
+                }
+            }
+        }
 
         // ---- items
         if (ImGui.CollapsingHeader($"Items ({C.StockItems.Count})###stockitems", ImGuiTreeNodeFlags.DefaultOpen))
