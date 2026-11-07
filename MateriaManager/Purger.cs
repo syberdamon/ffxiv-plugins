@@ -93,7 +93,7 @@ public sealed unsafe class Purger : IDisposable
 
     public void Stop() { vnav.Stop(); State = Phase.Idle; Status = $"Stopped ({sold} sold)."; }
 
-    private void Begin(Phase p, string status) { State = p; Status = status; phaseStarted = DateTime.UtcNow; tries = 0; sold = p == Phase.Selling || p == Phase.Walking ? 0 : sold; current = null; }
+    private void Begin(Phase p, string status) { State = p; Status = status; phaseStarted = DateTime.UtcNow; tries = 0; sold = p == Phase.Selling || p == Phase.Walking ? 0 : sold; current = null; menuFires = 0; stalls = 0; lastProgress = DateTime.UtcNow; occupiedSince = DateTime.MinValue; }
 
     private void Fail(string why) { vnav.Stop(); State = Phase.Idle; Status = why; Plugin.ChatGui.PrintError($"[Materia] {why}"); }
 
@@ -167,25 +167,64 @@ public sealed unsafe class Purger : IDisposable
         nextAction = DateTime.UtcNow.AddSeconds(1.5);
     }
 
+    private int menuFires, stalls;
+    private DateTime lastProgress = DateTime.UtcNow, occupiedSince = DateTime.MinValue;
+
     private void TickSell()
     {
         nextAction = DateTime.UtcNow.AddSeconds(0.5);
         if (!ShopOpen && !RetainerOpen) { Fail($"Shop/retainer closed ({sold} sold)."); return; }
-        if (Plugin.Condition[ConditionFlag.Occupied39]) return;
+        if (sold == 0 && current == null && menuFires == 0) lastProgress = DateTime.UtcNow;
+
+        // Watchdog: nothing sold for 8 s -> save dumps, close stray menus and start the item over.
+        if ((DateTime.UtcNow - lastProgress).TotalSeconds > 8)
+        {
+            stalls++;
+            Plugin.Log.Warning($"[Purge] stall #{stalls}: item={current?.Item} tries={tries} menuFires={menuFires} occ39={Plugin.Condition[ConditionFlag.Occupied39]}");
+            foreach (var n in new[] { "ContextMenu", "SelectYesno", "InputNumeric", "Shop" }) GameUi.Dump(n);
+            foreach (var n in new[] { "ContextMenu", "SelectYesno", "InputNumeric" }) GameUi.Close(n);
+            if (stalls >= 3) { Fail($"Selling stalled ({sold} sold). Dumps saved."); return; }
+            current = null; menuFires = 0; tries = 0; lastProgress = DateTime.UtcNow;
+            nextAction = DateTime.UtcNow.AddSeconds(1);
+            return;
+        }
+
+        // The game is mid-transaction; wait, but not forever.
+        if (Plugin.Condition[ConditionFlag.Occupied39])
+        {
+            if (occupiedSince == DateTime.MinValue) occupiedSince = DateTime.UtcNow;
+            if ((DateTime.UtcNow - occupiedSince).TotalSeconds < 3) return;
+        }
+        else occupiedSince = DateTime.MinValue;
 
         var yesno = GameUi.Get("SelectYesno");
         if (yesno != null) { yesno->FireCallbackInt(0); nextAction = DateTime.UtcNow.AddSeconds(0.8); return; }
+        var num = GameUi.Get("InputNumeric");
+        if (num != null)
+        {
+            var q = 99;
+            if (current is { } cq && InventoryManager.Instance()->GetInventorySlot(cq.Type, cq.Slot) is var sq && sq != null) q = (int)sq->Quantity;
+            GameUi.Dump("InputNumeric"); num->FireCallbackInt(q); nextAction = DateTime.UtcNow.AddSeconds(0.8); return;
+        }
 
         // Did the last one go?
         if (current is { } c)
         {
             var slot = InventoryManager.Instance()->GetInventorySlot(c.Type, c.Slot);
-            if (slot == null || slot->ItemId != c.Item) { sold++; current = null; tries = 0; return; }
+            if (slot == null || slot->ItemId != c.Item)
+            {
+                sold++; current = null; tries = 0; menuFires = 0; stalls = 0; lastProgress = DateTime.UtcNow;
+                Plugin.Log.Info($"[Purge] sold {c.Item} ({sold})");
+                GameUi.Close("ContextMenu");
+                return;
+            }
         }
 
         var menu = GameUi.Get("ContextMenu");
         if (menu != null)
         {
+            // Clicked Sell already and the menu is still up: close it and reopen it for the item.
+            if (menuFires >= 2) { Plugin.Log.Warning("[Purge] menu stayed open after Sell; closing"); GameUi.Dump("ContextMenu"); menu->FireCallbackInt(-1); menuFires = 0; nextAction = DateTime.UtcNow.AddSeconds(0.8); return; }
             var want = ShopOpen ? new[] { "Sell" } : new[] { "Have Retainer Sell Items", "Sell" };
             var index = -1;
             foreach (var w in want)
@@ -196,6 +235,7 @@ public sealed unsafe class Purger : IDisposable
             }
             if (index < 0) { GameUi.Dump("ContextMenu"); menu->FireCallbackInt(-1); Fail("No Sell option in the item menu (dump saved)."); return; }
             GameUi.Fire(menu, 0, index, 0);
+            menuFires++;
             nextAction = DateTime.UtcNow.AddSeconds(1);
             return;
         }
@@ -226,6 +266,7 @@ public sealed unsafe class Purger : IDisposable
             }
         }
         var cur = current.Value;
+        menuFires = 0;
         AgentInventoryContext.Instance()->OpenForItemSlot(cur.Type, cur.Slot, 0, InventoryAddonId());
         nextAction = DateTime.UtcNow.AddSeconds(0.8);
     }
