@@ -6,7 +6,11 @@ using Lumina.Excel.Sheets;
 namespace MateriaManager;
 
 /// <summary>One materia item: its type ("Savage Might") and grade (1 = I ... 12 = XII).</summary>
-public sealed record MateriaInfo(uint ItemId, string Type, int Grade, string Name, uint Icon);
+public sealed record MateriaInfo(uint ItemId, string Type, int Grade, string Name, uint Icon)
+{
+    /// <summary>The highest grade this type comes in (transmuting it can't upgrade).</summary>
+    public int TopGrade { get; init; } = Grade;
+}
 
 /// <summary>Which items are materia (from the game's Materia sheet), and how many of each sit where.</summary>
 public static unsafe class MateriaData
@@ -28,6 +32,9 @@ public static unsafe class MateriaData
         var items = Plugin.DataManager.GetExcelSheet<Item>();
         foreach (var m in Plugin.DataManager.GetExcelSheet<Materia>())
         {
+            var top = 0;
+            var g0 = 0;
+            foreach (var it in m.Item) { g0++; if (it.RowId != 0) top = g0; }
             var grade = 0;
             foreach (var it in m.Item)
             {
@@ -36,7 +43,7 @@ public static unsafe class MateriaData
                 var name = row.Name.ExtractText();
                 // "Savage Might Materia XII" -> type "Savage Might"
                 var type = name.Contains(" Materia") ? name[..name.IndexOf(" Materia")] : name;
-                result[it.RowId] = new MateriaInfo(it.RowId, type, grade, name, row.Icon);
+                result[it.RowId] = new MateriaInfo(it.RowId, type, grade, name, row.Icon) { TopGrade = top };
             }
         }
         return all = result;
