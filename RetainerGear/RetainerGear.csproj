@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>syberdamon</Author>
+    <Name>Retainer Gear</Name>
+    <Punchline>Tracks your retainers' gear and lists the best non-raid upgrades: crafted, dungeon drops, or uncapped tomestones.</Punchline>
+    <Description>Records each retainer's equipped gear when you open them, then works out the highest item level available for their job and level from crafted gear, dungeon drops and uncapped-tomestone gear (no raid or savage gear). Shows what each retainer still needs, a combined shopping list with market board prices (Universalis) for crafted pieces, and marks gear you already own and which retainer it's for. Re-check after you equip upgrades and the list updates.</Description>
+    <Tags>retainers;gear;ventures;item level;upgrades</Tags>
+    <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Data\gear_sources.json" LogicalName="RetainerGear.gear_sources.json" />
+  </ItemGroup>
+</Project>
