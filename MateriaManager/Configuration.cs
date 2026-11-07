@@ -4,32 +4,70 @@ using Dalamud.Configuration;
 
 namespace MateriaManager;
 
-public enum StoreTo { Saddlebag = 0, Retainer = 1 }
-
 /// <summary>Transmutation rule for one materia item (one type at one grade).</summary>
 [Serializable]
 public class FodderRule
 {
     public bool Fodder { get; set; }
-    /// <summary>Never use the last N of this one.</summary>
+    /// <summary>Never use the last N of this one (in your bags).</summary>
     public int Keep { get; set; }
+}
+
+/// <summary>How much of one materia the materia retainer holds. Custom = false: use the defaults.</summary>
+[Serializable]
+public class RetainerRule
+{
+    public bool Custom { get; set; }
+    public bool Skip { get; set; }
+    public int Min { get; set; }
+    public int Max { get; set; }
 }
 
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
-    // ---- storage
-    /// <summary>Opening the saddlebag / a retainer's inventory moves all bag materia there. Turn off while melding.</summary>
-    public bool AutoStore { get; set; } = true;
-    public StoreTo StoreTo { get; set; } = StoreTo.Saddlebag;
+    // ---- saddlebag
+    /// <summary>Opening the saddlebag moves bag materia into it (paused while materia is held for transmuting).</summary>
+    public bool AutoStoreSaddlebag { get; set; } = true;
+
+    // ---- materia retainer
+    public ulong RetainerId { get; set; }
+    public string RetainerName { get; set; } = "";
+    /// <summary>Opening the materia retainer's inventory balances it to the targets.</summary>
+    public bool AutoBalanceRetainer { get; set; } = true;
+    /// <summary>Below Min the retainer is topped up to Max; above Max the extra comes back to your bags.</summary>
+    public int DefaultMin { get; set; } = 800;
+    public int DefaultMax { get; set; } = 800;
+    /// <summary>Only grades at or above this are kept in the retainer (lower grades stay with you).</summary>
+    public int RetainerMinGrade { get; set; } = 1;
+    /// <summary>Top up from the saddlebag too when it's open (bags first).</summary>
+    public bool FillFromSaddlebag { get; set; } = true;
+    public Dictionary<uint, RetainerRule> RetainerRules { get; set; } = new();
+    /// <summary>What the materia retainer held when last opened (item id -> count), for display.</summary>
+    public Dictionary<uint, int> RetainerSeen { get; set; } = new();
+    public DateTime? RetainerSeenAt { get; set; }
 
     // ---- transmutation (item id -> rule)
     public Dictionary<uint, FodderRule> Rules { get; set; } = new();
-    /// <summary>Only batch five of the same grade (the result is then that grade or higher).</summary>
     public bool SameGradeBatches { get; set; } = true;
     public bool UseLifestream { get; set; } = true;
+
+    // ---- v1 (kept for migration)
+    public bool AutoStore { get; set; } = true;
+
+    public (int Min, int Max)? TargetFor(MateriaInfo m)
+    {
+        if (RetainerRules.TryGetValue(m.ItemId, out var r) && r.Custom) return r.Skip ? null : (r.Min, Math.Max(r.Min, r.Max));
+        if (m.Grade < RetainerMinGrade) return null;
+        return (DefaultMin, Math.Max(DefaultMin, DefaultMax));
+    }
+
+    public void Migrate()
+    {
+        if (Version < 2) { AutoStoreSaddlebag = AutoStore; Version = 2; }
+    }
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

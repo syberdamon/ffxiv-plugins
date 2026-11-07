@@ -37,33 +37,125 @@ public sealed class MainWindow : Window
     private void DrawStorage()
     {
         var s = plugin.Storage;
-        var auto = C.AutoStore;
-        if (ImGui.Checkbox("Auto-store: move all materia out of my bags when I open storage", ref auto)) { C.AutoStore = auto; C.Save(); }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turn off while melding, so materia stays in your bags. /materia store on|off");
-        var to = (int)C.StoreTo;
-        ImGui.TextUnformatted("Store to:");
-        ImGui.SameLine(); if (ImGui.RadioButton("Saddlebag", ref to, 0)) { C.StoreTo = StoreTo.Saddlebag; C.Save(); }
-        ImGui.SameLine(); if (ImGui.RadioButton("Retainer (whichever you open)", ref to, 1)) { C.StoreTo = StoreTo.Retainer; C.Save(); }
+        var changed = false;
 
-        ImGui.Spacing();
-        if (ImGui.Button("Store now")) s.StoreNow();
+        ImGui.TextUnformatted("Saddlebag");
+        var auto = C.AutoStoreSaddlebag;
+        if (ImGui.Checkbox("Auto-store: opening the saddlebag moves materia from my bags into it", ref auto)) { C.AutoStoreSaddlebag = auto; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turn off while melding. /materia store on|off");
+        if (ImGui.Button("Pull all materia from the saddlebag")) s.PullAllFromSaddlebag();
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Into your bags, for transmuting or the retainer. Held there: auto-store won't put it back. /materia pull");
         ImGui.SameLine();
-        if (ImGui.Button("Move saddlebag materia to a retainer")) s.SaddlebagToRetainer();
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("With a retainer open: moves it straight over if the game allows.\nWith the saddlebag open: pulls it into your bags; the next retainer you open takes it.");
-        if (s.HoldingForRetainer)
+        if (ImGui.Button("Store in saddlebag now")) s.StoreInSaddlebagNow();
+        if (s.Holding)
         {
-            ImGui.TextColored(Warn, "Saddlebag materia is in your bags, waiting for a retainer (auto-store to the saddlebag is paused).");
-            ImGui.SameLine(); if (ImGui.SmallButton("Cancel")) s.CancelHold();
+            ImGui.TextColored(Warn, "Bag materia is held for transmuting (auto-store to the saddlebag waits).");
+            ImGui.SameLine(); if (ImGui.SmallButton("Release")) s.Release();
         }
-        ImGui.TextDisabled(s.Status.Length > 0 ? s.Status : "Open your saddlebag or a retainer's inventory.");
-        ImGui.TextDisabled($"Saddlebag {(Storage.SaddlebagOpen ? "open" : "closed")}, retainer inventory {(Storage.RetainerOpen ? "open" : "closed")}.");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Materia retainer");
+        var retainers = Storage.Retainers();
+        var names = new[] { "(none)" }.Concat(retainers.Select(r => r.Name)).ToArray();
+        var idx = retainers.FindIndex(r => r.Id == C.RetainerId) + 1;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.Combo("Holds my materia", ref idx, names, names.Length))
+        {
+            C.RetainerId = idx == 0 ? 0 : retainers[idx - 1].Id;
+            C.RetainerName = idx == 0 ? "" : retainers[idx - 1].Name;
+            changed = true;
+        }
+        if (retainers.Count == 0) { ImGui.SameLine(); ImGui.TextColored(Dim, "(use a summoning bell once to list them)"); }
+        var bal = C.AutoBalanceRetainer;
+        if (ImGui.Checkbox("Opening that retainer's inventory balances it automatically", ref bal)) { C.AutoBalanceRetainer = bal; changed = true; }
+        int min = C.DefaultMin, max = C.DefaultMax, grade = C.RetainerMinGrade;
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Minimum of each", ref min, 50, 100)) { C.DefaultMin = Math.Max(0, min); changed = true; }
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.InputInt("Maximum of each", ref max, 50, 100)) { C.DefaultMax = Math.Max(0, max); changed = true; }
+        ImGui.TextDisabled("Below the minimum: topped up to the maximum. Above the maximum: the extra comes back to your bags (for transmuting).");
+        ImGui.SetNextItemWidth(110);
+        if (ImGui.SliderInt("Only grades from", ref grade, 1, 12, MateriaData.Roman(grade))) { C.RetainerMinGrade = grade; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Lower grades stay with you. Per-materia overrides are in the table below.");
+        var fromSaddle = C.FillFromSaddlebag;
+        if (ImGui.Checkbox("Also top up from the saddlebag when it's open (bags first)", ref fromSaddle)) { C.FillFromSaddlebag = fromSaddle; changed = true; }
+        if (ImGui.Button("Balance now")) s.BalanceNow();
+        ImGui.SameLine();
+        if (s.Busy && ImGui.Button("Stop")) s.Stop();
+        ImGui.TextDisabled(s.Status.Length > 0 ? s.Status : "Open the saddlebag or the materia retainer.");
+        if (changed) C.Save();
 
         ImGui.Separator();
         var bags = MateriaData.Count(MateriaData.Bags);
-        var saddle = MateriaData.Count(MateriaData.Saddlebag);
         var saddleKnown = MateriaData.Loaded(MateriaData.Saddlebag);
-        ImGui.TextUnformatted($"In your bags: {bags.Values.Sum()}   In your saddlebag: {(saddleKnown ? saddle.Values.Sum().ToString() : "? (open it once)")}");
-        Table(bags.Keys.Union(saddle.Keys), id => (bags.GetValueOrDefault(id), saddle.GetValueOrDefault(id)), editable: false);
+        var saddle = MateriaData.Count(MateriaData.Saddlebag);
+        var ret = plugin.Storage.MateriaRetainerOpen ? MateriaData.Count(MateriaData.Retainer) : C.RetainerSeen;
+        ImGui.TextUnformatted($"Bags {bags.Values.Sum()}   Saddlebag {(saddleKnown ? saddle.Values.Sum().ToString() : "?")}   " +
+                              $"{(C.RetainerName.Length > 0 ? C.RetainerName : "Retainer")} {ret.Values.Sum()}{(C.RetainerSeenAt is { } at && !plugin.Storage.MateriaRetainerOpen ? $" (as of {at:g})" : "")}");
+        StorageTable(bags, saddle, ret);
+    }
+
+    private void StorageTable(Dictionary<uint, int> bags, Dictionary<uint, int> saddle, Dictionary<uint, int> ret)
+    {
+        var all = MateriaData.All();
+        var ids = bags.Keys.Union(saddle.Keys).Union(ret.Keys).Union(C.RetainerRules.Where(r => r.Value.Custom).Select(r => r.Key))
+            .Where(all.ContainsKey).Select(id => all[id]).OrderBy(m => m.Type).ThenByDescending(m => m.Grade).ToList();
+        if (ids.Count == 0) { ImGui.TextColored(Dim, "No materia seen yet."); return; }
+        if (!ImGui.BeginTable("##store", 7, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchProp,
+                new Vector2(0, Math.Max(160, ImGui.GetContentRegionAvail().Y)))) return;
+        ImGui.TableSetupScrollFreeze(0, 1);
+        ImGui.TableSetupColumn("Materia");
+        ImGui.TableSetupColumn("Grade", ImGuiTableColumnFlags.WidthFixed, 40);
+        ImGui.TableSetupColumn("Bags", ImGuiTableColumnFlags.WidthFixed, 44);
+        ImGui.TableSetupColumn("Saddle", ImGuiTableColumnFlags.WidthFixed, 48);
+        ImGui.TableSetupColumn("Retainer", ImGuiTableColumnFlags.WidthFixed, 60);
+        ImGui.TableSetupColumn("Own", ImGuiTableColumnFlags.WidthFixed, 34);
+        ImGui.TableSetupColumn("Retainer target (min / max)", ImGuiTableColumnFlags.WidthFixed, 190);
+        ImGui.TableHeadersRow();
+        foreach (var m in ids)
+        {
+            ImGui.PushID((int)m.ItemId);
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn(); IconText(m);
+            ImGui.TableNextColumn(); ImGui.TextUnformatted(MateriaData.Roman(m.Grade));
+            ImGui.TableNextColumn(); ImGui.TextUnformatted(bags.GetValueOrDefault(m.ItemId).ToString());
+            ImGui.TableNextColumn(); ImGui.TextColored(Dim, saddle.GetValueOrDefault(m.ItemId).ToString());
+            ImGui.TableNextColumn();
+            var have = ret.GetValueOrDefault(m.ItemId);
+            var target = C.TargetFor(m);
+            ImGui.TextColored(target is { } tt && (have < tt.Min || have > tt.Max) ? Warn : Good, have.ToString());
+
+            if (!C.RetainerRules.TryGetValue(m.ItemId, out var rule)) rule = new RetainerRule { Min = C.DefaultMin, Max = C.DefaultMax };
+            ImGui.TableNextColumn();
+            var custom = rule.Custom;
+            if (ImGui.Checkbox("##own", ref custom)) { rule.Custom = custom; C.RetainerRules[m.ItemId] = rule; C.Save(); }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Own target for this materia (instead of the defaults)");
+            ImGui.TableNextColumn();
+            if (!rule.Custom) ImGui.TextColored(Dim, target is { } d ? $"{d.Min} / {d.Max}" : "not kept");
+            else
+            {
+                var skip = rule.Skip;
+                if (ImGui.Checkbox("none##skip", ref skip)) { rule.Skip = skip; C.Save(); }
+                if (!rule.Skip)
+                {
+                    int rmin = rule.Min, rmax = rule.Max;
+                    ImGui.SameLine(); ImGui.SetNextItemWidth(50);
+                    if (ImGui.InputInt("##min", ref rmin, 0, 0)) { rule.Min = Math.Max(0, rmin); C.Save(); }
+                    ImGui.SameLine(); ImGui.SetNextItemWidth(50);
+                    if (ImGui.InputInt("##max", ref rmax, 0, 0)) { rule.Max = Math.Max(0, rmax); C.Save(); }
+                }
+            }
+            ImGui.PopID();
+        }
+        ImGui.EndTable();
+    }
+
+    private static void IconText(MateriaInfo m)
+    {
+        var tex = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(m.Icon)).GetWrapOrEmpty();
+        ImGui.Image(tex.Handle, new Vector2(ImGui.GetTextLineHeight()));
+        ImGui.SameLine(); ImGui.TextUnformatted(m.Type);
     }
 
     // ================================================================ transmute

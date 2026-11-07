@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dalamud.Memory;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
@@ -9,23 +10,30 @@ using MateriaManager.Core;
 namespace MateriaManager;
 
 /// <summary>
-/// Moves materia between containers, one stack at a time (a short pause between moves, like doing
-/// it by hand). Auto-store: the saddlebag window ("InventoryBuddy") or a retainer's inventory
-/// opening moves every materia stack in your bags there. Saddlebag -> retainer: moves directly when
-/// the game allows it; otherwise "pull" brings saddlebag materia into your bags (auto-store to the
-/// saddlebag pauses), and the next retainer you open takes it.
+/// Moves materia between your bags, the saddlebag and the materia retainer, one step at a time
+/// (a short pause between steps, like doing it by hand). Exact amounts use the game's own stack
+/// split: split off what's needed, then move that stack.
+///  - Saddlebag opens: bag materia goes in (unless materia is being held in your bags for transmuting).
+///  - "Pull all from saddlebag": everything comes into your bags and is held there.
+///  - Materia retainer opens: each materia below its minimum is topped up to its maximum (from
+///    your bags, then the saddlebag if open); anything above the maximum comes back to your bags.
+///    What's left in your bags stays there for transmuting.
 /// </summary>
 public sealed unsafe class Storage : IDisposable
 {
-    private readonly Configuration config;
-    private DateTime nextMove = DateTime.MinValue;
-    private bool saddleWasOpen, retainerWasOpen;
-    private Queue<(InventoryType[] From, InventoryType[] To, string What)> jobs = new();
+    private enum Mode { None, StoreSaddlebag, PullSaddlebag, Balance }
 
-    /// <summary>Pulled saddlebag materia is on its way to a retainer: don't push it back.</summary>
-    public bool HoldingForRetainer { get; private set; }
+    private readonly Configuration config;
+    private DateTime nextStep = DateTime.MinValue;
+    private bool saddleWasOpen, retainerWasOpen;
+    private Mode mode = Mode.None;
+    private int steps;
+    private (uint ItemId, int Qty, InventoryType[] From, InventoryType[] To)? pendingSplit;
+
+    /// <summary>Materia in your bags is being kept for transmuting: don't sweep it into the saddlebag.</summary>
+    public bool Holding { get; private set; }
     public string Status { get; private set; } = "";
-    public int MovedThisRun { get; private set; }
+    public bool Busy => mode != Mode.None;
 
     public Storage(Configuration config)
     {
@@ -37,111 +45,218 @@ public sealed unsafe class Storage : IDisposable
 
     public static bool SaddlebagOpen => GameUi.IsOpen("InventoryBuddy") || GameUi.IsOpen("InventoryBuddy2");
     public static bool RetainerOpen => GameUi.IsOpen("InventoryRetainer") || GameUi.IsOpen("InventoryRetainerLarge");
-    public bool Busy => jobs.Count > 0;
 
-    public void StoreNow()
+    /// <summary>The retainer currently open (id, name), if any.</summary>
+    public static (ulong Id, string Name)? ActiveRetainer()
     {
-        if (SaddlebagOpen && !HoldingForRetainer && config.StoreTo == StoreTo.Saddlebag) Queue(MateriaData.Bags, MateriaData.Saddlebag, "bags -> saddlebag");
-        else if (RetainerOpen && config.StoreTo == StoreTo.Retainer || RetainerOpen && HoldingForRetainer) Queue(MateriaData.Bags, MateriaData.Retainer, "bags -> retainer");
-        else Status = config.StoreTo == StoreTo.Saddlebag ? "Open your saddlebag to store." : "Open a retainer's inventory to store.";
+        var rm = RetainerManager.Instance();
+        var r = rm == null ? null : rm->GetActiveRetainer();
+        return r == null || r->RetainerId == 0 ? null : (r->RetainerId, MemoryHelper.ReadStringNullTerminated((nint)r + 8));
     }
 
-    /// <summary>Saddlebag materia to the open retainer (directly if the game allows, else via your bags).</summary>
-    public void SaddlebagToRetainer()
+    /// <summary>All your retainers (for picking the materia retainer).</summary>
+    public static List<(ulong Id, string Name)> Retainers()
     {
-        if (RetainerOpen && MateriaData.Loaded(MateriaData.Saddlebag))
-            Queue(MateriaData.Saddlebag, MateriaData.Retainer, "saddlebag -> retainer");
-        else if (SaddlebagOpen)
+        var list = new List<(ulong, string)>();
+        var rm = RetainerManager.Instance();
+        if (rm == null || !rm->IsReady) return list;
+        for (uint i = 0; i < rm->GetRetainerCount(); i++)
         {
-            HoldingForRetainer = true;
-            Queue(MateriaData.Saddlebag, MateriaData.Bags, "saddlebag -> bags (for a retainer)");
+            var r = rm->GetRetainerBySortedIndex(i);
+            if (r != null && r->RetainerId != 0) list.Add((r->RetainerId, MemoryHelper.ReadStringNullTerminated((nint)r + 8)));
         }
-        else Status = "Open your saddlebag (to pull its materia) or a retainer (to move it directly).";
+        return list;
     }
 
-    public void CancelHold() { HoldingForRetainer = false; Status = "Hold cleared."; }
+    public bool MateriaRetainerOpen =>
+        RetainerOpen && config.RetainerId != 0 && ActiveRetainer() is { } a && a.Id == config.RetainerId;
 
-    private void Queue(InventoryType[] from, InventoryType[] to, string what)
+    // ---- buttons
+    public void PullAllFromSaddlebag()
     {
-        if (jobs.Any(j => j.What == what)) return;
-        jobs.Enqueue((from, to, what));
-        MovedThisRun = 0;
+        if (!SaddlebagOpen) { Status = "Open your saddlebag first."; return; }
+        Holding = true;
+        Begin(Mode.PullSaddlebag);
     }
 
+    public void StoreInSaddlebagNow()
+    {
+        if (!SaddlebagOpen) { Status = "Open your saddlebag first."; return; }
+        Holding = false;
+        Begin(Mode.StoreSaddlebag);
+    }
+
+    public void BalanceNow()
+    {
+        if (config.RetainerId == 0) { Status = "Pick your materia retainer first."; return; }
+        if (!MateriaRetainerOpen) { Status = $"Open {config.RetainerName}'s inventory first."; return; }
+        Begin(Mode.Balance);
+    }
+
+    public void Release() { Holding = false; Status = "Bag materia released: the saddlebag will take it next time."; }
+    public void Stop() { mode = Mode.None; pendingSplit = null; Status = "Stopped."; }
+
+    private void Begin(Mode m) { mode = m; steps = 0; pendingSplit = null; nextStep = DateTime.UtcNow; }
+
+    // ---- loop
     private void OnUpdate(IFramework framework)
     {
         try
         {
             var saddle = SaddlebagOpen;
             var retainer = RetainerOpen;
-            if (config.AutoStore)
+            if (mode == Mode.None)
             {
-                if (saddle && !saddleWasOpen && config.StoreTo == StoreTo.Saddlebag && !HoldingForRetainer)
-                    Queue(MateriaData.Bags, MateriaData.Saddlebag, "bags -> saddlebag");
-                if (retainer && !retainerWasOpen && (config.StoreTo == StoreTo.Retainer || HoldingForRetainer))
-                    Queue(MateriaData.Bags, MateriaData.Retainer, "bags -> retainer");
+                if (retainer && !retainerWasOpen && config.AutoBalanceRetainer && MateriaRetainerOpen) Begin(Mode.Balance);
+                else if (saddle && !saddleWasOpen && config.AutoStoreSaddlebag && !Holding && !retainer) Begin(Mode.StoreSaddlebag);
             }
             saddleWasOpen = saddle;
             retainerWasOpen = retainer;
+            if (Holding && MateriaData.Count(MateriaData.Bags).Count == 0) Holding = false; // nothing left to hold
 
-            if (jobs.Count == 0 || DateTime.UtcNow < nextMove) return;
-            nextMove = DateTime.UtcNow.AddMilliseconds(250);
-            var job = jobs.Peek();
-            var stillOpen = (job.To == MateriaData.Saddlebag || job.From == MateriaData.Saddlebag && job.To == MateriaData.Bags ? saddle : true) &&
-                            (job.To == MateriaData.Retainer ? retainer : true);
-            if (!stillOpen) { jobs.Dequeue(); Status = $"Stopped ({job.What}): window closed after {MovedThisRun} move(s)."; return; }
+            if (mode == Mode.None || DateTime.UtcNow < nextStep) return;
+            nextStep = DateTime.UtcNow.AddMilliseconds(400);
 
-            switch (MoveOne(job.From, job.To))
+            var open = mode switch
             {
-                case MoveResult.Moved: MovedThisRun++; Status = $"{job.What}: {MovedThisRun} stack(s) moved..."; break;
-                case MoveResult.Done:
-                    jobs.Dequeue();
-                    Status = $"{job.What}: done, {MovedThisRun} stack(s) moved.";
-                    if (job.To == MateriaData.Retainer && HoldingForRetainer) HoldingForRetainer = false;
-                    if (MovedThisRun > 0) Plugin.ChatGui.Print($"[Materia] {Status}");
-                    break;
-                case MoveResult.Full:
-                    jobs.Dequeue();
-                    Status = $"{job.What}: no room left after {MovedThisRun} stack(s).";
-                    Plugin.ChatGui.Print($"[Materia] {Status}");
-                    break;
-            }
+                Mode.StoreSaddlebag or Mode.PullSaddlebag => saddle,
+                Mode.Balance => MateriaRetainerOpen,
+                _ => false,
+            };
+            if (!open) { Finish($"window closed after {steps} step(s)"); return; }
+
+            var result = mode switch
+            {
+                Mode.StoreSaddlebag => MoveAnyStack(MateriaData.Bags, MateriaData.Saddlebag),
+                Mode.PullSaddlebag => MoveAnyStack(MateriaData.Saddlebag, MateriaData.Bags),
+                _ => BalanceStep(),
+            };
+            if (result == null) { steps++; Status = $"{Describe()}: {steps} step(s)..."; return; }
+            Finish(result);
         }
         catch (Exception ex)
         {
-            jobs.Clear();
+            mode = Mode.None;
             Status = "Error (see /xllog)";
             Plugin.Log.Error(ex, "Materia storage failed");
         }
     }
 
-    private enum MoveResult { Moved, Done, Full }
+    private string Describe() => mode switch
+    {
+        Mode.StoreSaddlebag => "Bags -> saddlebag",
+        Mode.PullSaddlebag => "Saddlebag -> bags",
+        Mode.Balance => $"Balancing {config.RetainerName}",
+        _ => "",
+    };
 
-    private MoveResult MoveOne(InventoryType[] from, InventoryType[] to)
+    private void Finish(string how)
+    {
+        var what = Describe();
+        if (mode == Mode.Balance) RecordRetainer();
+        mode = Mode.None;
+        pendingSplit = null;
+        Status = $"{what}: {how}.";
+        if (steps > 0 || how != "done") Plugin.ChatGui.Print($"[Materia] {Status}");
+        // Whatever stayed in your bags after a retainer visit is for transmuting.
+        if (what.StartsWith("Balancing") && MateriaData.Count(MateriaData.Bags).Count > 0) Holding = true;
+    }
+
+    private void RecordRetainer()
+    {
+        config.RetainerSeen = MateriaData.Count(MateriaData.Retainer);
+        config.RetainerSeenAt = DateTime.Now;
+        config.Save();
+    }
+
+    /// <summary>One whole stack of any materia from -> to. null = moved (keep going), else the end reason.</summary>
+    private string? MoveAnyStack(InventoryType[] from, InventoryType[] to)
     {
         var im = InventoryManager.Instance();
-        if (im == null) return MoveResult.Done;
-        var items = Plugin.DataManager.GetExcelSheet<Item>();
-        foreach (var srcType in from)
+        foreach (var (type, slot, item, qty) in Stacks(im, from))
         {
-            var src = im->GetInventoryContainer(srcType);
-            if (src == null || !src->IsLoaded) continue;
-            for (var i = 0; i < src->Size; i++)
+            if (FindSlot(im, to, item) is not { } dst) return "no room left";
+            im->MoveItemSlot(type, (ushort)slot, dst.Type, (ushort)dst.Slot, true);
+            return null;
+        }
+        return "done";
+    }
+
+    /// <summary>One step toward every retainer target. null = did something, else the end reason.</summary>
+    private string? BalanceStep()
+    {
+        var im = InventoryManager.Instance();
+
+        // Finish a split from last step: move the stack we split off.
+        if (pendingSplit is { } ps)
+        {
+            pendingSplit = null;
+            var split = Stacks(im, ps.From).FirstOrDefault(s => s.Item == ps.ItemId && s.Qty == ps.Qty);
+            if (split.Item != 0 && FindSlot(im, ps.To, ps.ItemId) is { } d)
             {
-                var s = src->GetInventorySlot(i);
-                if (s == null || s->ItemId == 0 || !MateriaData.IsMateria(s->ItemId)) continue;
-                var stackMax = (int)(items.GetRowOrDefault(s->ItemId)?.StackSize ?? 999);
-                if (FindSlot(im, to, s->ItemId, stackMax) is not { } dst) return MoveResult.Full;
-                im->MoveItemSlot(srcType, (ushort)i, dst.Type, (ushort)dst.Slot, true);
-                return MoveResult.Moved;
+                im->MoveItemSlot(split.Type, (ushort)split.Slot, d.Type, (ushort)d.Slot, true);
+                return null;
+            }
+            return "a split stack didn't appear (no free slot?)";
+        }
+
+        var all = MateriaData.All();
+        var inRetainer = MateriaData.Count(MateriaData.Retainer);
+        var sources = config.FillFromSaddlebag && SaddlebagOpen ? MateriaData.Bags.Concat(MateriaData.Saddlebag).ToArray() : MateriaData.Bags;
+        var available = MateriaData.Count(sources);
+
+        foreach (var m in all.Values.OrderBy(x => x.Type).ThenByDescending(x => x.Grade))
+        {
+            if (config.TargetFor(m) is not { } t) continue;
+            var have = inRetainer.GetValueOrDefault(m.ItemId);
+            if (have > t.Max)
+                return Transfer(im, m.ItemId, have - t.Max, MateriaData.Retainer, MateriaData.Bags);
+            if (have < t.Min && available.GetValueOrDefault(m.ItemId) > 0)
+                return Transfer(im, m.ItemId, Math.Min(t.Max - have, available[m.ItemId]), sources, MateriaData.Retainer);
+        }
+        return "done";
+    }
+
+    /// <summary>Move exactly qty of an item: a whole stack if it fits, else split first (next step moves it).</summary>
+    private string? Transfer(InventoryManager* im, uint itemId, int qty, InventoryType[] from, InventoryType[] to)
+    {
+        var stack = Stacks(im, from).Where(s => s.Item == itemId).OrderBy(s => s.Qty).ToList();
+        if (stack.Count == 0) return "done";
+        if (FindSlot(im, to, itemId) is not { } dst) return "no room left";
+        var exact = stack.FirstOrDefault(s => s.Qty <= qty);
+        if (exact.Item != 0)
+        {
+            im->MoveItemSlot(exact.Type, (ushort)exact.Slot, dst.Type, (ushort)dst.Slot, true);
+            return null;
+        }
+        var big = stack[0];   // smallest stack that's still bigger than needed
+        im->SplitItem(big.Type, (ushort)big.Slot, qty);
+        pendingSplit = (itemId, qty, from, to);
+        nextStep = DateTime.UtcNow.AddMilliseconds(700);
+        return null;
+    }
+
+    private static IEnumerable<(InventoryType Type, int Slot, uint Item, int Qty)> Stacks(InventoryManager* im, InventoryType[] containers)
+    {
+        var result = new List<(InventoryType, int, uint, int)>();
+        if (im == null) return result;
+        foreach (var t in containers)
+        {
+            var c = im->GetInventoryContainer(t);
+            if (c == null || !c->IsLoaded) continue;
+            for (var i = 0; i < c->Size; i++)
+            {
+                var s = c->GetInventorySlot(i);
+                if (s != null && s->ItemId != 0 && MateriaData.IsMateria(s->ItemId)) result.Add((t, i, s->ItemId, (int)s->Quantity));
             }
         }
-        return MoveResult.Done;
+        return result;
     }
 
     /// <summary>A stack of the same item with room, else an empty slot.</summary>
-    private static (InventoryType Type, int Slot)? FindSlot(InventoryManager* im, InventoryType[] to, uint itemId, int stackMax)
+    private static (InventoryType Type, int Slot)? FindSlot(InventoryManager* im, InventoryType[] to, uint itemId)
     {
+        var stackMax = (int)(Plugin.DataManager.GetExcelSheet<Item>().GetRowOrDefault(itemId)?.StackSize ?? 999);
         (InventoryType, int)? empty = null;
         foreach (var t in to)
         {

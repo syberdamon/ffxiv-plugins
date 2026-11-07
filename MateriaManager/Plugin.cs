@@ -30,13 +30,14 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.Migrate();
         Storage = new Storage(Configuration);
         Transmuter = new Transmuter(Configuration);
         main = new MainWindow(this);
         windows.AddWindow(main);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Materia Manager. /materia store on|off | saddlebag | retainer | transmute | stop",
+            HelpMessage = "Materia Manager. /materia store on|off | pull | balance | release | transmute | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += main.Toggle;
@@ -48,16 +49,17 @@ public sealed class Plugin : IDalamudPlugin
         var c = Configuration;
         switch (args.Trim().ToLowerInvariant())
         {
-            case "store on": c.AutoStore = true; break;
-            case "store off": c.AutoStore = false; break;
-            case "saddlebag": c.StoreTo = StoreTo.Saddlebag; break;
-            case "retainer": c.StoreTo = StoreTo.Retainer; break;
+            case "store on": c.AutoStoreSaddlebag = true; break;
+            case "store off": c.AutoStoreSaddlebag = false; break;
+            case "pull": Storage.PullAllFromSaddlebag(); return;
+            case "balance": Storage.BalanceNow(); return;
+            case "release": Storage.Release(); return;
             case "transmute": Transmuter.Start(); return;
-            case "stop": Transmuter.Stop(); return;
+            case "stop": Transmuter.Stop(); Storage.Stop(); return;
             default: main.Toggle(); return;
         }
         c.Save();
-        ChatGui.Print($"[Materia] Auto-store {(c.AutoStore ? "on" : "off")}, to the {(c.StoreTo == StoreTo.Saddlebag ? "saddlebag" : "retainer")}");
+        ChatGui.Print($"[Materia] Auto-store to the saddlebag {(c.AutoStoreSaddlebag ? "on" : "off")}");
     }
 
     public void Dispose()
