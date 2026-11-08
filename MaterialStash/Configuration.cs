@@ -254,6 +254,8 @@ public class Configuration : IPluginConfiguration
     public int ScripReserveSlots { get; set; } = 3;
     /// <summary>In a Cosmic Exploration zone: buy goal items and missing materials with cosmocredits first (they cost no materials).</summary>
     public bool ScripUseCosmo { get; set; } = true;
+    /// <summary>Not in a Cosmic Exploration zone: go there with Lifestream ("/li cosmic") when cosmocredits can be spent or earned.</summary>
+    public bool ScripCosmoTravel { get; set; } = true;
     /// <summary>Short of cosmocredits: run ICE (its missions, as set up in ICE) until there are enough.</summary>
     public bool ScripCosmoEarn { get; set; } = true;
     /// <summary>Cosmocredits never spent (kept for gear, cosmetics...).</summary>

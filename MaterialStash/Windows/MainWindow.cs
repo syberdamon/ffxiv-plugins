@@ -1172,12 +1172,14 @@ public sealed class MainWindow : Window
             if (ImGui.Checkbox("1. Take them out of my retainers (walks to the nearest summoning bell)", ref b)) { C.ScripUseRetainers = b; changed = true; }
             b = C.ScripUseCosmo;
             if (ImGui.Checkbox("2. Cosmocredits (Mesouaidonque), also for the goal item itself, keeping", ref b)) { C.ScripUseCosmo = b; changed = true; }
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Only while you're in a Cosmic Exploration zone (no travel to the moon yet). Mason's Abrasive is 1,000 there.");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("At Mesouaidonque in a Cosmic Exploration zone. Mason's Abrasive is 1,000 there.");
             ImGui.SameLine(); ImGui.SetNextItemWidth(90);
             var cr = C.ScripCosmoReserve;
             if (ImGui.InputInt("##cosmoreserve", ref cr, 0, 0)) { C.ScripCosmoReserve = Math.Clamp(cr, 0, CosmoData.Cap); changed = true; }
             ImGui.SameLine(); ImGui.TextDisabled($"(have {CosmoData.Credits:N0}{(CosmoData.InZone ? "" : ", not in a Cosmic Exploration zone")})");
             ImGui.Indent();
+            b = C.ScripCosmoTravel;
+            if (ImGui.Checkbox("Not there: go with Lifestream (/li cosmic) when credits can be spent or earned", ref b)) { C.ScripCosmoTravel = b; changed = true; }
             b = C.ScripCosmoEarn;
             if (ImGui.Checkbox("Short of cosmocredits: run ICE until there are enough (its missions as set up in ICE)", ref b)) { C.ScripCosmoEarn = b; changed = true; }
             ImGui.SameLine(); ImGui.TextColored(sg.Ice.IsLoaded ? Good : Warn, sg.Ice.IsLoaded ? "ICE loaded" : "ICE not loaded");
