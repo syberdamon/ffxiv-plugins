@@ -42,6 +42,7 @@ public sealed class MainWindow : Window
         if (ImGui.BeginTabItem("Crystals")) { DrawCrystals(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Stock")) { DrawStock(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Selling")) { DrawSelling(me); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Clean-up")) { DrawCleanup(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Keep on me")) { DrawKeep(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Rules")) { DrawRules(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
@@ -786,6 +787,240 @@ public sealed class MainWindow : Window
             ImGui.PopID();
         }
         if (changed) C.Save();
+    }
+
+    // ================================================================ clean-up
+
+    private static readonly Verdict[] VerdictOrder =
+    {
+        Verdict.Use, Verdict.CardMgp, Verdict.Market, Verdict.Vendor, Verdict.GrandCompany, Verdict.Desynth,
+        Verdict.Exchange, Verdict.Dresser, Verdict.Discard, Verdict.Keep,
+    };
+
+    private List<CleanLine> discardAsk = new();
+    private bool openDiscard;
+
+    private void DrawCleanup(CharacterData me)
+    {
+        var cu = plugin.Cleanup;
+        var changed = false;
+        if ((DateTime.UtcNow - cu.Analyzed).TotalSeconds > 5) cu.Analyze(me);
+        var lines = cu.Lines;
+
+        ImGui.TextWrapped("What your retainers hold (as last seen: Scan all at the bell to refresh), with a suggestion for each item. " +
+                          "Approve what you agree with, then press Run clean-up at the summoning bell. Nothing happens to an item you haven't approved.");
+        ImGui.TextColored(Dim, plugin.Market.Status);
+        ImGui.TextColored(me.DresserSeen == null ? Warn : Dim, me.DresserSeen == null
+            ? "Glamour dresser: not seen yet. Open it once (at an inn or a glamour dresser) so items you already stored can be spotted."
+            : $"Glamour dresser: {me.Dresser.Count} item(s), seen {me.DresserSeen.Value.ToLocalTime():g}.");
+        ImGui.TextColored(me.ArmoireSeen == null ? Warn : Dim, me.ArmoireSeen == null
+            ? "Armoire: not seen yet. Open it once in an inn room."
+            : $"Armoire: {me.Armoire.Count} item(s), seen {me.ArmoireSeen.Value.ToLocalTime():g}.");
+
+        // ---- actions
+        var approved = lines.Where(l => me.CleanupApproved.Contains(l.Key) && l.Verdict != Verdict.Keep).ToList();
+        var why = plugin.Runner.CantStart();
+        if (approved.Count == 0 || why != null) ImGui.BeginDisabled();
+        if (ImGui.Button($"Run clean-up ({approved.Count} approved)")) plugin.Runner.Start(Runner.RunMode.Cleanup);
+        if (approved.Count == 0 || why != null) ImGui.EndDisabled();
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip((why ?? "") + "\nAt the summoning bell: takes the approved items out of each retainer into your bags. Vendor items are sold " +
+                             "through the retainer, approved discards are discarded, market items are listed at your selling retainer " +
+                             "(Selling tab) if you picked one. The rest (GC turn-in, desynthesis, cards, tokens, looks to store) wait in your bags.");
+        ImGui.SameLine();
+        var usable = cu.Usable().Count;
+        if (usable == 0 || cu.Using) ImGui.BeginDisabled();
+        if (ImGui.Button(cu.Using ? "Using..." : $"Use unlearned items in bags ({usable})")) cu.StartUse();
+        if (usable == 0 || cu.Using) ImGui.EndDisabled();
+        var dupes = cu.DresserDuplicates(me);
+        if (dupes.Count > 0)
+        {
+            ImGui.SameLine();
+            if (!Cleanup.DresserOpen || cu.Restoring) ImGui.BeginDisabled();
+            if (ImGui.Button(cu.Restoring ? "Taking out..." : $"Take dresser duplicates out ({dupes.Sum(d => d.Copies - 1)})")) cu.StartRestore();
+            if (!Cleanup.DresserOpen || cu.Restoring) ImGui.EndDisabled();
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetTooltip("With the glamour dresser open: takes the extra copies out to your bags (one copy stays).\n" +
+                                 string.Join("\n", dupes.Select(d => $"{d.Name} x{d.Copies}")));
+        }
+        if (cu.Using || cu.Restoring) { ImGui.SameLine(); if (ImGui.SmallButton("Stop")) cu.StopAll(); }
+        if (cu.Status.Length > 0) ImGui.TextColored(Dim, cu.Status);
+
+        if (ImGui.CollapsingHeader("Clean-up settings"))
+        {
+            var ms = C.CleanupMinSell;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("Sell on the market only if a stack fetches at least (gil, after tax)", ref ms, 100, 1000)) { C.CleanupMinSell = Math.Max(0, ms); changed = true; }
+            var rv = C.CleanupReview;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("Stacks worth more than this get their own look (gil)", ref rv, 1000, 5000)) { C.CleanupReview = Math.Max(0, rv); changed = true; }
+            var sm = C.CleanupSkipMaterials;
+            if (ImGui.Checkbox("Leave materials, materia, crystals and stock-list items alone", ref sm)) { C.CleanupSkipMaterials = sm; changed = true; }
+            var pd = C.CleanupPreferDesynth;
+            if (ImGui.Checkbox("Desynthesize rather than vendor when an item can be desynthesized", ref pd)) { C.CleanupPreferDesynth = pd; changed = true; }
+            var au = C.CleanupAutoUse;
+            if (ImGui.Checkbox("After a run, use the unlearned items it brought out (minions, cards, rolls...)", ref au)) { C.CleanupAutoUse = au; changed = true; }
+            ImGui.TextColored(Dim, "Value: home-world market (lower of the lowest listing and the 7-day median, less 5% tax) or the vendor price, whichever is higher.\n" +
+                                   "Keep the look: gear whose look can't be had any more (no shop, duty, recipe or market source), or that fits the Armoire.\n" +
+                                   "\"Easy to get again\": solo or small group unsynced at level 100, a rule of thumb (hover an item for its sources).");
+            if (me.SellRetainer == 0) ImGui.TextColored(Warn, "No selling retainer picked (Selling tab): approved market items will wait in your bags, boxed.");
+        }
+
+        ImGui.Separator();
+        var total = approved.Where(l => l.Verdict is Verdict.Market or Verdict.Vendor).Sum(l => l.Value);
+        ImGui.TextUnformatted($"{lines.Count} item(s) on {me.Order.Count} retainer(s); {approved.Count} approved (~{total:N0} gil from sales).");
+        if (lines.Any(l => l.PricePending)) ImGui.TextColored(Warn, "Some prices are still on their way from Universalis: those items show as Keep for now.");
+
+        var review = lines.Where(l => cu.NeedsReview(l)).OrderByDescending(l => l.Value).ToList();
+        if (review.Count > 0 && ImGui.CollapsingHeader($"Worth a look: {review.Count} stack(s) over {C.CleanupReview:N0} gil###review", ImGuiTreeNodeFlags.DefaultOpen))
+            changed |= CleanTable("##review", review, me);
+
+        foreach (var v in VerdictOrder)
+        {
+            var group = lines.Where(l => l.Verdict == v && !cu.NeedsReview(l)).OrderByDescending(l => l.Value).ToList();
+            if (group.Count == 0) continue;
+            var sum = group.Sum(l => l.Value);
+            var ok = group.Count(l => me.CleanupApproved.Contains(l.Key));
+            if (!ImGui.CollapsingHeader($"{Cleanup.Label(v)}: {group.Count} ({ok} approved){(sum > 0 ? $", ~{sum:N0} gil" : "")}###grp{(int)v}")) continue;
+            ImGui.PushID((int)v);
+            if (v != Verdict.Keep)
+            {
+                if (ImGui.SmallButton($"Approve all {group.Count}"))
+                {
+                    if (v == Verdict.Discard) AskDiscard(group);
+                    else { foreach (var l in group) me.CleanupApproved.Add(l.Key); changed = true; }
+                }
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Clear")) { foreach (var l in group) me.CleanupApproved.Remove(l.Key); changed = true; }
+                ImGui.SameLine();
+            }
+            ImGui.TextColored(Dim, Hint(v));
+            changed |= CleanTable("##t", group, me);
+            ImGui.PopID();
+        }
+
+        DrawDiscardPopup(me, ref changed);
+        if (changed) { plugin.Tracker.Save(force: true); C.Save(); }
+    }
+
+    private static string Hint(Verdict v) => v switch
+    {
+        Verdict.Use => "Unlearned minions, cards, orchestrion rolls and the like: the run brings them out and uses them.",
+        Verdict.CardMgp => "Cards you already have: sell them to the Triple Triad Trader at the Gold Saucer for MGP (automatic next update).",
+        Verdict.Market => "Listed at your selling retainer (lowest listing minus your undercut).",
+        Verdict.Vendor => "Sold through the retainer ('Have Retainer Sell Items').",
+        Verdict.GrandCompany => "Brought to your bags: Turn-In Manager takes them to your Grand Company for seals.",
+        Verdict.Desynth => "Brought to your bags to desynthesize.",
+        Verdict.Exchange => "Exchange tokens: hover to see what they buy. Brought to your bags.",
+        Verdict.Dresser => "Brought to your bags: store them in the glamour dresser or Armoire at an inn.",
+        Verdict.Discard => "No value found. Approving shows how you'd get each one back first.",
+        _ => "Left where it is.",
+    };
+
+    /// <summary>The rows of one group. True if anything changed.</summary>
+    private bool CleanTable(string id, List<CleanLine> rows, CharacterData me)
+    {
+        var changed = false;
+        if (!ImGui.BeginTable(id, 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.SizingStretchProp)) return false;
+        ImGui.TableSetupColumn("OK", ImGuiTableColumnFlags.WidthFixed, 28);
+        ImGui.TableSetupColumn("Item", ImGuiTableColumnFlags.WidthStretch, 2.2f);
+        ImGui.TableSetupColumn("Retainer", ImGuiTableColumnFlags.WidthFixed, 95);
+        ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, 80);
+        ImGui.TableSetupColumn("Verdict", ImGuiTableColumnFlags.WidthFixed, 190);
+        ImGui.TableSetupColumn("Why", ImGuiTableColumnFlags.WidthStretch, 3f);
+        ImGui.TableHeadersRow();
+        foreach (var l in rows)
+        {
+            ImGui.PushID($"{l.Retainer}:{l.Key}");
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            var on = me.CleanupApproved.Contains(l.Key);
+            if (l.Verdict == Verdict.Keep) ImGui.BeginDisabled();
+            if (ImGui.Checkbox("##ok", ref on))
+            {
+                if (on && l.Verdict == Verdict.Discard) AskDiscard(new List<CleanLine> { l });
+                else if (on) { me.CleanupApproved.Add(l.Key); changed = true; }
+                else { me.CleanupApproved.Remove(l.Key); changed = true; }
+            }
+            if (l.Verdict == Verdict.Keep) ImGui.EndDisabled();
+
+            ImGui.TableNextColumn();
+            var easy = l.Easiest <= Regain.Effort.SmallGroup;
+            ImGui.TextUnformatted(l.Name + (l.Qty > 1 ? $" x{l.Qty}" : "") + (l.Stacks > 1 ? $" ({l.Stacks} stacks)" : ""));
+            if (ImGui.IsItemHovered())
+            {
+                var tip = "How to get it again:\n  " + string.Join("\n  ", l.Ways);
+                if (l.Verdict == Verdict.Exchange || plugin.Cleanup.TokenRewards(l.ItemId).Count > 0)
+                {
+                    var buys = plugin.Cleanup.TokenRewards(l.ItemId);
+                    tip += $"\nExchanges for ({buys.Count}):\n  " + string.Join("\n  ", buys.Take(15)) + (buys.Count > 15 ? "\n  ..." : "");
+                }
+                ImGui.SetTooltip(tip);
+            }
+            if (easy) { ImGui.SameLine(); ImGui.TextColored(Good, l.Easiest == Regain.Effort.Solo ? "[easy: solo]" : "[easy: group]"); }
+
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(plugin.Tracker.NameOf(l.Retainer));
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(l.PricePending ? "..." : l.Value > 0 ? $"{l.Value:N0}" : "-");
+
+            ImGui.TableNextColumn();
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.BeginCombo("##v", Cleanup.Label(l.Verdict) + (l.Overridden ? " *" : "")))
+            {
+                foreach (var v in VerdictOrder)
+                {
+                    var label = Cleanup.Label(v) + (v == l.Auto ? "  (suggested)" : "");
+                    if (!ImGui.Selectable(label, v == l.Verdict)) continue;
+                    if (v == l.Auto) C.CleanupVerdicts.Remove(l.ItemId); else C.CleanupVerdicts[l.ItemId] = v;
+                    me.CleanupApproved.Remove(l.Key); // a new verdict needs a new OK
+                    changed = true;
+                }
+                ImGui.EndCombo();
+            }
+
+            ImGui.TableNextColumn();
+            var text = l.Why + (l.Overridden ? $" (suggested: {Cleanup.Label(l.Auto)})" : "");
+            ImGui.TextWrapped(text);
+            if (l.Notes.Count > 0) ImGui.TextColored(Dim, string.Join("; ", l.Notes));
+            ImGui.PopID();
+        }
+        ImGui.EndTable();
+        if (changed) plugin.Cleanup.Analyze(me);
+        return changed;
+    }
+
+    private void AskDiscard(List<CleanLine> lines)
+    {
+        discardAsk = lines.Where(l => l.Verdict == Verdict.Discard).ToList();
+        openDiscard = discardAsk.Count > 0;
+    }
+
+    private void DrawDiscardPopup(CharacterData me, ref bool changed)
+    {
+        if (openDiscard) { ImGui.OpenPopup("##discard"); openDiscard = false; }
+        if (!ImGui.BeginPopup("##discard")) return;
+        ImGui.TextColored(Warn, $"Discard {discardAsk.Count} item(s)? Discarded items are gone. Here's how you'd get each back:");
+        ImGui.Separator();
+        foreach (var l in discardAsk.Take(30))
+        {
+            ImGui.TextUnformatted($"{l.Name}{(l.Qty > 1 ? $" x{l.Qty}" : "")} ({plugin.Tracker.NameOf(l.Retainer)})");
+            ImGui.Indent();
+            foreach (var w in l.Ways) ImGui.TextColored(Dim, w);
+            ImGui.Unindent();
+        }
+        if (discardAsk.Count > 30) ImGui.TextColored(Dim, $"...and {discardAsk.Count - 30} more (same rules: no value found).");
+        ImGui.Separator();
+        if (ImGui.Button("Discard them (on the next run)"))
+        {
+            foreach (var l in discardAsk) me.CleanupApproved.Add(l.Key);
+            changed = true;
+            discardAsk = new List<CleanLine>();
+            ImGui.CloseCurrentPopup();
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Cancel")) { discardAsk = new List<CleanLine>(); ImGui.CloseCurrentPopup(); }
+        ImGui.EndPopup();
     }
 
     // ================================================================ rules

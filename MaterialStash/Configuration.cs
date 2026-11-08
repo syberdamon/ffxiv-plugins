@@ -54,6 +54,14 @@ public class CharacterData
     public HashSet<uint> SellQueue { get; set; } = new();
     /// <summary>The retainer that lists them on the market (auto-sell).</summary>
     public ulong SellRetainer { get; set; }
+    /// <summary>Clean-up: items you approved (id incl. HQ offset). Lapses when the item is gone.</summary>
+    public HashSet<uint> CleanupApproved { get; set; } = new();
+    /// <summary>Glamour dresser contents when last opened (item ids as the game stores them).</summary>
+    public List<uint> Dresser { get; set; } = new();
+    public DateTime? DresserSeen { get; set; }
+    /// <summary>Items stored in the Armoire when it was last loaded (at an inn).</summary>
+    public HashSet<uint> Armoire { get; set; } = new();
+    public DateTime? ArmoireSeen { get; set; }
 }
 
 [Serializable]
@@ -192,6 +200,20 @@ public class Configuration : IPluginConfiguration
     public int Undercut { get; set; } = 1;
     /// <summary>Most items in one listing.</summary>
     public int MaxPerListing { get; set; } = 99;
+
+    // ---- clean-up
+    /// <summary>A stack is listed on the market only if it fetches at least this (after tax).</summary>
+    public int CleanupMinSell { get; set; } = 1000;
+    /// <summary>Stacks worth more than this get their own look instead of being approved with their group.</summary>
+    public int CleanupReview { get; set; } = 10000;
+    /// <summary>Leave the Materials group, materia, crystals and stock-list items alone.</summary>
+    public bool CleanupSkipMaterials { get; set; } = true;
+    /// <summary>Desynthesize instead of vendoring when an item can be desynthesized.</summary>
+    public bool CleanupPreferDesynth { get; set; } = false;
+    /// <summary>After a clean-up run, use the unlearned items it brought to your bags.</summary>
+    public bool CleanupAutoUse { get; set; } = true;
+    /// <summary>Your verdict per item (NQ id), instead of the suggested one.</summary>
+    public Dictionary<uint, Verdict> CleanupVerdicts { get; set; } = new();
 
     // ---- other plugins / UI
     public bool UseAllaganTools { get; set; } = true;

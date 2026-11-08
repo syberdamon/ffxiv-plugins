@@ -72,9 +72,9 @@ Our code is our own; credit to their authors:
   game-function signature for "has this gathering item been gathered" (`48 89 5C 24 ?? 57 48 83 EC 20 8B D9 8B F9`).
 - Allagan Tools (Critical-Impact): IPC used to seed retainer contents (optional dependency).
 
-## Teamcraft data (Retainer Gear)
+## Teamcraft data (Retainer Gear, Material Stash)
 
-Retainer Gear bundles dungeon-drop and shop-trade lists derived from Teamcraft's public data
+Retainer Gear and Material Stash (clean-up sources) bundle dungeon-drop and shop-trade lists derived from Teamcraft's public data
 (`libs/data/src/lib/json/instance-sources.json`, `instances.json`, `shops.json`).
 Source: https://github.com/ffxiv-teamcraft/ffxiv-teamcraft
 
