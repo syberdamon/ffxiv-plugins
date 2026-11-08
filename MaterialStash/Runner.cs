@@ -20,7 +20,7 @@ namespace MaterialStash;
 public sealed unsafe class Runner : IDisposable
 {
     private enum Phase { Idle, Select, OpenMenu, OpenInventory, Work, CloseInventory, Quit, BackToList }
-    public enum RunMode { Stash, Scan, Tidy, Sell, Cleanup }
+    public enum RunMode { Stash, Scan, Tidy, Sell, Cleanup, Furnish }
 
     private sealed class CrystalOp
     {
@@ -57,6 +57,9 @@ public sealed unsafe class Runner : IDisposable
     public Cleanup? Cleanup { get; set; }
     /// <summary>Set by the plugin: stores "keep the look" items at an inn.</summary>
     public Wardrobe? Wardrobe { get; set; }
+    /// <summary>Set by the plugin: puts indoor furnishings in the house storeroom.</summary>
+    public Storeroom? Storeroom { get; set; }
+    private bool furnish => mode == RunMode.Furnish;
     private bool cleanRan;
     private int cleanPulled, cleanVendored, cleanDiscarded;
     private readonly HashSet<(InventoryType, int)> pulledSlots = new();
@@ -133,6 +136,7 @@ public sealed unsafe class Runner : IDisposable
             RunMode.Tidy => planner.TidyVisits(),
             RunMode.Sell => new List<ulong> { me.SellRetainer },
             RunMode.Cleanup => Cleanup == null ? new List<ulong>() : CleanupVisits(me),
+            RunMode.Furnish => Storeroom == null ? new List<ulong>() : FurnishVisits(me),
             _ => planner.RetainersToVisit(),
         };
         if (list.Count == 0 && sellAfter) { mode = RunMode.Sell; sellAfter = false; list = new List<ulong> { me.SellRetainer }; }
@@ -140,12 +144,13 @@ public sealed unsafe class Runner : IDisposable
         {
             Status = m == RunMode.Tidy ? "Already tidy (as far as the records show: Scan all to refresh)."
                 : m == RunMode.Cleanup ? "Nothing approved in the Clean-up tab yet."
+                : m == RunMode.Furnish ? "No indoor furnishings on your retainers (as far as the records show)."
                 : "Nothing to stash (or nowhere to put it: check the overflow order).";
             return;
         }
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
-        Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", _ => "Stashing..." };
+        Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", RunMode.Furnish => "Taking furnishings out...", _ => "Stashing..." };
     }
 
     /// <summary>Forget carried items that aren't in your bags any more.</summary>
@@ -238,6 +243,11 @@ public sealed unsafe class Runner : IDisposable
                      $" on {visited.Count} retainer(s)." + (noRoom > 0 ? $" {noRoom} stack(s) had nowhere to go." : "");
         }
         if (mode == RunMode.Sell && stacksMoved > 0) Status += sold;
+        if (mode == RunMode.Furnish)
+        {
+            Status = $"Took {cleanPulled} furnishing stack(s) out" + (bagsFull ? " (bags full)" : "") + ".";
+            if (Storeroom != null && Storeroom.InBags().Count > 0) { Storeroom.Start(); Status += " " + Storeroom.Status; }
+        }
         if (cleanRan)
         {
             Status = CleanupSummary() + (mode == RunMode.Sell ? " " + sold.Trim() : "");
@@ -336,7 +346,7 @@ public sealed unsafe class Runner : IDisposable
         var me = tracker.Me();
         var index = me?.Order.IndexOf(current) ?? -1;
         if (index < 0) { phaseStart = DateTime.UtcNow; return; } // gone from the list; next one
-        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : sell ? "Selling" : clean ? "Cleaning up" : "Stashing")}: {tracker.NameOf(current)}...";
+        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : sell ? "Selling" : clean ? "Cleaning up" : furnish ? "Furnishings" : "Stashing")}: {tracker.NameOf(current)}...";
         GameUi.Fire(list, 2, index);
         Set(Phase.OpenMenu);
         next = DateTime.UtcNow.AddSeconds(0.8);
@@ -401,6 +411,12 @@ public sealed unsafe class Runner : IDisposable
         if (crystal != null) { TickCrystal(); return; }
         tracker.RecordOpen();
         if (scanOnly) { Set(Phase.CloseInventory); return; }
+        if (furnish)
+        {
+            if (FurnishStep()) { phaseStart = DateTime.UtcNow; return; }
+            Set(Phase.CloseInventory);
+            return;
+        }
         if (clean)
         {
             if (CleanupStep()) { phaseStart = DateTime.UtcNow; return; }
@@ -521,6 +537,35 @@ public sealed unsafe class Runner : IDisposable
             listed++;
             Plugin.Log.Info($"Stash: listed {Items.Info(s.ItemId)?.Name} x{qty} at {price:N0} on market slot {dst}");
             next = DateTime.UtcNow.AddSeconds(1.2);
+            return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ furnishings (for the storeroom)
+
+    private List<ulong> FurnishVisits(CharacterData me) =>
+        me.Order.Where(r => !me.Excluded.Contains(r) && me.Retainers.TryGetValue(r, out var s) && s.Items.Keys.Any(k => Storeroom!.IsIndoorFurnishing(k))).ToList();
+
+    /// <summary>Pull the next indoor furnishing off the open retainer into an empty bag slot.</summary>
+    private bool FurnishStep()
+    {
+        var im = InventoryManager.Instance();
+        if (im == null || bagsFull || Storeroom == null) return false;
+        foreach (var s in Tracker.Stacks(Tracker.RetainerPages, id => Storeroom.IsIndoorFurnishing(id)))
+        {
+            if (skipStacks.Contains((s.Type, s.Slot))) continue;
+            if (EmptyBagSlot() is not { } dst) { bagsFull = true; return false; }
+            if (lastMove is { } lm && lm.Type == s.Type && lm.Slot == s.Slot && lm.Item == s.ItemId && lm.Qty == s.Qty)
+            {
+                if (++sameMoveCount >= 3) { skipStacks.Add((s.Type, s.Slot)); refused.Add(Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}"); continue; }
+            }
+            else sameMoveCount = 0;
+            lastMove = (s.Type, s.Slot, s.ItemId, s.Qty);
+            im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
+            pulledSlots.Add(dst);
+            cleanPulled++;
+            next = DateTime.UtcNow.AddSeconds(Math.Max(0.6, config.StepDelay));
             return true;
         }
         return false;

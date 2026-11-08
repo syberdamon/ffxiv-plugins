@@ -159,7 +159,18 @@ extremes and savage raids need a full group. Sources: [Sportskeeda: extreme tria
 [Consolegameswiki: Syrcus Tower unsynced](https://ffxiv.consolegameswiki.com/wiki/Syrcus_Tower). Duty drops, shop
 trades and gil prices come from Teamcraft's data (refreshed by CI).
 
-## Crystals
+## Furnishings to the house storeroom
+**Furnishings home (N)** at the bell (or `/stash furnish`) takes indoor furnishings off your retainers into empty bag
+slots, then goes home with Lifestream (`/li home`), opens `/housing` > **Indoor Furnishings**, and uses each item's
+**Store** menu entry to put it in the storeroom. `/stash storeroom` does just the second half (furnishings already in
+your bags). Renovation items (walls, flooring, lights, exterior parts), outdoor furnishings and gardening items are
+never picked. The storeroom holds as many items as the house can place (cottage 200, house 300, mansion 400, shared
+with placed furnishings); what the game won't take is skipped and listed.
+
+Set Lifestream to walk into the house: in Lifestream's house registration, override the teleport behaviour to "Enter
+house" (your current setting only teleports to the ward). If the housing menu's "Indoor Furnishings" entry can't be
+found to click, it asks you to click it and carries on (and saves a dump so it can be fixed).
+
 Shards, crystals and clusters fill retainers in the bell's list order, each to 9,999 of a type before the next.
 **Keep N on me** (global, or per type) leaves that many with you; below it, the run takes the difference back from
 the last retainer holding that type.
@@ -183,6 +194,8 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - Whether AutoRetainer's venture override also applies in multi-character mode (confirmed for its normal bell run).
 - The "gathered it yourself" check uses a game-function signature (from AutoRetainer); after a patch it may be missing,
   and then every gathering venture is assumed allowed.
+- Storeroom: the housing menu's layout (finding "Indoor Furnishings"), layout mode detected by the Housing agent, the
+  item menu's "Store" entry while Indoor Furnishings is open, and which categories count as indoor furnishings.
 - Clean-up: "Have Retainer Sell Items" from the bag item menu with the retainer's inventory open; discarding with
   the game's discard call (confirmed with its yes/no); using items with the game's item action; taking items out of the
   dresser; reading the Armoire (`IsItemInCabinet`).

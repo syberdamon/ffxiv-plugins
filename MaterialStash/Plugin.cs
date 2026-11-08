@@ -33,6 +33,7 @@ public sealed class Plugin : IDalamudPlugin
     public Selling Selling { get; }
     public Cleanup Cleanup { get; }
     public Wardrobe Wardrobe { get; }
+    public Storeroom Storeroom { get; }
     public AutoRetainerIpc AutoRetainer { get; } = new();
     public AllaganIpc Allagan { get; } = new();
 
@@ -58,6 +59,8 @@ public sealed class Plugin : IDalamudPlugin
         Runner.Cleanup = Cleanup;
         Wardrobe = new Wardrobe(Configuration, Tracker, Cleanup);
         Runner.Wardrobe = Wardrobe;
+        Storeroom = new Storeroom(Configuration);
+        Runner.Storeroom = Storeroom;
         Saddle = new SaddleMover(Configuration);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
@@ -71,7 +74,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(sellHighlight);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | looks (store approved looks at an inn) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -89,11 +92,13 @@ public sealed class Plugin : IDalamudPlugin
             case "tidy": Runner.Start(Runner.RunMode.Tidy); Report(); return;
             case "sell": Runner.Start(Runner.RunMode.Sell); Report(); return;
             case "clean": Runner.Start(Runner.RunMode.Cleanup); Report(); return;
+            case "furnish": Runner.Start(Runner.RunMode.Furnish); Report(); return;
+            case "storeroom": Storeroom.Start(); if (!Storeroom.Busy) ChatGui.Print($"[Stash] {Storeroom.Status}"); return;
             case "looks": Wardrobe.Start(); if (!Wardrobe.Busy) ChatGui.Print($"[Stash] {Wardrobe.Status}"); return;
             case "ventures": Configuration.ShowVentureWindow = !Configuration.ShowVentureWindow; Configuration.Save(); return;
             case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
             case "saddle out": Saddle.Start(SaddleMover.Direction.ToBags); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
-            case "stop": Runner.Stop(); Saddle.Stop(); Cleanup.StopAll(); Wardrobe.Stop(); return;
+            case "stop": Runner.Stop(); Saddle.Stop(); Cleanup.StopAll(); Wardrobe.Stop(); Storeroom.Stop(); return;
             default: main.Toggle(); return;
         }
     }
@@ -112,6 +117,7 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.RemoveHandler(CommandName);
         Runner.Dispose();
         Wardrobe.Dispose();
+        Storeroom.Dispose();
         Cleanup.Dispose();
         Director.Dispose();
         Selling.Dispose();

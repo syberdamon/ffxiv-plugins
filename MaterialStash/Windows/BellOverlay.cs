@@ -96,6 +96,18 @@ public sealed unsafe class BellOverlay : Window
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                     ImGui.SetTooltip(why ?? "List the to-sell items at your selling retainer. /stash sell");
             }
+            var me = plugin.Tracker.Me();
+            var furn = me == null ? 0 : me.Retainers.Where(kv => !me.Excluded.Contains(kv.Key)).Select(kv => kv.Value).Sum(s => s.Items.Where(kv => plugin.Storeroom.IsIndoorFurnishing(kv.Key)).Sum(kv => s.Stacks.GetValueOrDefault(kv.Key, 1)));
+            if (furn > 0)
+            {
+                ImGui.SameLine();
+                ImGui.BeginDisabled(why != null);
+                if (ImGui.Button($"Furnishings home ({furn})##furn")) r.Start(Runner.RunMode.Furnish);
+                ImGui.EndDisabled();
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip(why ?? "Takes indoor furnishings off your retainers (as many as your bags hold), then goes home (Lifestream)\n" +
+                                            "and stores them in the house storeroom. Renovation and outdoor items stay where they are. /stash furnish");
+            }
             ImGui.SameLine();
             if (ImGui.SmallButton("...##stashcfg")) plugin.ToggleMain();
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Material Stash settings (/stash)");
