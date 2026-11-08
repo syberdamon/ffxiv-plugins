@@ -253,6 +253,7 @@ public sealed unsafe class Runner : IDisposable
             Status = CleanupSummary() + (mode == RunMode.Sell ? " " + sold.Trim() : "");
             cleanRan = false;
             if (config.CleanupAutoUse && Cleanup != null && Cleanup.Usable().Count > 0) Cleanup.StartUse();
+            if (config.CleanupAutoDesynth && Cleanup != null && Cleanup.Desynthable().Count > 0) Cleanup.StartDesynth();
             if (config.CleanupStoreLooks && Wardrobe != null && Wardrobe.ToStore().Count > 0)
             {
                 Cleanup?.Analyze(tracker.Me()!);

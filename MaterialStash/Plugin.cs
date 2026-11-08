@@ -76,7 +76,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(sellHighlight);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -97,6 +97,7 @@ public sealed class Plugin : IDalamudPlugin
             case "furnish": Runner.Start(Runner.RunMode.Furnish); Report(); return;
             case "bell": Bell.Start(); if (!Bell.Busy) ChatGui.Print($"[Stash] {Bell.Status}"); return;
             case "storeroom": Storeroom.Start(); if (!Storeroom.Busy) ChatGui.Print($"[Stash] {Storeroom.Status}"); return;
+            case "desynth": Cleanup.StartDesynth(); if (!Cleanup.Desynthing) ChatGui.Print($"[Stash] {Cleanup.Status}"); return;
             case "looks": Wardrobe.Start(); if (!Wardrobe.Busy) ChatGui.Print($"[Stash] {Wardrobe.Status}"); return;
             case "ventures": Configuration.ShowVentureWindow = !Configuration.ShowVentureWindow; Configuration.Save(); return;
             case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;

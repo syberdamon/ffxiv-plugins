@@ -7,6 +7,9 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Component.Exd;
 using Lumina.Excel.Sheets;
 using MaterialStash.Core;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using ActionManager = FFXIVClientStructs.FFXIV.Client.Game.ActionManager;
 using ActionType = FFXIVClientStructs.FFXIV.Client.Game.ActionType;
 using CabinetRow = Lumina.Excel.Sheets.Cabinet;
@@ -56,6 +59,14 @@ public sealed unsafe class Cleanup : IDisposable
     public bool Using { get; private set; }
     private readonly Dictionary<uint, int> useTries = new();
     private int used;
+    // ---- desynthesis loop
+    public bool Desynthing { get; private set; }
+    private DateTime nextDesynth = DateTime.MinValue;
+    private (InventoryType Type, int Slot, uint Item, int Qty)? desynthCur;
+    private int desynthDone, desynthTries;
+    private bool desynthDumped;
+    private readonly HashSet<uint> desynthSkip = new();
+    private readonly List<string> desynthRefused = new();
     // ---- dresser duplicates
     public bool Restoring { get; private set; }
     private int restored, restoreWaits;
@@ -430,7 +441,135 @@ public sealed unsafe class Cleanup : IDisposable
         nextUse = DateTime.UtcNow.AddSeconds(3);
     }
 
-    public void StopAll() { Using = false; Restoring = false; }
+    public void StopAll() { Using = false; Restoring = false; Desynthing = false; }
+
+    // ================================================================ desynthesize approved items
+
+    /// <summary>Approved "Desynthesize" stacks in your bags.</summary>
+    public List<Tracker.Stack> Desynthable()
+    {
+        var me = tracker.Me();
+        if (me == null) return new();
+        return Tracker.Stacks(Tracker.Bags).Where(s => !desynthSkip.Contains(s.ItemId) && ApprovedAction(s.ItemId, me) == Verdict.Desynth).ToList();
+    }
+
+    public void StartDesynth()
+    {
+        desynthSkip.Clear(); desynthRefused.Clear(); desynthDone = 0; desynthCur = null; desynthTries = 0; desynthDumped = false;
+        if (Desynthable().Count == 0) { Status = "Nothing approved for desynthesis in your bags."; return; }
+        Desynthing = true;
+        Status = "Desynthesizing...";
+    }
+
+    private void EndDesynth(string? why = null)
+    {
+        Desynthing = false;
+        Status = why ?? $"Desynthesized {desynthDone} item(s)." + (desynthRefused.Count > 0 ? $" Not desynthesized: {string.Join("; ", desynthRefused.Take(6))}." : "");
+        Plugin.ChatGui.Print($"[Stash] {Status}");
+    }
+
+    /// <summary>
+    /// One step: close the bell, then per item its right-click menu "Desynthesize", the SalvageDialog's
+    /// Desynthesize button, and close SalvageResult; repeat until the stack is gone. [Assumption] window
+    /// names SalvageDialog / SalvageResult and the button label, as in the English client.
+    /// </summary>
+    private void TickDesynth()
+    {
+        var cond = Plugin.Condition;
+        if (Using || cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.InCombat] ||
+            cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty]) return;
+        // The bell first: desynthesis isn't offered while a retainer is being dealt with.
+        foreach (var n in new[] { "RetainerList", "SelectString" })
+            if (GameUi.Get(n) is var w && w != null) { w->Close(true); nextDesynth = DateTime.UtcNow.AddSeconds(1); return; }
+        if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
+        if (cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.OccupiedSummoningBell] ||
+            cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.Casting] ||
+            cond[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied39]) return;
+
+        var result = GameUi.Get("SalvageResult");
+        if (result != null) { result->Close(true); nextDesynth = DateTime.UtcNow.AddSeconds(0.6); return; }
+
+        var dialog = GameUi.Get("SalvageDialog");
+        if (dialog != null)
+        {
+            var btn = GameUi.FindButton(dialog, "Desynthesize");
+            if (btn != null) GameUi.ClickButton(dialog, btn);
+            else
+            {
+                if (!desynthDumped) { desynthDumped = true; GameUi.Dump("SalvageDialog", "desynth: no Desynthesize button"); }
+                GameUi.Fire(dialog, 0, false); // [Assumption] the dialog's confirm callback
+            }
+            desynthTries++;
+            nextDesynth = DateTime.UtcNow.AddSeconds(2.5); // the desynthesis animation
+            return;
+        }
+
+        var im = InventoryManager.Instance();
+        if (desynthCur is { } c)
+        {
+            var slot = im->GetInventorySlot(c.Type, c.Slot);
+            var qty = slot == null || slot->ItemId != c.Item ? 0 : (int)slot->Quantity;
+            if (qty < c.Qty)
+            {
+                desynthDone += c.Qty - qty;
+                desynthTries = 0;
+                desynthCur = qty > 0 ? (c.Type, c.Slot, c.Item, qty) : null;
+                return;
+            }
+        }
+
+        var menu = GameUi.Get("ContextMenu");
+        if (menu != null && desynthCur is { } m)
+        {
+            var index = -1;
+            for (var i = 7; i < menu->AtkValuesCount && index < 0; i++)
+                if (GameUi.Str(menu, i).Trim().Equals("Desynthesize", StringComparison.OrdinalIgnoreCase)) index = i - 8;
+            if (index < 0)
+            {
+                if (!desynthDumped) { desynthDumped = true; GameUi.Dump("ContextMenu", "desynth: no Desynthesize entry"); }
+                menu->FireCallbackInt(-1);
+                DesynthSkip(m, "no Desynthesize option (desynthesis not unlocked, or this item can't be)");
+                return;
+            }
+            GameUi.Fire(menu, 0, index, 0);
+            nextDesynth = DateTime.UtcNow.AddSeconds(1);
+            return;
+        }
+
+        if (im->GetEmptySlotsInBag() < 2) { EndDesynth($"Bags nearly full: stopped desynthesizing ({desynthDone} done)."); return; }
+
+        if (desynthCur == null)
+        {
+            var nextStack = Desynthable().FirstOrDefault();
+            if (nextStack.ItemId == 0) { EndDesynth(); return; }
+            var s = im->GetInventorySlot(nextStack.Type, nextStack.Slot);
+            desynthCur = (nextStack.Type, nextStack.Slot, nextStack.ItemId % 1_000_000, s == null ? 1 : (int)s->Quantity);
+            desynthTries = 0;
+        }
+        var cur = desynthCur.Value;
+        if (++desynthTries > 5) { DesynthSkip(cur, "the game didn't desynthesize it (class level too low?)"); return; }
+        var inv = InventoryAddon();
+        if (inv == 0) { AgentModule.Instance()->GetAgentByInternalId(AgentId.Inventory)->Show(); nextDesynth = DateTime.UtcNow.AddSeconds(0.8); return; }
+        AgentInventoryContext.Instance()->OpenForItemSlot(cur.Type, cur.Slot, 0, inv);
+        nextDesynth = DateTime.UtcNow.AddSeconds(0.8);
+    }
+
+    private void DesynthSkip((InventoryType Type, int Slot, uint Item, int Qty) c, string why)
+    {
+        var slot = InventoryManager.Instance()->GetInventorySlot(c.Type, c.Slot);
+        var hq = slot != null && (slot->Flags & InventoryItem.ItemFlags.HighQuality) != 0;
+        desynthSkip.Add(c.Item + (hq ? 1_000_000u : 0u));
+        desynthRefused.Add($"{Items.Info(c.Item)?.Name}: {why}");
+        desynthCur = null;
+        desynthTries = 0;
+    }
+
+    private static uint InventoryAddon()
+    {
+        foreach (var n in new[] { "InventoryLarge", "Inventory", "InventoryExpansion" })
+            if (GameUi.Get(n) is var a && a != null) return a->Id;
+        return 0;
+    }
 
     private void OnUpdate(IFramework framework)
     {
@@ -441,10 +580,11 @@ public sealed unsafe class Cleanup : IDisposable
             if (now >= nextCapture) { nextCapture = now.AddSeconds(2); Capture(); }
             if (Using && now >= nextUse) { nextUse = now.AddSeconds(1); TickUse(); }
             if (Restoring && now >= nextRestore) { nextRestore = now.AddSeconds(1.5); TickRestore(); }
+            if (Desynthing && now >= nextDesynth) { nextDesynth = now.AddSeconds(0.6); TickDesynth(); }
         }
         catch (Exception ex)
         {
-            Using = Restoring = false;
+            Using = Restoring = Desynthing = false;
             Status = "Error (see /xllog).";
             Plugin.Log.Warning(ex, "Material Stash: clean-up update failed");
         }

@@ -218,6 +218,7 @@ public class Configuration : IPluginConfiguration
     public bool CleanupAutoUse { get; set; } = true;
     /// <summary>After a clean-up run, go to an inn (Lifestream) and put "keep the look" items in the Armoire / glamour dresser.</summary>
     public bool CleanupStoreLooks { get; set; } = true;
+    public bool CleanupAutoDesynth { get; set; } = true;
     /// <summary>Your verdict per item (NQ id), instead of the suggested one.</summary>
     public Dictionary<uint, Verdict> CleanupVerdicts { get; set; } = new();
 

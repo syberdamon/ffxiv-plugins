@@ -169,7 +169,7 @@ public sealed unsafe class Wardrobe : IDisposable
 
     private void TickTravel()
     {
-        if (cleanup.Using) { phaseStart = DateTime.UtcNow; return; } // let unlearned items finish first
+        if (cleanup.Using || cleanup.Desynthing) { phaseStart = DateTime.UtcNow; return; } // let unlearned items and desynthesis finish first
         if (GameUi.IsOpen("RetainerList")) { GameUi.Close("RetainerList"); return; }
         if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
         if (GameUi.IsOpen("SelectString")) { GameUi.Close("SelectString"); return; }
