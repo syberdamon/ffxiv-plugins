@@ -9,6 +9,7 @@ Personal Dalamud plugins (API 15).
 | [Combat Recorder](CombatRecorder/README.md) | Records fights (actions, damage/heals, buffs, HP, positions) to local files for review; `/crec mark` to flag moments. |
 | [Materia Manager](MateriaManager/README.md) | Auto-stores materia to saddlebag or retainer when you open them; plans transmutation batches with keep-at-least rules and takes you to Mutamix. |
 | [Material Stash](MaterialStash/README.md) | One button above the retainer list puts gathered and mob-dropped crafting mats and crystals on your retainers, in the order you choose per category. Also tidies, keeps stock through ventures, and audits retainer junk (Clean-up tab). |
+| [Saucer Run](SaucerRun/README.md) | One floating button for the Gold Saucer: Jumbo Cactpot winnings and tickets, Mini Cactpot (played by Saucy), and selling learned Triple Triad cards for MGP. |
 | [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job MT/OT cooldown plans with callouts, starter-plan generator, optional auto-use. |
 | [Turn-In Manager](TurnInManager/README.md) | Grand Company expert delivery with guardrails (gearsets, ilvl, rarity, HQ/NQ), materia retrieval first, and seal spending up to stock targets. |
 | [Poetics Spender](PoeticsSpender/README.md) | One click turns all your Poetics into Grade 3 topsoil (Idyllshire); movable near-cap alert. Needs vnavmesh. |

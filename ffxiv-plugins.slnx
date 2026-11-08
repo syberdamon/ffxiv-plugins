@@ -9,6 +9,7 @@
   <Project Path="RaiseCallouts/RaiseCallouts.csproj" />
   <Project Path="RescueHelper/RescueHelper.csproj" />
   <Project Path="RetainerGear/RetainerGear.csproj" />
+  <Project Path="SaucerRun/SaucerRun.csproj" />
   <Project Path="TurnInManager/TurnInManager.csproj" />
   <Project Path="TankStanceManager/TankStanceManager.csproj" />
 </Solution>

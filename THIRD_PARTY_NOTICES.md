@@ -75,6 +75,14 @@ Our code is our own; credit to their authors:
 - Spring Cleaning (OhGodAGirl, MIT): how the glamour dresser's Glamour Creation list stores an item (agent event 14
   with the list index, then the confirmation's callback 0) and the Armoire's store call. No code copied.
 
+## References for Saucer Run (no code copied)
+- Saucy (PunishXIV): plays the Mini and Jumbo Cactpot; its NPC ids (Mini broker 1010445, Jumbo broker 1010446,
+  cashier 1010451). Required at runtime for the Cactpots.
+- DailyDuty (MidoriKami): how tickets are counted (window openings) and the Jumbo Cactpot drawing times by region.
+- AutoDuty (ffxivcode): the Triple Triad Trader's id, position and selling callbacks.
+- ECommons (NightmareXIV): the layout of the Triple Triad card exchange list.
+- Teamcraft (MIT): NPC map positions.
+
 ## Teamcraft data (Retainer Gear, Material Stash)
 
 Retainer Gear and Material Stash (clean-up sources) bundle dungeon-drop and shop-trade lists derived from Teamcraft's public data
