@@ -1186,6 +1186,15 @@ public sealed class MainWindow : Window
             if (ImGui.InputInt("Most crafts per batch", ref mb, 5, 10)) { C.ScripMaxBatch = Math.Clamp(mb, 1, 140); changed = true; }
         }
 
+        if (!sg.Busy && C.ScripRestoreLists.Count > 0)
+        {
+            ImGui.TextColored(Warn, $"GatherBuddy lists still switched off by a scrip run: {string.Join(", ", C.ScripRestoreLists)}");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Switch them back on")) sg.RestoreLists();
+        }
+        ImGui.TextDisabled("Gatherer scrips: GatherBuddy's auto-gather does the gathering. During a batch your auto-gather lists are switched off, " +
+                           $"a list \"{MaterialStash.Core.GatherBuddyLists.OurList}\" holds the collectable, and your lists come back on afterwards.");
+
         if (ImGui.CollapsingHeader($"Goals ({C.ScripGoals.Count})###scripgoals", ImGuiTreeNodeFlags.DefaultOpen))
         {
             if (ImGui.BeginTable("##scripgoals", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
@@ -1217,7 +1226,7 @@ public sealed class MainWindow : Window
                     if (ImGui.InputInt("##t", ref t, 0, 0)) { g.Target = Math.Max(0, t); changed = true; }
 
                     ImGui.TableNextColumn();
-                    if (plan != null) changed |= DrawRecipePick(g, plan);
+                    if (plan != null) changed |= plan.Gather != null || !ScripData.IsCrafterScrip(plan.Shop.CurrencyItemId) ? DrawGatherPick(g, plan) : DrawRecipePick(g, plan);
 
                     ImGui.TableNextColumn();
                     if (plan == null) ImGui.TextColored(Warn, "not sold for scrips");
@@ -1227,7 +1236,7 @@ public sealed class MainWindow : Window
                         var parts = new System.Collections.Generic.List<string> { $"need {plan.Need} ({plan.Need * plan.Shop.Cost:N0} scrips)" };
                         if (plan.Held > 0) parts.Add($"{plan.Held} to turn in (~{plan.HeldValue:N0})");
                         if (plan.RecipeWhy != null) parts.Add(plan.RecipeWhy);
-                        else if (plan.CraftsNeeded > 0) parts.Add($"~{plan.CraftsNeeded} crafts [Estimate: top tier]");
+                        else if (plan.CraftsNeeded > 0) parts.Add($"~{plan.CraftsNeeded} {(plan.Gather != null ? "gathered" : "crafts")} [Estimate: top tier]");
                         ImGui.TextWrapped(string.Join("; ", parts));
                     }
 
@@ -1269,6 +1278,31 @@ public sealed class MainWindow : Window
                 }
         }
         if (changed) C.Save();
+    }
+
+    /// <summary>Gatherer-scrip goals: Auto (most scrips you can gather) or a collectable you pick.</summary>
+    private bool DrawGatherPick(ScripGoal g, ScripPlan plan)
+    {
+        var changed = false;
+        var p = plan.Gather;
+        var label = p == null ? "Auto: none usable"
+            : $"{(g.GatherItemId == 0 ? "Auto: " : "")}{p.Name} ({ScripData.GatherJob(p.JobTab)}, {p.High})";
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##gather", label))
+        {
+            if (ImGui.Selectable("Auto (most scrips per item)", g.GatherItemId == 0)) { g.GatherItemId = 0; changed = true; }
+            foreach (var r in ScripData.Gatherables(Plugin.DataManager, plan.Shop.CurrencyItemId))
+            {
+                var cant = ScripData.CantGather(Plugin.DataManager, r);
+                var text = $"{r.Name} ({ScripData.GatherJob(r.JobTab)} {r.LevelMin}+): {r.Low}/{r.Mid}/{r.High}" + (cant != null ? $"  [{cant}]" : "");
+                if (cant != null) ImGui.PushStyleColor(ImGuiCol.Text, Dim);
+                if (ImGui.Selectable(text + $"##g{r.ItemId}", g.GatherItemId == r.ItemId)) { g.GatherItemId = r.ItemId; changed = true; }
+                if (cant != null) ImGui.PopStyleColor();
+            }
+            ImGui.EndCombo();
+        }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Timed (unspoiled / legendary) nodes gather slowly; pick a regular node if Auto chose a timed one.");
+        return changed;
     }
 
     /// <summary>The collectable a goal crafts: Auto (best scrips per craft you can make) or a recipe you pick.</summary>

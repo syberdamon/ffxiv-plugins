@@ -215,9 +215,21 @@ retainers. **Run all goals** (or **Run** on one) repeats until you have the targ
 It stops a goal (and goes on to the next) when there's no usable recipe, a material can't be gathered (mob drops,
 vendor items: buy them or stock them), the bags have no room for a batch, a batch made nothing, or a turn-in changed
 nothing. **Stock mats** on a goal puts its collectable's recipe on the Stock list, so ventures bring back its
-materials. Gatherer scrips: turned in and spent, but the collectables are yours to gather (GatherBuddy) for now.
+materials.
 
-Needs Turn-In Manager (turn-ins, buying), and GatherBuddy Reborn and/or Artisan. Vulcan has no stop command: Stop
+**Gatherer scrips** (e.g. items bought with purple/orange gatherers' scrips): instead of crafting, a batch is gathered
+with GatherBuddy Reborn's auto-gather. Auto picks the Miner/Botanist collectable paying the most you can turn in
+(or pick one per goal; timed nodes are slow, so pick a regular one if Auto chose a timed one). For each batch:
+your switched-on auto-gather lists are switched off (and noted), a list named "Material Stash: scrip goals" is
+created or reused with the collectable and the amount, it's switched on, auto-gather starts, and it's switched off
+when the batch is in your bags (or bags are down to the free slots you keep). Then your lists are switched back on.
+If a run is cut off, the tab shows the lists still off and a button to switch them back. Fishing collectables
+aren't automated (bait). GatherBuddy has no IPC for lists, so this reaches its list manager through reflection
+[Assumption: its internal names as of Nov 2026]; after a GatherBuddy update that renames them, the run stops with
+a message and changes nothing.
+
+Needs Turn-In Manager (turn-ins, buying), and GatherBuddy Reborn and/or Artisan (crafter scrips) or GatherBuddy
+Reborn (gatherer scrips). Vulcan has no stop command: Stop
 ends our run, but a Vulcan batch already going has to be stopped in Vulcan's window.
 
 ## Retainer records
@@ -252,6 +264,9 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 
 - Scrip goals: how long Vulcan's gather-then-craft pipeline looks idle between steps (a batch counts as over after 30
   seconds with no crafting, gathering, travel or new collectables); whether Vulcan's solver reaches the top tier.
+- Gatherer-scrip goals: reaching GatherBuddy Reborn's list manager by reflection (Dalamud's plugin manager ->
+  GatherBuddyReborn instance -> AutoGatherListsManager), and whether auto-gather gathers the collectable version
+  with its collectable rotation (expected: yes).
 - Crystals aren't taken out of retainers by scrip goals (keep enough on you with the crystal "keep" setting).
 
 Confirmed from AutoRetainer's source: `AutoRetainer.PluginState.IsBusy`, `OnSendRetainerToVenture`, `SetVenture`.

@@ -131,6 +131,8 @@ public class ScripGoal
     public bool Enabled { get; set; } = true;
     /// <summary>The collectable recipe to craft (0 = the one paying the most scrips per craft you can make).</summary>
     public uint RecipeId { get; set; }
+    /// <summary>Gatherer scrips: the collectable to gather (0 = the one paying the most you can gather).</summary>
+    public uint GatherItemId { get; set; }
 }
 
 [Serializable]
@@ -250,6 +252,8 @@ public class Configuration : IPluginConfiguration
     public bool ScripGather { get; set; } = true;
     /// <summary>Bag slots left free before a batch starts (collectables take a slot each).</summary>
     public int ScripReserveSlots { get; set; } = 3;
+    /// <summary>GatherBuddy auto-gather lists a gathering batch switched off, to switch back on afterwards.</summary>
+    public List<string> ScripRestoreLists { get; set; } = new();
     /// <summary>Most collectables crafted per batch, between turn-ins.</summary>
     public int ScripMaxBatch { get; set; } = 40;
 
