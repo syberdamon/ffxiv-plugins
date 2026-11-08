@@ -132,7 +132,8 @@ desynthesis; that list is partial, so some items show "desynth results unknown"]
 whose results are worth more than selling or vendoring it. Spiritbond is read when a retainer is opened (Scan all once
 after updating); records from Allagan Tools don't carry it.
 
-Right-click an item's name for **More information** (Allagan Tools' item window, via its `/moreinfo`), Universalis,
+Right-click an item's name to **Try on** gear in the game's Fitting Room (your character, any item), see pictures of
+the look (Eorzea Collection glamours, the Console Games Wiki page), open **More information** (Allagan Tools' item window, via its `/moreinfo`), Universalis,
 Garland Tools, Teamcraft or the Console Games Wiki, or to copy its name.
 
 Any verdict can be changed per item. Stacks worth more than 10,000 gil get their own look; the rest can be approved a

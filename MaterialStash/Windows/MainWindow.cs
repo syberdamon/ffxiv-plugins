@@ -1009,13 +1009,27 @@ public sealed class MainWindow : Window
         return changed;
     }
 
-    /// <summary>Right-click menu on an item's name: Allagan Tools' "more information" window, item sites, copy the name.</summary>
+    /// <summary>
+    /// Right-click menu on an item's name: try it on in game (gear), pictures of the look, Allagan Tools'
+    /// "more information" window, item sites, copy the name.
+    /// </summary>
     private static void ItemMenu(uint itemId, string name)
     {
         if (!ImGui.BeginPopupContextItem($"##item{itemId}")) return;
         var plain = name.Replace(" (HQ)", "");
         ImGui.TextDisabled(plain);
         ImGui.Separator();
+        var gear = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>().GetRowOrDefault(itemId) is { } row && row.EquipSlotCategory.RowId != 0;
+        if (gear)
+        {
+            if (ImGui.MenuItem("Try on (in game)")) unsafe { FFXIVClientStructs.FFXIV.Client.UI.Agent.AgentTryon.TryOn(0, itemId); }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Opens the game's Fitting Room with it on your character (works for items you don't hold).");
+            if (ImGui.MenuItem("Pictures: Eorzea Collection")) Dalamud.Utility.Util.OpenLink($"https://ffxiv.eorzeacollection.com/glamours?search_options%5Bsearch%5D={Uri.EscapeDataString(plain)}&search_options%5Bapply%5D=");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Players' glamours, searched by the item's name.");
+            if (ImGui.MenuItem("Pictures: Console Games Wiki")) Dalamud.Utility.Util.OpenLink($"https://ffxiv.consolegameswiki.com/wiki/{Uri.EscapeDataString(plain.Replace(' ', '_'))}");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("The item's page, with screenshots of it worn.");
+            ImGui.Separator();
+        }
         var allagan = Plugin.CommandManager.Commands.ContainsKey("/moreinfo");
         if (!allagan) ImGui.BeginDisabled();
         if (ImGui.MenuItem("More information (Allagan Tools)")) Plugin.CommandManager.ProcessCommand($"/moreinfo {itemId}");
