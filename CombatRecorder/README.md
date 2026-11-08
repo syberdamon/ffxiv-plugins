@@ -24,8 +24,9 @@ One file per duty (and per zone visit in the open world if enabled), in
 ## DPS meter
 A window with the current fight (or one of the last 10): one row per party member with **DPS, share, damage, crit %,
 direct hit %, deaths, HPS and damage taken**; click a row for that player's skills (damage, share, hits, crit/DH %,
-max hit; DoT ticks listed by status). Right-click anywhere on the meter for the **compact view** (one bar per player),
-sort order, columns, past fights, hiding names, role colors, counting everyone around (open world), locking, position
+max hit; DoT ticks listed by status). The small **Bars** / **Full** button at the top swaps
+between this table and the **compact view** (one bar per player, optionally with each player's % share).
+Right-click anywhere on the meter for the views, sort order, columns, past fights, hiding names, role colors, counting everyone around (open world), locking, position
 mode and settings. `/crec meter` shows or hides it, `/crec reset` clears it. Works anywhere, recording on or off.
 
 **Position mode** (`/crec meter move`, the settings button, or the right-click menu) shows the meter right away, out of
@@ -35,7 +36,7 @@ combat too, unlocked and outlined, with sample rows if there's no fight yet. Dra
 Settings (`/crec`):
 - **When it shows:** only while fighting, and for how long after a fight (default 10 s); hide during cutscenes.
 - **Layout and look:** lock, click-through when locked, compact view, title line on/off, hide names, color by role,
-  highlight your row, sort by damage / healing / damage taken, max rows (you're always shown), text size, compact bar
+  compact-view % share on/off, highlight your row, sort by damage / healing / damage taken, max rows (you're always shown), text size, compact bar
   width, background opacity.
 - **Columns:** turn each full-view column on or off.
 

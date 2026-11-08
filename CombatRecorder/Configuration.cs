@@ -26,6 +26,8 @@ public class Configuration : IPluginConfiguration
     public bool MeterEnabled { get; set; } = true;
     public bool ShowMeter { get; set; } = true;
     public bool MeterCompact { get; set; } = false;
+    /// <summary>Compact view: add each player's share (%) of the party total for the sorted stat.</summary>
+    public bool MeterCompactPercent { get; set; } = true;
     public bool MeterLocked { get; set; } = false;
     public bool MeterHideNames { get; set; } = false;
     /// <summary>Count every player around, not just your party (open world).</summary>

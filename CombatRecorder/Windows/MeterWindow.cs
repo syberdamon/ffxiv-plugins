@@ -11,9 +11,9 @@ namespace CombatRecorder.Windows;
 /// <summary>
 /// The DPS meter: the current (or a past) encounter, one row per player. Full view: DPS, share, damage,
 /// crit %, direct hit %, deaths, HPS, damage taken (each column can be hidden); click a row for that
-/// player's skills. Compact view: one bar per player. Right-click anywhere on the meter for views, past
-/// fights and settings. Position mode shows it at any time (sample rows if there's no fight) so it can
-/// be moved and resized out of combat.
+/// player's skills. Compact view: one bar per player, with an optional % share. A small Full/Bars button
+/// swaps views; right-click anywhere on the meter for views, past fights and settings. Position mode
+/// shows it at any time (sample rows if there's no fight) so it can be moved and resized out of combat.
 /// </summary>
 public sealed class MeterWindow : Window
 {
@@ -147,6 +147,15 @@ public sealed class MeterWindow : Window
             ImGui.EndPopup();
         }
 
+        // ---- view swap button (compact <-> full), leads the title line; hidden when clicks pass through
+        var swap = !(C.MeterLocked && C.MeterClickThrough && !Moving);
+        if (swap)
+        {
+            if (ImGui.SmallButton(C.MeterCompact ? "Full##swap" : "Bars##swap")) { C.MeterCompact = !C.MeterCompact; C.Save(); }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip(C.MeterCompact ? "Switch to the full table view." : "Switch to the compact bar view.");
+            if (C.MeterShowTitle || Moving) ImGui.SameLine();
+        }
+
         // ---- title line
         if (C.MeterShowTitle || Moving)
         {
@@ -165,6 +174,8 @@ public sealed class MeterWindow : Window
         if (C.MeterCompact)
         {
             var top = Math.Max(1, rows.Max(SortValue));
+            // share of everyone counted (not just the rows shown, so max rows doesn't inflate it)
+            var sum = Math.Max(1, e.Players.Values.Sum(SortValue));
             foreach (var p in rows)
             {
                 var v = SortValue(p);
@@ -174,6 +185,7 @@ public sealed class MeterWindow : Window
                     2 => $"{Label(p)}  {v:N0} taken",
                     _ => $"{Label(p)}  {v / secs:N0}",
                 };
+                if (C.MeterCompactPercent) text += $"  {100.0 * v / sum:0}%";
                 ImGui.PushStyleColor(ImGuiCol.PlotHistogram, BarColor(p));
                 ImGui.ProgressBar((float)v / top, new Vector2(Math.Clamp(C.MeterBarWidth, 80, 1000), 0), text);
                 ImGui.PopStyleColor();
@@ -214,6 +226,7 @@ public sealed class MeterWindow : Window
     {
         if (ImGui.MenuItem("Position mode (move / resize)", "", Moving)) Moving = !Moving;
         if (ImGui.MenuItem("Compact view", "", C.MeterCompact)) { C.MeterCompact = !C.MeterCompact; C.Save(); }
+        if (C.MeterCompact && ImGui.MenuItem("Show % in compact view", "", C.MeterCompactPercent)) { C.MeterCompactPercent = !C.MeterCompactPercent; C.Save(); }
         if (ImGui.MenuItem("Lock position and size", "", C.MeterLocked)) { C.MeterLocked = !C.MeterLocked; C.Save(); }
         if (ImGui.BeginMenu("Sort by"))
         {
