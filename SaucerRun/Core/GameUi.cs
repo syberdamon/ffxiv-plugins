@@ -17,8 +17,23 @@ public static unsafe class GameUi
     {
         var mgr = RaptureAtkUnitManager.Instance();
         if (mgr == null) return null;
-        var addon = mgr->GetAddonByName(name);
-        return addon != null && addon->IsVisible ? addon : null;
+        // The game can hold several windows of one name (a hidden "SelectString" plus the one on
+        // screen); the first isn't always the visible one, so check each, as Saucy does.
+        for (var i = 1; i < 10; i++)
+        {
+            var addon = mgr->GetAddonByName(name, i);
+            if (addon == null) break;
+            if (addon->IsVisible) return addon;
+        }
+        return null;
+    }
+
+    /// <summary>Pick a menu row the way ECommons' Callback.Fire(addon, true, index) does.</summary>
+    public static void SelectRow(AtkUnitBase* addon, int index)
+    {
+        var v = stackalloc AtkValue[1];
+        v[0].SetInt(index);
+        addon->FireCallback(1, v, true);
     }
 
     public static bool IsOpen(string name) => Get(name) != null;
