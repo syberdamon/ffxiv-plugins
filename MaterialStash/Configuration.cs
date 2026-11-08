@@ -45,8 +45,6 @@ public class CharacterData
     public HashSet<ulong> NoRedirect { get; set; } = new();
     /// <summary>Ventures the game refused when we picked them (task id -> when): skipped for a week, then tried again.</summary>
     public Dictionary<uint, DateTime> BlockedVentures { get; set; } = new();
-    /// <summary>Retainers back from a venture whose item belongs with another retainer: visited by the next tidy.</summary>
-    public HashSet<ulong> VentureReturns { get; set; } = new();
     /// <summary>Saddlebag contents when last open (item id incl. HQ offset -> quantity).</summary>
     public Dictionary<uint, int> Saddlebag { get; set; } = new();
     public DateTime? SaddlebagSeen { get; set; }
@@ -137,8 +135,8 @@ public class Configuration : IPluginConfiguration
     public bool TidySort { get; set; } = true;
     /// <summary>Laps around the retainers a tidy may take.</summary>
     public int TidyMaxLaps { get; set; } = 4;
-    /// <summary>After AutoRetainer finishes, tidy venture returns into their home retainers.</summary>
-    public bool TidyAfterAutoRetainer { get; set; } = true;
+    /// <summary>After AutoRetainer finishes, stash what ventures brought back (it lands in your bags).</summary>
+    public bool StashAfterAutoRetainer { get; set; } = true;
 
     // ---- venture timer window
     public bool ShowVentureWindow { get; set; } = true;

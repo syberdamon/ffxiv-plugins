@@ -202,7 +202,6 @@ public sealed unsafe class Tracker : IDisposable
         var me = Me();
         if (me == null || ActiveRetainer() is not { } a || !Loaded(RetainerPages)) return false;
         if (!me.Retainers.TryGetValue(a.Id, out var snap)) me.Retainers[a.Id] = snap = new RetainerSnap { Name = a.Name };
-        me.VentureReturns.Remove(a.Id); // seen now: whatever the venture brought back is in the record
         var items = new Dictionary<uint, int>();
         var stacks = new Dictionary<uint, int>();
         var bound = new Dictionary<uint, int>();
