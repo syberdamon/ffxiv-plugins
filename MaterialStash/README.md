@@ -57,7 +57,9 @@ Add them on the **Keep on me** tab or with **Keep** on the Bags now tab.
 A small movable window: how many retainers are ready (venture done, or none assigned) and minutes until the next. From
 the game's retainer list once you've used a bell this session; before that, from AutoRetainer (its
 `PluginState.GetClosestRetainerVentureSecondsRemaining`). Hidden in combat, duties and cutscenes unless you pin it;
-click it to open Material Stash. `/stash ventures` toggles it.
+left-click it to go to the nearest summoning bell (walks to one in sight with vnavmesh; with none in sight,
+Lifestream to the market board first, where cities keep bells close by [Assumption]; also `/stash bell`), right-click
+it to open Material Stash. `/stash ventures` toggles it.
 
 ## Saddlebag
 With the saddlebag open, two buttons sit on top of it: **Mats -> saddlebag** and **Mats -> bags** (stashable materials
