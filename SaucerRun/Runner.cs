@@ -423,6 +423,9 @@ public sealed unsafe class Runner : IDisposable
     }
 
     private int menuTries, buyClicks;
+    private nint answeredDialog;
+    private int dialogWaits, pickedIndex = -1;
+    private uint pickedEntries;
 
     private bool BuyTicket(uint baseId)
     {
@@ -493,7 +496,7 @@ public sealed unsafe class Runner : IDisposable
             else { ss->FireCallbackInt(rows.Count > 0 ? rows.Count - 1 : -1); return true; }
         }
         menuTries = 0;
-        ss->FireCallbackInt(row);
+        GameUi.SelectRow(ss, row);
         next = DateTime.UtcNow.AddSeconds(1);
         return true;
     }
@@ -513,11 +516,24 @@ public sealed unsafe class Runner : IDisposable
         var exchange = GameUi.Get("TripleTriadCoinExchange");
         if (dialog != null && exchange != null)
         {
-            var count = (int)Math.Max(1u, GameUi.UInt(exchange, 124 + PickIndex(exchange)));
-            GameUi.Fire(dialog, 0, count);
-            next = DateTime.UtcNow.AddSeconds(1);
+            // Answer each amount dialog once, for the card we picked, and only while the list still
+            // shows it. 0.1.x answered again while the dialog was closing after a sale, for a card
+            // the list no longer had, and the game crashed (AgentTripleTriadCoinExchange.ReceiveEvent).
+            if ((nint)dialog == answeredDialog) { if (++dialogWaits > 10) { dialog->Close(true); answeredDialog = 0; } return; }
+            if (pickedIndex < 0 || GameUi.UInt(exchange, 1) != pickedEntries || pickedIndex >= pickedEntries) { dialog->Close(true); return; }
+            var count = GameUi.UInt(exchange, 124 + pickedIndex);
+            if (count == 0) { dialog->Close(true); return; }
+            var v = stackalloc AtkValue[2];
+            v[0].SetInt(0);
+            v[1].SetUInt(count);
+            dialog->FireCallback(2, v, true); // AutoDuty's call: (0, the card's count)
+            answeredDialog = (nint)dialog;
+            dialogWaits = 0;
+            pickedIndex = -1;
+            next = DateTime.UtcNow.AddSeconds(1.5);
             return;
         }
+        if (dialog == null) answeredDialog = 0;
         if (GameUi.Get("SelectYesno") is var yn && yn != null) { yn->FireCallbackInt(0); next = DateTime.UtcNow.AddSeconds(1); return; }
         if (exchange != null)
         {
@@ -526,6 +542,9 @@ public sealed unsafe class Runner : IDisposable
             if (entries == 0 || pick < 0) { exchange->Close(true); plan.Clear(); NextStep(); return; }
             if (entries == lastCardCount && ++tries > 4) { Fail("The trader isn't taking the cards (dump saved)."); GameUi.Dump("TripleTriadCoinExchange"); return; }
             if (entries != lastCardCount) { if (lastCardCount != uint.MaxValue) sold++; lastCardCount = entries; tries = 0; }
+            if (dialog != null) return; // the last amount dialog is still closing
+            pickedIndex = pick;
+            pickedEntries = entries;
             SelectCard(exchange, pick);
             next = DateTime.UtcNow.AddSeconds(1);
             return;

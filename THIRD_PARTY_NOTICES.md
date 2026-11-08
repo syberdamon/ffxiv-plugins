@@ -80,6 +80,9 @@ Our code is our own; credit to their authors:
 ## References for Saucer Run (no code copied)
 - Saucy (PunishXIV): plays the Mini and Jumbo Cactpot; its NPC ids (Mini broker 1010445, Jumbo broker 1010446,
   cashier 1010451). Required at runtime for the Cactpots.
+  Also its way of finding the on-screen menu among several windows of the same name (GetAddonByName with an index)
+  and picking a row (callback with update). AutoDuty's TripleTriadCardSellHelper: the card amount dialog's callback
+  (0, the card's count).
 - DailyDuty (MidoriKami): how tickets are counted (window openings) and the Jumbo Cactpot drawing times by region.
 - AutoDuty (ffxivcode): the Triple Triad Trader's id, position and selling callbacks.
 - ECommons (NightmareXIV): the layout of the Triple Triad card exchange list.

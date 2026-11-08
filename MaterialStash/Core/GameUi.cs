@@ -17,8 +17,14 @@ public static unsafe class GameUi
     {
         var mgr = RaptureAtkUnitManager.Instance();
         if (mgr == null) return null;
-        var addon = mgr->GetAddonByName(name);
-        return addon != null && addon->IsVisible ? addon : null;
+        // Several windows can share a name (a hidden one first); return the one on screen.
+        for (var i = 1; i < 10; i++)
+        {
+            var addon = mgr->GetAddonByName(name, i);
+            if (addon == null) break;
+            if (addon->IsVisible) return addon;
+        }
+        return null;
     }
 
     public static bool IsOpen(string name) => Get(name) != null;
