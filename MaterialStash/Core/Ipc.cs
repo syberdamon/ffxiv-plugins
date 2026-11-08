@@ -195,3 +195,49 @@ public sealed class GatherBuddyIpc
     public string Status { get { try { return statusText.InvokeFunc(); } catch (Exception) { return ""; } } }
     public bool StartAutoGather() { try { setAutoGather.InvokeAction(true); return true; } catch (Exception) { return false; } }
 }
+
+/// <summary>Ices Cosmic Exploration (ICE): run its missions until cosmocredits reach an amount. Every call guarded.</summary>
+public sealed class IceIpc
+{
+    private readonly ICallGateSubscriber<bool> isRunning;
+    private readonly ICallGateSubscriber<object> enable;
+    private readonly ICallGateSubscriber<object> disable;
+    private readonly ICallGateSubscriber<string, bool, object> setting;
+    private readonly ICallGateSubscriber<string, int, object> amount;
+    private readonly ICallGateSubscriber<string> state;
+
+    public IceIpc()
+    {
+        var pi = Plugin.PluginInterface;
+        isRunning = pi.GetIpcSubscriber<bool>("ICE.IsRunning");
+        enable = pi.GetIpcSubscriber<object>("ICE.Enable");
+        disable = pi.GetIpcSubscriber<object>("ICE.Disable");
+        setting = pi.GetIpcSubscriber<string, bool, object>("ICE.ChangeSetting");
+        amount = pi.GetIpcSubscriber<string, int, object>("ICE.ChangeSettingAmount");
+        state = pi.GetIpcSubscriber<string>("ICE.CurrentState");
+    }
+
+    public bool IsLoaded { get { try { isRunning.InvokeFunc(); return true; } catch (Exception) { return false; } } }
+    public bool Running { get { try { return isRunning.InvokeFunc(); } catch (Exception) { return false; } } }
+    public string State { get { try { return state.InvokeFunc(); } catch (Exception) { return ""; } } }
+
+    /// <summary>Run ICE's missions (as set up in ICE) until cosmocredits reach the target.</summary>
+    public bool EarnTo(int target)
+    {
+        try
+        {
+            amount.InvokeAction("CosmoCreditsCap", target);
+            setting.InvokeAction("StopOnceHitCosmoCredits", true);
+            enable.InvokeAction();
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>Stop ICE and put its credit stop back to ICE's defaults (cap 30,000, stop-at-cap off).</summary>
+    public void StopAndReset()
+    {
+        try { disable.InvokeAction(); } catch (Exception) { }
+        try { amount.InvokeAction("CosmoCreditsCap", 30000); setting.InvokeAction("StopOnceHitCosmoCredits", false); } catch (Exception) { }
+    }
+}

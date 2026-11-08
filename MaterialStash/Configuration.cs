@@ -252,6 +252,12 @@ public class Configuration : IPluginConfiguration
     public bool ScripGather { get; set; } = true;
     /// <summary>Bag slots left free before a batch starts (collectables take a slot each).</summary>
     public int ScripReserveSlots { get; set; } = 3;
+    /// <summary>In a Cosmic Exploration zone: buy goal items and missing materials with cosmocredits first (they cost no materials).</summary>
+    public bool ScripUseCosmo { get; set; } = true;
+    /// <summary>Short of cosmocredits: run ICE (its missions, as set up in ICE) until there are enough.</summary>
+    public bool ScripCosmoEarn { get; set; } = true;
+    /// <summary>Cosmocredits never spent (kept for gear, cosmetics...).</summary>
+    public int ScripCosmoReserve { get; set; } = 10000;
     /// <summary>GatherBuddy auto-gather lists a gathering batch switched off, to switch back on afterwards.</summary>
     public List<string> ScripRestoreLists { get; set; } = new();
     /// <summary>Most collectables crafted per batch, between turn-ins.</summary>

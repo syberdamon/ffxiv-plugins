@@ -75,6 +75,10 @@ code is our own; credit to their authors:
   Reborn reaches Artisan's lists: through Dalamud's plugin manager by reflection.
 - TheCollector (Ashylila): turn-in / scrip-shop pipeline, scrip currency numbers, Solution Nine and Old Gridania
   aethernet routes.
+- Ices Cosmic Exploration (LeontopodiumNivale14): the cosmocredit exchange's item list and costs, Mesouaidonque's
+  spot per zone, the menu row, and the IPC (`ICE.Enable`, `Disable`, `IsRunning`, `ChangeSetting`,
+  `ChangeSettingAmount`, `CurrentState`) Material Stash uses to earn cosmocredits.
+- ECommons (NightmareXIV): the ShopExchangeCurrency window layout (rows, costs, row index, buy callback).
 - Artisan (PunishXIV): IPC (`Artisan.CraftItem`, `IsBusy`, `SetStopRequest`) used to craft.
 
 

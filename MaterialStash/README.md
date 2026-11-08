@@ -206,7 +206,7 @@ retainers. **Run all goals** (or **Run** on one) repeats until you have the targ
    [Estimate]; the next turn-in counts what was really paid. A batch is sized so the bag slots you keep free
    (3 by default, since each collectable takes its own slot) are still free afterwards.
 3. **Materials, in order:** your bags; then your retainers (walks to the nearest summoning bell and takes whole stacks
-   out); then, if on, it stops and lists what's on the market board at or under your price cap (buy them, then
+   out); then cosmocredits (below); then, if on, it stops and lists what's on the market board at or under your price cap (buy them, then
    **Resume**; buying isn't automated yet); then gathering. Vulcan (GatherBuddy Reborn) gathers what's missing and
    makes intermediate items, then crafts. With gathering off, it stops when gatherable materials run out.
 4. **Crafting plugin:** Vulcan (`/vulcan craft <recipe> <count>`) or Artisan (its IPC). Artisan only crafts the
@@ -216,6 +216,15 @@ It stops a goal (and goes on to the next) when there's no usable recipe, a mater
 vendor items: buy them or stock them), the bags have no room for a batch, a batch made nothing, or a turn-in changed
 nothing. **Stock mats** on a goal puts its collectable's recipe on the Stock list, so ventures bring back its
 materials.
+
+**Cosmocredits** (Cosmic Exploration): Mesouaidonque's exchange sells some goal items (Mason's Abrasive, 1,000) and
+materials (aethersands, Condensed Solution, materia...). While you're in a Cosmic Exploration zone, a goal item the
+exchange sells is bought with cosmocredits before any crafting, and missing materials it sells are bought before
+the market board or gathering, keeping a reserve (default 10,000). Short of credits, it runs ICE (Ices Cosmic
+Exploration, its missions as you've set them up in ICE) until there are enough, once per goal, then buys; ICE's
+credit stop is put back to its defaults (cap 30,000, stop-at-cap off) afterwards. [Assumption] No travel to the
+moon yet: outside those zones this step is skipped. The item list and costs are ICE's as of Nov 2026; the live
+window decides.
 
 **Gatherer scrips** (e.g. items bought with purple/orange gatherers' scrips): instead of crafting, a batch is gathered
 with GatherBuddy Reborn's auto-gather. Auto picks the Miner/Botanist collectable paying the most you can turn in
