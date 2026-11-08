@@ -1170,14 +1170,26 @@ public sealed class MainWindow : Window
             ImGui.TextDisabled("Materials, in this order:");
             var b = C.ScripUseRetainers;
             if (ImGui.Checkbox("1. Take them out of my retainers (walks to the nearest summoning bell)", ref b)) { C.ScripUseRetainers = b; changed = true; }
+            b = C.ScripUseCosmo;
+            if (ImGui.Checkbox("2. Cosmocredits (Mesouaidonque), also for the goal item itself, keeping", ref b)) { C.ScripUseCosmo = b; changed = true; }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Only while you're in a Cosmic Exploration zone (no travel to the moon yet). Mason's Abrasive is 1,000 there.");
+            ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+            var cr = C.ScripCosmoReserve;
+            if (ImGui.InputInt("##cosmoreserve", ref cr, 0, 0)) { C.ScripCosmoReserve = Math.Clamp(cr, 0, CosmoData.Cap); changed = true; }
+            ImGui.SameLine(); ImGui.TextDisabled($"(have {CosmoData.Credits:N0}{(CosmoData.InZone ? "" : ", not in a Cosmic Exploration zone")})");
+            ImGui.Indent();
+            b = C.ScripCosmoEarn;
+            if (ImGui.Checkbox("Short of cosmocredits: run ICE until there are enough (its missions as set up in ICE)", ref b)) { C.ScripCosmoEarn = b; changed = true; }
+            ImGui.SameLine(); ImGui.TextColored(sg.Ice.IsLoaded ? Good : Warn, sg.Ice.IsLoaded ? "ICE loaded" : "ICE not loaded");
+            ImGui.Unindent();
             b = C.ScripBuyMarket;
-            if (ImGui.Checkbox("2. Stop so I can buy them on the market board at or under", ref b)) { C.ScripBuyMarket = b; changed = true; }
+            if (ImGui.Checkbox("3. Stop so I can buy them on the market board at or under", ref b)) { C.ScripBuyMarket = b; changed = true; }
             ImGui.SameLine(); ImGui.SetNextItemWidth(90);
             var mp = C.ScripMaxPrice;
             if (ImGui.InputInt("gil each##scripmax", ref mp, 0, 0)) { C.ScripMaxPrice = Math.Max(0, mp); changed = true; }
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Lowest home-world listing (Universalis). The run pauses with a list; buy them, then Resume. Buying itself isn't automated yet.");
             b = C.ScripGather;
-            if (ImGui.Checkbox("3. Gather the rest (Vulcan); off = stop when gatherable materials run out", ref b)) { C.ScripGather = b; changed = true; }
+            if (ImGui.Checkbox("4. Gather the rest (Vulcan); off = stop when gatherable materials run out", ref b)) { C.ScripGather = b; changed = true; }
 
             var rs = C.ScripReserveSlots; ImGui.SetNextItemWidth(90);
             if (ImGui.InputInt("Bag slots to keep free", ref rs, 1, 1)) { C.ScripReserveSlots = Math.Clamp(rs, 0, 50); changed = true; }
@@ -1235,6 +1247,7 @@ public sealed class MainWindow : Window
                     {
                         var parts = new System.Collections.Generic.List<string> { $"need {plan.Need} ({plan.Need * plan.Shop.Cost:N0} scrips)" };
                         if (plan.Held > 0) parts.Add($"{plan.Held} to turn in (~{plan.HeldValue:N0})");
+                        if (CosmoData.Costs.TryGetValue(g.ItemId, out var cc)) parts.Add($"or {cc:N0} cosmocredits each");
                         if (plan.RecipeWhy != null) parts.Add(plan.RecipeWhy);
                         else if (plan.CraftsNeeded > 0) parts.Add($"~{plan.CraftsNeeded} {(plan.Gather != null ? "gathered" : "crafts")} [Estimate: top tier]");
                         ImGui.TextWrapped(string.Join("; ", parts));
