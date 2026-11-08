@@ -876,6 +876,8 @@ public sealed class MainWindow : Window
             if (ImGui.Checkbox("Desynthesize rather than vendor when an item can be desynthesized", ref pd)) { C.CleanupPreferDesynth = pd; changed = true; }
             var au = C.CleanupAutoUse;
             if (ImGui.Checkbox("After a run, use the unlearned items it brought out (minions, cards, rolls...)", ref au)) { C.CleanupAutoUse = au; changed = true; }
+            var ad = C.CleanupAutoDesynth;
+            if (ImGui.Checkbox("After a run, desynthesize the approved \"Desynthesize\" items it brought out", ref ad)) { C.CleanupAutoDesynth = ad; changed = true; }
             var sl = C.CleanupStoreLooks;
             if (ImGui.Checkbox("After a run, go to an inn and store the \"keep the look\" items (Armoire, then glamour dresser)", ref sl)) { C.CleanupStoreLooks = sl; changed = true; }
             ImGui.TextColored(Dim, "Value: home-world market (lower of the lowest listing and the 7-day median, less 5% tax) or the vendor price, whichever is higher.\n" +
@@ -928,7 +930,7 @@ public sealed class MainWindow : Window
         Verdict.Market => "Listed at your selling retainer (lowest listing minus your undercut).",
         Verdict.Vendor => "Sold through the retainer ('Have Retainer Sell Items').",
         Verdict.GrandCompany => "Brought to your bags: Turn-In Manager takes them to your Grand Company for seals.",
-        Verdict.Desynth => "Brought to your bags to desynthesize.",
+        Verdict.Desynth => "Brought to your bags and desynthesized (if that's switched on).",
         Verdict.Exchange => "Exchange tokens: hover to see what they buy. Brought to your bags.",
         Verdict.Dresser => "Brought to your bags, then taken to an inn and stored: Armoire if it fits there (free), else the glamour dresser (one Glamour Prism each).",
         Verdict.Discard => "No value found. Approving shows how you'd get each one back first.",

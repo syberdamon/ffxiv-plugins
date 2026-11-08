@@ -127,6 +127,11 @@ suggests a verdict for each item. Materials, materia, crystals, stock-list and k
   the 7-day median) and more than the vendor pays; else **Grand Company** for green/blue gear (Turn-In Manager takes
   it from there), else **Vendor** ("Have Retainer Sell Items"), else **Desynthesize**, else **Discard**.
 
+**Desynthesize** items are brought to your bags and, after the run (setting on by default, or `/stash desynth`),
+desynthesized one at a time through each item's own menu: the bell is closed first, the result window is closed after
+each one, and it stops when your bags are nearly full. Items the game won't desynthesize (desynthesis not unlocked, class
+too low) are skipped and listed. The inn trip for looks waits until it's done.
+
 **Spiritbond**: gear with any spiritbond can't go on the market board, so spiritbound copies get no market value
 (the run never pulls or lists them for the market). Their value is the vendor price or, if higher, the desynthesis
 results [Estimate: the average home-world price of the results players have reported to Teamcraft, one per
