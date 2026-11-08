@@ -108,7 +108,7 @@
     "Author": "syberdamon",
     "Name": "Material Stash",
     "InternalName": "MaterialStash",
-    "AssemblyVersion": "0.9.2.0",
+    "AssemblyVersion": "0.10.0.0",
     "Description": "Sorts common crafting materials onto your retainers in the order you choose. Gathered materials (mining, botany, fishing) and white, tradeable mob drops used in recipes qualify; boss drops, crafted items and collectables don't, and you can include or exclude anything by hand. Each category (ore, lumber, hides...) gets an ordered list of home retainers, with an overflow order behind it, and items already on a retainer are kept together. Crystals fill retainers in the game's list order, keeping a set amount of each on you. Nothing runs by itself: press \"Stash\" above the retainer list (after AutoRetainer is done) and it visits each retainer, deposits, and moves on. Stock list: keep a minimum and target of items, or of whole recipes (materials worked out from the recipe); when AutoRetainer sends a retainer out, it is sent for the most-needed item it can bring back. Tidy sorts items between retainers by groups (housing, gear, materials...), name rules and item pins. Keep on me protects what you carry. When nothing on the stock list fits a retainer, it can go for what sells best on your home world instead (with a demand check); those items stay in your bags, boxed, and can be listed automatically. A Clean-up tab goes through everything on your retainers and suggests what to sell, vendor, turn in, desynthesize, learn, keep for its look or discard (judged by value, the glamour dresser and Armoire, and how easy it is to get again), then carries out what you approve, including a trip to an inn (Lifestream) to put looks in the Armoire or glamour dresser. Indoor furnishings can be taken off your retainers and stored in your house's storeroom (Lifestream takes you home). Scrip goals: keep a number of a scrip-exchange item; it crafts the best-paying collectable (Vulcan or Artisan, materials from bags, retainers, the market board or gathering; gatherer-scrip items are gathered with GatherBuddy Reborn auto-gather), has Turn-In Manager turn it in, and buys the item. A small window counts ready ventures. Buttons on the saddlebag move mats in or out. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -133,9 +133,9 @@
     "LoadPriority": 0,
     "Punchline": "One button at the summoning bell puts your gathered and mob-dropped crafting mats and crystals on the right retainers.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.9.2.0/MaterialStash.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.9.2.0/MaterialStash.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.9.2.0/MaterialStash.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.10.0.0/MaterialStash.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.10.0.0/MaterialStash.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.10.0.0/MaterialStash.zip"
   },
   {
     "Author": "syberdamon",
