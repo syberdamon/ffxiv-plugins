@@ -145,7 +145,8 @@ group unsynced) are tagged.
 
 **Run clean-up** at the summoning bell takes the approved items out of each retainer into empty bag slots, sells the
 vendor ones through that retainer and discards the approved discards (only stacks the run itself took out), then lists
-the market ones at your selling retainer (Selling tab). The glamour dresser is read when you open it and the Armoire
+the market ones at your selling retainer (Selling tab). When a retainer is dismissed after vendor sales, the game's
+"sold items can't be bought back" prompt is confirmed for you. The glamour dresser is read when you open it and the Armoire
 when it's loaded at an inn; with the dresser open, **Take dresser duplicates out** removes extra copies.
 
 **Store looks at an inn** (also automatic after a run, switchable; or `/stash looks`): approved "keep the look" items in

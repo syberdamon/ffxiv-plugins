@@ -273,7 +273,7 @@ public sealed unsafe class Runner : IDisposable
         {
             if ((DateTime.UtcNow - phaseStart).TotalSeconds > PhaseTimeout)
             {
-                Fail($"Timed out at step '{phase}' (retainer {tracker.NameOf(current)}).", phase switch
+                Fail($"Timed out at step '{phase}' (retainer {tracker.NameOf(current)}).", GameUi.IsOpen("SelectYesno") ? "SelectYesno" : phase switch
                 {
                     Phase.OpenMenu or Phase.Quit => "SelectString",
                     Phase.Select or Phase.BackToList => "RetainerList",
@@ -444,6 +444,7 @@ public sealed unsafe class Runner : IDisposable
     {
         if (GameUi.IsOpen("RetainerList")) { Set(Phase.Select); return; }
         if (ClickThroughTalk()) return;
+        if (ConfirmLeaveDialog()) return;
         var ss = GameUi.Get("SelectString");
         if (ss == null) return;
         var rows = MenuRows(ss);
@@ -462,7 +463,37 @@ public sealed unsafe class Runner : IDisposable
     private void TickBackToList()
     {
         if (ClickThroughTalk()) return;
+        if (ConfirmLeaveDialog()) return;
         if (GameUi.IsOpen("RetainerList")) Set(Phase.Select);
+    }
+
+    private DateTime lastLeaveDump;
+
+    /// <summary>
+    /// Dismissing a retainer after selling to the vendor through them asks whether you're sure,
+    /// since what was sold can't be bought back afterwards. Say yes to that one (the run sold those
+    /// items on purpose); any other yes/no is left alone and dumped so it can be looked at.
+    /// </summary>
+    private bool ConfirmLeaveDialog()
+    {
+        var yn = GameUi.Get("SelectYesno");
+        if (yn == null) return false;
+        var text = GameUi.YesNoText();
+        var t = text.ToLowerInvariant();
+        if (t.Contains("sold") || t.Contains("buyback") || t.Contains("buy back") || t.Contains("repurchase")
+            || t.Contains("bought back") || t.Contains("no longer"))
+        {
+            yn->FireCallbackInt(0);
+            next = DateTime.UtcNow.AddSeconds(1);
+            phaseStart = DateTime.UtcNow;
+            return true;
+        }
+        if ((DateTime.UtcNow - lastLeaveDump).TotalSeconds > 20)
+        {
+            lastLeaveDump = DateTime.UtcNow;
+            GameUi.Dump("SelectYesno", $"unexpected yes/no while leaving a retainer: {text}");
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ materials
@@ -661,7 +692,7 @@ public sealed unsafe class Runner : IDisposable
                 }
                 if (index < 0)
                 {
-                    GameUi.Dump("ContextMenu", "clean-up: no retainer-sell option");
+                    GameUi.Dump("ContextMenu", $"clean-up: no retainer-sell option for {name} (retainer inventory open: {Tracker.RetainerInventoryOpen})");
                     menu->FireCallbackInt(-1);
                     pulledSlots.Remove((c.Type, c.Slot));
                     refused.Add(name + " (no sell option)");
