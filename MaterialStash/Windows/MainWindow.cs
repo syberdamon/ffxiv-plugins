@@ -967,7 +967,7 @@ public sealed class MainWindow : Window
             ImGui.TextUnformatted(l.Name + (l.Qty > 1 ? $" x{l.Qty}" : "") + (l.Stacks > 1 ? $" ({l.Stacks} stacks)" : ""));
             if (ImGui.IsItemHovered())
             {
-                var tip = "How to get it again:\n  " + string.Join("\n  ", l.Ways);
+                var tip = "How to get it again:\n  " + string.Join("\n  ", l.Ways) + "\n(Right-click: more information, Allagan Tools, item sites.)";
                 if (l.Verdict == Verdict.Exchange || plugin.Cleanup.TokenRewards(l.ItemId).Count > 0)
                 {
                     var buys = plugin.Cleanup.TokenRewards(l.ItemId);
@@ -975,6 +975,7 @@ public sealed class MainWindow : Window
                 }
                 ImGui.SetTooltip(tip);
             }
+            ItemMenu(l.ItemId, l.Name);
             if (easy) { ImGui.SameLine(); ImGui.TextColored(Good, l.Easiest == Regain.Effort.Solo ? "[easy: solo]" : "[easy: group]"); }
 
             ImGui.TableNextColumn();
@@ -1008,6 +1009,27 @@ public sealed class MainWindow : Window
         return changed;
     }
 
+    /// <summary>Right-click menu on an item's name: Allagan Tools' "more information" window, item sites, copy the name.</summary>
+    private static void ItemMenu(uint itemId, string name)
+    {
+        if (!ImGui.BeginPopupContextItem($"##item{itemId}")) return;
+        var plain = name.Replace(" (HQ)", "");
+        ImGui.TextDisabled(plain);
+        ImGui.Separator();
+        var allagan = Plugin.CommandManager.Commands.ContainsKey("/moreinfo");
+        if (!allagan) ImGui.BeginDisabled();
+        if (ImGui.MenuItem("More information (Allagan Tools)")) Plugin.CommandManager.ProcessCommand($"/moreinfo {itemId}");
+        if (!allagan) ImGui.EndDisabled();
+        if (!allagan && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGui.SetTooltip("Allagan Tools isn't loaded.");
+        if (ImGui.MenuItem("Market board (Universalis)")) Dalamud.Utility.Util.OpenLink($"https://universalis.app/market/{itemId}");
+        if (ImGui.MenuItem("Garland Tools")) Dalamud.Utility.Util.OpenLink($"https://www.garlandtools.org/db/#item/{itemId}");
+        if (ImGui.MenuItem("Teamcraft")) Dalamud.Utility.Util.OpenLink($"https://ffxivteamcraft.com/db/en/item/{itemId}");
+        if (ImGui.MenuItem("Console Games Wiki")) Dalamud.Utility.Util.OpenLink($"https://ffxiv.consolegameswiki.com/wiki/{Uri.EscapeDataString(plain.Replace(' ', '_'))}");
+        ImGui.Separator();
+        if (ImGui.MenuItem("Copy name")) ImGui.SetClipboardText(plain);
+        ImGui.EndPopup();
+    }
+
     private void AskDiscard(List<CleanLine> lines)
     {
         discardAsk = lines.Where(l => l.Verdict == Verdict.Discard).ToList();
@@ -1023,6 +1045,7 @@ public sealed class MainWindow : Window
         foreach (var l in discardAsk.Take(30))
         {
             ImGui.TextUnformatted($"{l.Name}{(l.Qty > 1 ? $" x{l.Qty}" : "")} ({plugin.Tracker.NameOf(l.Retainer)})");
+            ItemMenu(l.ItemId, l.Name);
             ImGui.Indent();
             foreach (var w in l.Ways) ImGui.TextColored(Dim, w);
             ImGui.Unindent();

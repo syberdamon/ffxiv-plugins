@@ -132,6 +132,9 @@ desynthesis; that list is partial, so some items show "desynth results unknown"]
 whose results are worth more than selling or vendoring it. Spiritbond is read when a retainer is opened (Scan all once
 after updating); records from Allagan Tools don't carry it.
 
+Right-click an item's name for **More information** (Allagan Tools' item window, via its `/moreinfo`), Universalis,
+Garland Tools, Teamcraft or the Console Games Wiki, or to copy its name.
+
 Any verdict can be changed per item. Stacks worth more than 10,000 gil get their own look; the rest can be approved a
 group at a time. Approving a discard first shows how you'd get each item back (market, vendors, exchanges, crafting,
 and the duties it drops in with how hard each is to run today). Items that are easy to get again (solo or a small
