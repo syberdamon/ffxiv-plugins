@@ -469,7 +469,8 @@ public sealed unsafe class Runner : IDisposable
             next = DateTime.UtcNow.AddSeconds(1);
             return;
         }
-        var menu = GameUi.Get("SelectIconString") ?? GameUi.Get("SelectString");
+        var menu = GameUi.Get("SelectIconString");
+        if (menu == null) menu = GameUi.Get("SelectString");
         if (menu != null)
         {
             var rows = GameUi.MenuEntries(menu, GameUi.IsOpen("SelectIconString"));
