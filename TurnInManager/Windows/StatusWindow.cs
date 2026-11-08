@@ -17,10 +17,18 @@ public sealed class StatusWindow : Window
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking;
     }
 
-    public override bool DrawConditions() => plugin.GcRunner.Busy;
+    public override bool DrawConditions() => plugin.GcRunner.Busy || plugin.ScripRunner.Busy;
 
     public override void Draw()
     {
+        if (plugin.ScripRunner.Busy)
+        {
+            var s = plugin.ScripRunner;
+            ImGui.TextUnformatted(s.Status);
+            ImGui.TextDisabled($"Turned in {s.TurnedIn} (+{s.ScripsEarned} scrips), bought {s.Bought}");
+            if (ImGui.Button("Stop##scrips")) s.Stop();
+            return;
+        }
         var r = plugin.GcRunner;
         ImGui.TextUnformatted(r.Status);
         ImGui.TextDisabled($"Delivered {r.Delivered} (+{r.SealsEarned} seals)" + (r.Bought.Count > 0 ? $", bought {string.Join(", ", r.Bought)}" : ""));

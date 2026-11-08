@@ -39,6 +39,7 @@ public sealed class Plugin : IDalamudPlugin
     public BellWalker Bell { get; } = new();
     public AutoRetainerIpc AutoRetainer { get; } = new();
     public AllaganIpc Allagan { get; } = new();
+    public ScripGoals Scrips { get; private set; } = null!;
 
     private readonly WindowSystem windows = new("MaterialStash");
     private readonly MainWindow main;
@@ -46,6 +47,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly SaddleOverlay saddle;
     private readonly VentureWindow ventures;
     private readonly SellHighlight sellHighlight;
+    private readonly ScripWindow scripWindow;
 
     public Plugin()
     {
@@ -66,19 +68,22 @@ public sealed class Plugin : IDalamudPlugin
         Runner.Storeroom = Storeroom;
         Saddle = new SaddleMover(Configuration);
         AfterAr = new AfterAutoRetainer(this);
+        Scrips = new ScripGoals(this);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
         saddle = new SaddleOverlay(this);
         ventures = new VentureWindow(this);
         sellHighlight = new SellHighlight(this);
+        scripWindow = new ScripWindow(this);
         windows.AddWindow(main);
         windows.AddWindow(bell);
         windows.AddWindow(saddle);
         windows.AddWindow(ventures);
         windows.AddWindow(sellHighlight);
+        windows.AddWindow(scripWindow);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | scrips (work through the scrip goals) | resume (after buying on the market board) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -104,7 +109,9 @@ public sealed class Plugin : IDalamudPlugin
             case "ventures": Configuration.ShowVentureWindow = !Configuration.ShowVentureWindow; Configuration.Save(); return;
             case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
             case "saddle out": Saddle.Start(SaddleMover.Direction.ToBags); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
-            case "stop": Runner.Stop(); Saddle.Stop(); Cleanup.StopAll(); Wardrobe.Stop(); Storeroom.Stop(); Bell.Stop(); return;
+            case "scrips": Scrips.Start(); if (!Scrips.Busy && Scrips.Status.Length > 0) ChatGui.Print($"[Stash] {Scrips.Status}"); return;
+            case "resume": Scrips.Resume(); return;
+            case "stop": Scrips.Stop(); Runner.Stop(); Saddle.Stop(); Cleanup.StopAll(); Wardrobe.Stop(); Storeroom.Stop(); Bell.Stop(); return;
             default: main.Toggle(); return;
         }
     }
@@ -122,6 +129,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
         AfterAr.Dispose();
+        Scrips.Dispose();
         Runner.Dispose();
         Wardrobe.Dispose();
         Storeroom.Dispose();

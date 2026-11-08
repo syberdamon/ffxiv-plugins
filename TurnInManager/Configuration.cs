@@ -50,5 +50,19 @@ public class Configuration : IPluginConfiguration
     // ---- travel
     public bool UseLifestream { get; set; } = true;
 
+    // ---- scrips (collectables turn-in + scrip exchange)
+    /// <summary>Where scrip runs go: territory, its aetheryte, and an aethernet shard near the NPCs (0 = none).
+    /// Default Solution Nine via the Nexus Arcade shard (route from TheCollector).</summary>
+    public uint HubTerritory { get; set; } = 1186;
+    public uint HubAetheryte { get; set; } = 217;
+    public uint HubAethernet { get; set; } = 235;
+    /// <summary>[Assumption] the NPCs' English names in most hubs; a name containing "Appraiser" / "Scrip" nearby is used if these aren't found.</summary>
+    public string AppraiserName { get; set; } = "Collectable Appraiser";
+    public string ExchangeName { get; set; } = "Scrip Exchange";
+    /// <summary>Pause between clicks in the collectables / scrip windows (seconds).</summary>
+    public float ScripStepDelay { get; set; } = 0.6f;
+    /// <summary>Where an item was found in the scrip exchange: item id -> [page, sub-page].</summary>
+    public Dictionary<uint, int[]> ShopSpots { get; set; } = new();
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

@@ -5,6 +5,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game;
 using Dalamud.Interface.Windowing;
 using Lumina.Excel.Sheets;
+using Syberdamon.Shared;
 using TurnInManager.GrandCompany;
 
 namespace TurnInManager.Windows;
@@ -33,6 +34,7 @@ public sealed class MainWindow : Window
     {
         if (!ImGui.BeginTabBar("##tabs")) return;
         if (ImGui.BeginTabItem("Grand Company")) { DrawGc(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Scrips")) { DrawScrips(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
 
@@ -193,5 +195,73 @@ public sealed class MainWindow : Window
             else ImGui.TextColored(Dim, c.Blocked!);
         }
         ImGui.EndTable();
+    }
+
+    // ================================================================ scrips
+
+    private string scripItem = "";
+    private int scripCount = 1;
+    private string scripMsg = "";
+
+    private static readonly (string Name, uint Territory, uint Aetheryte, uint Aethernet)[] Hubs =
+    {
+        ("Solution Nine (Nexus Arcade)", 1186, 217, 235),
+        ("Old Gridania", 132, 2, 26),
+    };
+
+    private void DrawScrips()
+    {
+        if (Plugin.ObjectTable.LocalPlayer == null) { ImGui.TextUnformatted("Log in first."); return; }
+        ImGui.TextWrapped("Turns in the collectables in your bags at the Collectable Appraiser and buys an item at the Scrip Exchange, " +
+                          "buying before a turn-in would push scrips over 4,000. Material Stash's Scrip goals use this; you can also run it here " +
+                          "or with /turnin scrips <count> <item>.");
+        foreach (var (id, name) in ScripData.ScripNames)
+        {
+            ImGui.TextUnformatted($"{name}: {ScripData.Scrips(id):N0} / {ScripData.ScripCap:N0}");
+            var held = ScripData.CollectablesInBags(Plugin.DataManager, id).Count;
+            if (held > 0) { ImGui.SameLine(); ImGui.TextColored(Ok, $"({held} collectable(s) to turn in)"); }
+        }
+
+        var r = plugin.ScripRunner;
+        ImGui.Separator();
+        if (r.Busy) { if (ImGui.Button("Stop##scrip")) r.Stop(); ImGui.SameLine(); ImGui.TextUnformatted(r.Status); }
+        else
+        {
+            ImGui.SetNextItemWidth(240);
+            ImGui.InputTextWithHint("##scripitem", "Item to buy (exact name)", ref scripItem, 100);
+            ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+            ImGui.InputInt("how many##scripcount", ref scripCount, 1, 10);
+            ImGui.SameLine();
+            if (ImGui.Button("Run"))
+            {
+                var hit = ScripData.Shop(Plugin.DataManager).Values.FirstOrDefault(e => e.Name.Equals(scripItem.Trim(), StringComparison.OrdinalIgnoreCase));
+                scripMsg = hit == null ? $"\"{scripItem}\" isn't sold for scrips." : r.Start(hit.ItemId, Math.Max(0, scripCount));
+            }
+            var e2 = ScripData.Shop(Plugin.DataManager).Values.FirstOrDefault(e => e.Name.Equals(scripItem.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (e2 != null) ImGui.TextDisabled($"{e2.Cost} {ScripData.ScripNames[e2.CurrencyItemId]} each.");
+            if (scripMsg.Length > 0) ImGui.TextColored(Warn, scripMsg);
+            else if (r.Status.Length > 0) ImGui.TextDisabled(r.Status);
+        }
+
+        ImGui.Separator();
+        var changed = false;
+        var hubIndex = Array.FindIndex(Hubs, h => h.Territory == C.HubTerritory && h.Aetheryte == C.HubAetheryte && h.Aethernet == C.HubAethernet);
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.BeginCombo("Scrip hub", hubIndex >= 0 ? Hubs[hubIndex].Name : $"Custom (territory {C.HubTerritory})"))
+        {
+            foreach (var h in Hubs)
+                if (ImGui.Selectable(h.Name, h.Territory == C.HubTerritory))
+                { C.HubTerritory = h.Territory; C.HubAetheryte = h.Aetheryte; C.HubAethernet = h.Aethernet; changed = true; }
+            ImGui.EndCombo();
+        }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Lifestream teleports here and takes the aethernet shard next to the appraiser. If the NPCs are already in sight, it walks straight to them.");
+        var an = C.AppraiserName; ImGui.SetNextItemWidth(220);
+        if (ImGui.InputText("Appraiser NPC name", ref an, 64)) { C.AppraiserName = an; changed = true; }
+        var en = C.ExchangeName; ImGui.SetNextItemWidth(220);
+        if (ImGui.InputText("Scrip exchange NPC name", ref en, 64)) { C.ExchangeName = en; changed = true; }
+        var d = C.ScripStepDelay; ImGui.SetNextItemWidth(120);
+        if (ImGui.InputFloat("Pause between clicks (s)", ref d, 0.1f, 0.5f, "%.1f")) { C.ScripStepDelay = Math.Clamp(d, 0.2f, 3f); changed = true; }
+        if (C.ShopSpots.Count > 0 && ImGui.SmallButton($"Forget {C.ShopSpots.Count} remembered shop page(s)")) { C.ShopSpots.Clear(); changed = true; }
+        if (changed) C.Save();
     }
 }

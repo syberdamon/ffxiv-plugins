@@ -93,6 +93,14 @@ public sealed unsafe class Tracker : IDisposable
         return result;
     }
 
+    /// <summary>A collectable (never used as a crafting material).</summary>
+    public static bool Collectable(InventoryType type, int slot)
+    {
+        var im = InventoryManager.Instance();
+        var s = im == null ? null : im->GetInventorySlot(type, slot);
+        return s != null && s->Flags.HasFlag(InventoryItem.ItemFlags.Collectable);
+    }
+
     /// <summary>A stack with any spiritbond (not a collectable's collectability): it can't go on the market board.</summary>
     public static bool Spiritbound(InventoryType type, int slot)
     {

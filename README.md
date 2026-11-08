@@ -8,10 +8,10 @@ Personal Dalamud plugins (API 15).
 | [Map Click Nav](MapClickNav/README.md) | Ctrl+click any map: teleports if faster, mounts, and flies there with vnavmesh. |
 | [Combat Recorder](CombatRecorder/README.md) | Records fights (actions, damage/heals, buffs, HP, positions) to local files for review; `/crec mark` to flag moments. |
 | [Materia Manager](MateriaManager/README.md) | Auto-stores materia to saddlebag or retainer when you open them; plans transmutation batches with keep-at-least rules and takes you to Mutamix. |
-| [Material Stash](MaterialStash/README.md) | One button above the retainer list puts gathered and mob-dropped crafting mats and crystals on your retainers, in the order you choose per category. Also tidies, keeps stock through ventures, and audits retainer junk (Clean-up tab). |
+| [Material Stash](MaterialStash/README.md) | One button above the retainer list puts gathered and mob-dropped crafting mats and crystals on your retainers, in the order you choose per category. Also tidies, keeps stock through ventures, audits retainer junk (Clean-up tab), and works scrip goals ("I want 20 Mason's Abrasive": craft collectables, turn in, buy). |
 | [Saucer Run](SaucerRun/README.md) | One floating button for the Gold Saucer: Jumbo Cactpot winnings and tickets, Mini Cactpot (played by Saucy), and selling learned Triple Triad cards for MGP. |
 | [Mit Planner](MitPlanner/README.md) | Boss timeline with countdowns; per-job MT/OT cooldown plans with callouts, starter-plan generator, optional auto-use. |
-| [Turn-In Manager](TurnInManager/README.md) | Grand Company expert delivery with guardrails (gearsets, ilvl, rarity, HQ/NQ), materia retrieval first, and seal spending up to stock targets. |
+| [Turn-In Manager](TurnInManager/README.md) | Grand Company expert delivery with guardrails (gearsets, ilvl, rarity, HQ/NQ), materia retrieval first, and seal spending up to stock targets. Scrips: turns in collectables and buys from the scrip exchange before the cap. |
 | [Poetics Spender](PoeticsSpender/README.md) | One click turns all your Poetics into Grade 3 topsoil (Idyllshire); movable near-cap alert. Needs vnavmesh. |
 | [Raise Callouts](RaiseCallouts/README.md) | Says "Raising <name>" in party chat when you raise someone, however it was cast (works with RotationSolver Reborn). |
 | [Rescue Helper](RescueHelper/README.md) | Healers: party panel showing who's in an AoE about to go off (from BossMod); click to Rescue, or automatic. |
