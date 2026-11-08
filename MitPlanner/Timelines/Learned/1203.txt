@@ -1,0 +1,93 @@
+### TENDER VALLEY (learned)
+# ZoneId: 1203
+# Built by tools/build_timeline.py from 2 Combat Recorder log(s). Review before trusting.
+
+hideall "--sync--"
+
+#~~~ Valley Megamaguey ~~~#
+# pulls: 2, kills: 2
+
+1005.2 "--sync--" StartsUsing { id: "9938", source: "Valley Campeador" } window 1005,5
+1007.9 "100,000 Needles" Ability { id: "9938", source: "Valley Campeador" }
+1024.6 "Serrated Spin" Ability { id: "9939", source: "Valley Megamaguey" }
+1045.1 "100,000 Needles" Ability { id: "9938", source: "Valley Campeador" }
+
+#~~~ Barreltender ~~~#
+# pulls: 2, kills: 2
+
+2004.1 "--sync--" StartsUsing { id: "9210", source: "Barreltender" } window 2004,5
+2008.8 "Barbed Bellow" Ability { id: "9210", source: "Barreltender" }
+2023.5 "Heavyweight Needles" Ability { id: "9208", source: "Barreltender" }
+2023.9 "--sync--" Ability { id: "920A", source: "Barreltender" }
+2034.5 "Heavyweight Needles" Ability { id: "9208", source: "Barreltender" }
+2035.0 "--sync--" Ability { id: "920A", source: "Barreltender" }
+2049.1 "Tender Drop" Ability { id: "920B", source: "Barreltender" }
+2060.2 "Barrel Breaker" Ability { id: "920E", source: "Barreltender" }
+2073.5 "Succulent Stomp" Ability { id: "920F", source: "Barreltender" }
+2099.3 "Tender Fury" Ability { id: "994A", source: "Barreltender" }
+2110.6 "Tender Drop" Ability { id: "920B", source: "Barreltender" }
+
+#~~~ Anthracite ~~~#
+# pulls: 2, kills: 2
+
+3006.7 "--sync--" StartsUsing { id: "8EBE", source: "Anthracite" } window 3007,5
+3012.9 "Anthrabomb" Ability { id: "8EBE", source: "Anthracite" }
+3013.8 "--sync--" Ability { id: "8EBF", source: "Anthracite" }
+3026.3 "Anthrabomb" Ability { id: "8EBE", source: "Anthracite" }
+3041.3 "Anthrabomb" Ability { id: "8EBE", source: "Anthracite" }
+3042.3 "--sync--" Ability { id: "8EBF", source: "Anthracite" }
+3053.5 "Carbonaceous Combustion" Ability { id: "8ECC", source: "Anthracite" }
+3054.0 "Carbonaceous Combustion" Ability { id: "8ECD", source: "Anthracite" }
+3065.3 "Carniflagration" Ability { id: "8EC3", source: "Anthracite" }
+3066.3 "--sync--" Ability { id: "8EBF", source: "Anthracite" }
+3072.9 "Carniflagration" Ability { id: "8EC4", source: "Anthracite" }
+3073.9 "--sync--" Ability { id: "8EC5", source: "Anthracite" }
+3080.5 "Carniflagration" Ability { id: "8EC4", source: "Anthracite" }
+3081.6 "--sync--" Ability { id: "8EC5", source: "Anthracite" }
+3087.8 "Anthrabomb" Ability { id: "8EC9", source: "Anthracite" }
+3096.2 "Burning Coals" Ability { id: "8ECA", source: "Anthracite" }
+3096.7 "Burning Coals" Ability { id: "8ECB", source: "Anthracite" }
+3106.3 "Chimney Smack" Ability { id: "9643", source: "Anthracite" }
+3106.8 "Chimney Smack" Ability { id: "9644", source: "Anthracite" }
+
+#~~~ Yok Huy Attestant ~~~#
+# pulls: 2, kills: 2
+
+4004.8 "--sync--" StartsUsing { id: "9935", source: "Yok Huy Altar" } window 4005,5
+4007.5 "Tectonic Shift" Ability { id: "9935", source: "Yok Huy Altar" }
+4011.5 "Ancient Wrath" Ability { id: "968A", source: "Yok Huy Attestant" }
+4014.6 "Boulder Toss" Ability { id: "968C", source: "Yok Huy Attestant" }
+4027.7 "Sun Toss" Ability { id: "968B", source: "Yok Huy Attestant" }
+4030.3 "Ancient Wrath" Ability { id: "968A", source: "Yok Huy Attestant" }
+4030.8 "Boulder Toss" Ability { id: "968C", source: "Yok Huy Attestant" }
+4038.9 "Tectonic Shift" Ability { id: "9935", source: "Yok Huy Altar" }
+4050.4 "Ancient Wrath" Ability { id: "968A", source: "Yok Huy Attestant" }
+4053.5 "Boulder Toss" Ability { id: "968C", source: "Yok Huy Attestant" }
+4059.7 "Sun Toss" Ability { id: "968B", source: "Yok Huy Attestant" }
+4062.6 "Boulder Toss" Ability { id: "968C", source: "Yok Huy Attestant" }
+
+#~~~ Greatest Serpent of Tural ~~~#
+# pulls: 2, kills: 2
+
+5005.1 "--sync--" StartsUsing { id: "8F8C", source: "Greatest Serpent of Tural" } window 5005,5
+5009.8 "Dubious Tulidisaster" Ability { id: "8F8C", source: "Greatest Serpent of Tural" }
+5019.3 "Bouncy Council" Ability { id: "8F8A", source: "Greatest Serpent of Tural" }
+5032.2 "Misplaced Mystery" Ability { id: "8F8E", source: "Lesser Serpent of Tural" }
+5041.9 "Screes of Fury" Ability { id: "8F88", source: "Greatest Serpent of Tural" }
+5042.7 "Screes of Fury" Ability { id: "8F95", source: "Greatest Serpent of Tural" }
+5051.6 "Bouncy Council" Ability { id: "8F8A", source: "Greatest Serpent of Tural" }
+5064.4 "Exalted Wobble" Ability { id: "8F8D", source: "Lesser Serpent of Tural" }
+5076.4 "Greatest Labyrinth" Ability { id: "8F89", source: "Greatest Serpent of Tural" }
+5101.4 "Bouncy Council" Ability { id: "8F8A", source: "Greatest Serpent of Tural" }
+5114.2 "Misplaced Mystery" Ability { id: "8F8E", source: "Lesser Serpent of Tural" }
+5114.2 "Exalted Wobble" Ability { id: "8F8D", source: "Lesser Serpent of Tural" }
+5121.9 "Moist Summoning" Ability { id: "8F87", source: "Greatest Serpent of Tural" }
+5132.2 "Mighty Blorp" Ability { id: "8F91", source: "Great Serpent of Tural" }
+5132.4 "Mighty Blorp" Ability { id: "9C2F", source: "Great Serpent of Tural" }
+5138.6 "Mighty Blorp" Ability { id: "8F90", source: "Great Serpent of Tural" }
+5138.9 "Mighty Blorp" Ability { id: "9C2E", source: "Great Serpent of Tural" }
+5145.0 "Mighty Blorp" Ability { id: "8F8F", source: "Great Serpent of Tural" }
+5145.3 "Mighty Blorp" Ability { id: "9C2D", source: "Great Serpent of Tural" }
+5153.6 "Greatest Flood" Ability { id: "8F86", source: "Greatest Serpent of Tural" }
+5154.7 "Greatest Flood" Ability { id: "8F94", source: "Greatest Serpent of Tural" }
+

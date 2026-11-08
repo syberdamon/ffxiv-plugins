@@ -169,6 +169,9 @@ public class TrashSettings
     /// you. From the Lunar Subterrane log (2026-11-04): HP fell from ~90% to 57-65% during big gathers.</summary>
     public float PullShortHpPercent { get; set; } = 80f;
     public int PullShortMinMobs { get; set; } = 3;
+    /// <summary>While gathering with no short mit available, Rampart goes out below this HP (Reprisal goes first,
+    /// below PullShortHpPercent).</summary>
+    public float PullRampartHpPercent { get; set; } = 70f;
     /// <summary>No new big mit while HP is at least this and incoming damage is below IdleDamagePctPerSec
     /// (Rampart was going out at 100% HP, ~0%/s, with the pull nearly dead).</summary>
     public float IdleHpPercent { get; set; } = 95f;
