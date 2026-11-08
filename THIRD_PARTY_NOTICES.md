@@ -70,7 +70,9 @@ windows (callback values, the appraiser's tree list, the exchange's row layout a
 drop-downs) and the sheet layout (CollectablesShopItem, InclusionShop -> SpecialShop) from reading these projects. Our
 code is our own; credit to their authors:
 - GatherBuddy Reborn (FFXIV-CombatReborn, Apache License 2.0): collectables window handler, scrip exchange interaction,
-  job tabs per item, and the `/vulcan craft` command and IPC that Material Stash drives.
+  job tabs per item, and the `/vulcan craft` command and IPC that Material Stash drives. Material Stash also reaches
+  its auto-gather list manager (Lists, AddList, ToggleList, AddItem, RemoveItem, ChangeQuantity) the way GatherBuddy
+  Reborn reaches Artisan's lists: through Dalamud's plugin manager by reflection.
 - TheCollector (Ashylila): turn-in / scrip-shop pipeline, scrip currency numbers, Solution Nine and Old Gridania
   aethernet routes.
 - Artisan (PunishXIV): IPC (`Artisan.CraftItem`, `IsBusy`, `SetStopRequest`) used to craft.

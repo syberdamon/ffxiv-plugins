@@ -179,15 +179,19 @@ public sealed class GatherBuddyIpc
 {
     private readonly ICallGateSubscriber<bool> autoGather;
     private readonly ICallGateSubscriber<bool, object> setAutoGather;
+    private readonly ICallGateSubscriber<string> statusText;
 
     public GatherBuddyIpc()
     {
         var pi = Plugin.PluginInterface;
         autoGather = pi.GetIpcSubscriber<bool>("GatherBuddyReborn.IsAutoGatherEnabled");
         setAutoGather = pi.GetIpcSubscriber<bool, object>("GatherBuddyReborn.SetAutoGatherEnabled");
+        statusText = pi.GetIpcSubscriber<string>("GatherBuddyReborn.GetAutoGatherStatusText");
     }
 
     public bool IsLoaded { get { try { autoGather.InvokeFunc(); return true; } catch (Exception) { return false; } } }
     public bool AutoGathering { get { try { return autoGather.InvokeFunc(); } catch (Exception) { return false; } } }
     public void StopAutoGather() { try { setAutoGather.InvokeAction(false); } catch (Exception) { } }
+    public string Status { get { try { return statusText.InvokeFunc(); } catch (Exception) { return ""; } } }
+    public bool StartAutoGather() { try { setAutoGather.InvokeAction(true); return true; } catch (Exception) { return false; } }
 }
