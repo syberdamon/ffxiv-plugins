@@ -62,7 +62,18 @@ Our code is our own; credit to their authors:
 - Questionable (PunishXIV) and Pandora's Box (PunishXIV): exchange tab selection.
 - ECommons (NightmareXIV): button-click technique, MateriaRetrieveDialog.
 - Snowfall (DevYukine): materia retrieval through the item context menu.
-- Lifestream (NightmareXIV): IPC used for travel (optional dependency).
+- Lifestream (NightmareXIV): IPC used for travel (optional dependency), including `Teleport` and `AethernetTeleportById` for scrip runs.
+
+## References for scrip runs and scrip goals (no code copied)
+Turn-In Manager's scrip module and Material Stash's scrip goals learned the collectables appraiser and scrip exchange
+windows (callback values, the appraiser's tree list, the exchange's row layout at values 298/300+18n and its page
+drop-downs) and the sheet layout (CollectablesShopItem, InclusionShop -> SpecialShop) from reading these projects. Our
+code is our own; credit to their authors:
+- GatherBuddy Reborn (FFXIV-CombatReborn, Apache License 2.0): collectables window handler, scrip exchange interaction,
+  job tabs per item, and the `/vulcan craft` command and IPC that Material Stash drives.
+- TheCollector (Ashylila): turn-in / scrip-shop pipeline, scrip currency numbers, Solution Nine and Old Gridania
+  aethernet routes.
+- Artisan (PunishXIV): IPC (`Artisan.CraftItem`, `IsBusy`, `SetStopRequest`) used to craft.
 
 
 

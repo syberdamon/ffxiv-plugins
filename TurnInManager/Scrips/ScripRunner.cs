@@ -63,7 +63,7 @@ public sealed unsafe class ScripRunner : IDisposable
     private (int Scrips, DateTime At)? submitted;
 
     // buying
-    private int searchPage = -1, searchSub = 0, searchStage;
+    private int searchPage = -1, searchSub = 0, searchStage, shownSub = -1;
     private (int Count, int Scrips, int Qty, DateTime At)? purchase;
     private bool menuPicked;
     private string lastMenu = "";
@@ -455,6 +455,7 @@ public sealed unsafe class ScripRunner : IDisposable
     {
         purchase = null;
         searchStage = 0;
+        shownSub = -1;
         if (config.ShopSpots.TryGetValue(target, out var spot)) { searchPage = spot[0]; searchSub = spot[1]; searchStage = 1; }
         else { searchPage = 0; searchSub = 1; searchStage = 2; }
         Set(ScripPhase.Buying, $"Buying {entry.Name}...");
@@ -507,7 +508,9 @@ public sealed unsafe class ScripRunner : IDisposable
             nextAction = DateTime.UtcNow.AddSeconds(config.ScripStepDelay + 0.2);
             return;
         }
-        if (searchStage != 0 && searchPage >= 0) { config.ShopSpots[target] = new[] { searchPage, searchSub }; config.Save(); searchStage = 0; }
+        // Remember where it was (only once we've chosen a sub-page ourselves, so the spot is known).
+        if (searchStage != 0 && searchPage >= 0 && shownSub > 0) { config.ShopSpots[target] = new[] { searchPage, shownSub }; config.Save(); }
+        searchStage = 0;
 
         var stack = StackSize(target);
         var room = FreeSlots() * stack + (stack - ItemCount(target) % stack) % stack;
@@ -595,6 +598,7 @@ public sealed unsafe class ScripRunner : IDisposable
     private void SelectSubPage(AtkUnitBase* addon, int sub)
     {
         Fire(addon, false, 13, (uint)sub);
+        shownSub = sub;
         phaseStarted = DateTime.UtcNow;
     }
 

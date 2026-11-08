@@ -195,6 +195,31 @@ Shards, crystals and clusters fill retainers in the bell's list order, each to 9
 **Keep N on me** (global, or per type) leaves that many with you; below it, the run takes the difference back from
 the last retainer holding that type.
 
+## Scrip goals (Scrip goals tab, `/stash scrips`)
+"I want 20 Mason's Abrasive." A goal is a scrip-exchange item and a target, counted in your bags, saddlebag and
+retainers. **Run all goals** (or **Run** on one) repeats until you have the target:
+1. **Turn in and buy.** With collectables in your bags (that meet the lowest tier), or scrips enough for one, Turn-In
+   Manager goes to your scrip hub, turns them in and buys the item, buying before a turn-in would push scrips past
+   4,000.
+2. **Craft a batch** of the collectable paying the most scrips per craft that you can make (your level, master
+   recipe books, the turn-in quest), or the recipe you pick for the goal. Crafts needed assume the top tier
+   [Estimate]; the next turn-in counts what was really paid. A batch is sized so the bag slots you keep free
+   (3 by default, since each collectable takes its own slot) are still free afterwards.
+3. **Materials, in order:** your bags; then your retainers (walks to the nearest summoning bell and takes whole stacks
+   out); then, if on, it stops and lists what's on the market board at or under your price cap (buy them, then
+   **Resume**; buying isn't automated yet); then gathering. Vulcan (GatherBuddy Reborn) gathers what's missing and
+   makes intermediate items, then crafts. With gathering off, it stops when gatherable materials run out.
+4. **Crafting plugin:** Vulcan (`/vulcan craft <recipe> <count>`) or Artisan (its IPC). Artisan only crafts the
+   collectable itself, so a batch that needs gathering or intermediate crafts goes to Vulcan.
+
+It stops a goal (and goes on to the next) when there's no usable recipe, a material can't be gathered (mob drops,
+vendor items: buy them or stock them), the bags have no room for a batch, a batch made nothing, or a turn-in changed
+nothing. **Stock mats** on a goal puts its collectable's recipe on the Stock list, so ventures bring back its
+materials. Gatherer scrips: turned in and spent, but the collectables are yours to gather (GatherBuddy) for now.
+
+Needs Turn-In Manager (turn-ins, buying), and GatherBuddy Reborn and/or Artisan. Vulcan has no stop command: Stop
+ends our run, but a Vulcan batch already going has to be stopped in Vulcan's window.
+
 ## Retainer records
 The game only shares a retainer's inventory while it's open, so records come from: the one-time scan (or Allagan
 Tools), then every time a retainer's inventory is open, by you, AutoRetainer or a run. The Retainers tab shows when
@@ -224,5 +249,9 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - Storing looks: the inn-room check (territory "intended use" 2), opening the Armoire / dresser by interacting with
   them, the Armoire's store call (`StoreCabinetItem`), and the dresser's store event (Glamour Creation list event 14,
   then its confirmation, as Spring Cleaning does it).
+
+- Scrip goals: how long Vulcan's gather-then-craft pipeline looks idle between steps (a batch counts as over after 30
+  seconds with no crafting, gathering, travel or new collectables); whether Vulcan's solver reaches the top tier.
+- Crystals aren't taken out of retainers by scrip goals (keep enough on you with the crystal "keep" setting).
 
 Confirmed from AutoRetainer's source: `AutoRetainer.PluginState.IsBusy`, `OnSendRetainerToVenture`, `SetVenture`.
