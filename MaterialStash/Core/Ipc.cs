@@ -5,18 +5,38 @@ using Dalamud.Plugin.Ipc;
 
 namespace MaterialStash.Core;
 
-/// <summary>AutoRetainer: only asked whether it's busy, so a stash run never starts in the middle of its run.</summary>
+/// <summary>
+/// AutoRetainer: whether it's busy (so a stash run never starts in the middle of its run), whether any of
+/// this character's enabled retainers is ready, and (for the ICE break) holding it off while we use the bell.
+/// Note: AutoRetainer counts as busy while Lifestream is travelling.
+/// </summary>
 public sealed class AutoRetainerIpc
 {
     private readonly ICallGateSubscriber<bool> isBusy;
+    private readonly ICallGateSubscriber<bool> anyReady;
+    private readonly ICallGateSubscriber<ulong, long?> secondsToNext;
+    private readonly ICallGateSubscriber<bool> getSuppressed;
+    private readonly ICallGateSubscriber<bool, object> setSuppressed;
 
     public AutoRetainerIpc()
     {
-        isBusy = Plugin.PluginInterface.GetIpcSubscriber<bool>("AutoRetainer.PluginState.IsBusy");
+        var pi = Plugin.PluginInterface;
+        isBusy = pi.GetIpcSubscriber<bool>("AutoRetainer.PluginState.IsBusy");
+        anyReady = pi.GetIpcSubscriber<bool>("AutoRetainer.PluginState.AreAnyRetainersAvailableForCurrentChara");
+        secondsToNext = pi.GetIpcSubscriber<ulong, long?>("AutoRetainer.PluginState.GetClosestRetainerVentureSecondsRemaining");
+        getSuppressed = pi.GetIpcSubscriber<bool>("AutoRetainer.GetSuppressed");
+        setSuppressed = pi.GetIpcSubscriber<bool, object>("AutoRetainer.SetSuppressed");
     }
 
     public bool IsLoaded { get { try { isBusy.InvokeFunc(); return true; } catch (Exception) { return false; } } }
     public bool IsBusy { get { try { return isBusy.InvokeFunc(); } catch (Exception) { return false; } } }
+    /// <summary>Any of this character's retainers that AutoRetainer handles is back (or ready to send).</summary>
+    public bool AnyReady { get { try { return anyReady.InvokeFunc(); } catch (Exception) { return false; } } }
+    /// <summary>Seconds until this character's next enabled retainer is back (null = unknown / none out).</summary>
+    public long? SecondsToNext(ulong cid) { try { return secondsToNext.InvokeFunc(cid); } catch (Exception) { return null; } }
+    public bool Suppressed { get { try { return getSuppressed.InvokeFunc(); } catch (Exception) { return false; } } }
+    /// <summary>Suppressed = AutoRetainer does nothing (not even when a bell is opened) until released.</summary>
+    public void Suppress(bool on) { try { setSuppressed.InvokeAction(on); } catch (Exception) { } }
 }
 
 /// <summary>
@@ -233,6 +253,11 @@ public sealed class IceIpc
         }
         catch (Exception) { return false; }
     }
+
+    public bool Enable() { try { enable.InvokeAction(); return true; } catch (Exception) { return false; } }
+    public void Disable() { try { disable.InvokeAction(); } catch (Exception) { } }
+    /// <summary>ICE's "Stop after current mission" (ICE clears it itself once it stops).</summary>
+    public bool StopAfterCurrent(bool on) { try { setting.InvokeAction("StopAfterCurrent", on); return true; } catch (Exception) { return false; } }
 
     /// <summary>Stop ICE and put its credit stop back to ICE's defaults (cap 30,000, stop-at-cap off).</summary>
     public void StopAndReset()

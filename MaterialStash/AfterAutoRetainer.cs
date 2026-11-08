@@ -44,6 +44,31 @@ public sealed class AfterAutoRetainer : IDisposable
 
     public string Status { get; private set; } = "";
 
+    /// <summary>
+    /// Set by the ICE break while it runs AutoRetainer: this cycle's returns are kept (not dropped when the
+    /// list closes) and the single-character auto-start is skipped; the break calls <see cref="StashNow"/>.
+    /// </summary>
+    public bool Hold { get; set; }
+    /// <summary>A stash of this cycle's returns is under way (walking to the bell, or depositing).</summary>
+    public bool Busy => step != Step.Idle;
+    /// <summary>This cycle brought back stock-list items that a Stash would take.</summary>
+    public bool Pending => Waiting;
+
+    /// <summary>Stash this cycle's returns now (rings the nearest bell if the list isn't open). False if nothing to do.</summary>
+    public bool StashNow()
+    {
+        if (Busy || !Waiting) return false;
+        Begin();
+        return true;
+    }
+
+    /// <summary>Forget this cycle's returns (the break is done with them).</summary>
+    public void Release()
+    {
+        Hold = false;
+        if (!Busy) gained.Clear();
+    }
+
     public AfterAutoRetainer(Plugin plugin)
     {
         this.plugin = plugin;
@@ -139,6 +164,7 @@ public sealed class AfterAutoRetainer : IDisposable
             switch (step)
             {
                 case Step.Idle:
+                    if (Hold) { idleSince = DateTime.MinValue; break; } // the ICE break decides
                     // Single character: AutoRetainer just finished with the list still open.
                     if (wasBusy && !ar) idleSince = DateTime.UtcNow;
                     if (!ar && idleSince != DateTime.MinValue && (DateTime.UtcNow - idleSince).TotalSeconds > 2)

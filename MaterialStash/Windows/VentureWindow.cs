@@ -102,8 +102,10 @@ public sealed unsafe class VentureWindow : Window
             color = Dim;
         }
         if (plugin.Bell.Busy) { text = "Going to the bell... (click to stop)"; color = Dim; }
+        if (plugin.IceBreak.Active) { text = $"ICE break: {plugin.IceBreak.Status}"; color = Ready; }
+        else if (plugin.Configuration.IceBreakEnabled) text += " · ICE break on";
         ImGui.TextColored(color, text);
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Left)) plugin.Bell.Start();
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Left) && !plugin.IceBreak.Active) plugin.Bell.Start();
         if (ImGui.IsItemClicked(ImGuiMouseButton.Right)) plugin.ToggleMain();
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Left-click: go to the nearest summoning bell (walks to one in sight; otherwise Lifestream to the market board first).\n" +
