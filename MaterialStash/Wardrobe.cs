@@ -100,9 +100,10 @@ public sealed unsafe class Wardrobe : IDisposable
             Plugin.ChatGui.Print($"[Stash] {dresserCount} item(s) need the dresser but you have {Prisms()} Glamour Prism(s): the rest stay in your bags.");
         armoireTurn = list.Any(x => x.Armoire);
         travelAsked = false; travelIdleSince = DateTime.MinValue;
-        if (InInn()) Set(Phase.Repair, "Repairing...");
-        else if (lifestream.IsLoaded) Set(Phase.Travel, "Going to an inn room (Lifestream)...");
-        else { Status = "Go to an inn room first (or install Lifestream so I can take you)."; return; }
+        if (!InInn() && !lifestream.IsLoaded) { Status = "Go to an inn room first (or install Lifestream so I can take you)."; return; }
+        // Always through Travel: it closes the bell / retainer windows first (an inn room has a bell, and
+        // repairing or opening the dresser doesn't work with the retainer list open), then skips the trip if already in.
+        Set(Phase.Travel, InInn() ? "Closing the retainer list..." : "Going to an inn room (Lifestream)...");
     }
 
     public void Stop()
@@ -175,6 +176,7 @@ public sealed unsafe class Wardrobe : IDisposable
         if (!travelAsked)
         {
             if (Plugin.Condition[ConditionFlag.OccupiedSummoningBell] || Plugin.Condition[ConditionFlag.InCombat]) return;
+            if (InInn()) { Set(Phase.Repair, "Repairing..."); next = DateTime.UtcNow.AddSeconds(1); return; }
             if (!lifestream.Execute("inn")) { Fail("Lifestream didn't take the request."); return; }
             travelAsked = true;
             next = DateTime.UtcNow.AddSeconds(2);
