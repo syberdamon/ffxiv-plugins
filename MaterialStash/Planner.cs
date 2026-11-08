@@ -213,11 +213,15 @@ public sealed class Planner
     public readonly record struct Move(Tracker.Stack Stack, ulong? To);
     public readonly record struct CrystalMove(uint CrystalId, int Amount, bool Deposit, ulong? Retainer);
 
+    /// <summary>While set, Stash takes only these items (NQ ids) and leaves crystals alone (after-AutoRetainer runs).</summary>
+    public HashSet<uint>? Only { get; set; }
+    public bool Allows(uint id) => Only == null || Only.Contains(Nq(id));
+
     /// <summary>Every stack in your bags that Stash takes, and where it would go.</summary>
     public List<Move> PreviewMaterials()
     {
         var me = tracker.Me();
-        return Tracker.Stacks(Tracker.Bags, id => Items.Depositable(id, config, me))
+        return Tracker.Stacks(Tracker.Bags, id => Items.Depositable(id, config, me) && Allows(id))
             .Select(s => new Move(s, me != null && me.TidyCarry.Contains(Nq(s.ItemId)) ? TidyTarget(s.ItemId, me) ?? Best(s.ItemId) : Best(s.ItemId)))
             .ToList();
     }
@@ -226,7 +230,7 @@ public sealed class Planner
     public List<CrystalMove> PreviewCrystals()
     {
         var list = new List<CrystalMove>();
-        if (!config.IncludeCrystals) return list;
+        if (!config.IncludeCrystals || Only != null) return list;
         var mine = Tracker.Crystals(InventoryType.Crystals);
         for (var c = Items.FirstCrystal; c <= Items.LastCrystal; c++)
         {
