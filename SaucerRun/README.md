@@ -18,8 +18,9 @@ stop; right-click for settings. Hidden in combat and duties unless you pin it.
 
 The Cactpot games themselves are played by **Saucy** (its Mini Cactpot and Jumbo Cactpot modules must be on; your
 number choice is Saucy's setting). Saucer Run walks there (**vnavmesh**), targets and talks to the NPC (Saucy only takes over
-a conversation with the NPC you have targeted), starts the ticket purchase itself if nothing has within a second and a
-half ("Purchase a ... ticket", then yes to the price), waits until Saucy is done, and moves on. Without Saucy, the Cactpots are skipped.
+a conversation with the NPC you have targeted), and buys the ticket itself ("Purchase a ... ticket", then yes to the
+price; the question is answered even while the broker's speech bubble is still up): straight away for the Mini Cactpot,
+after a second and a half for the Jumbo. It waits until Saucy is done, and moves on. Without Saucy, the Cactpots are skipped.
 
 ## Counting
 Like DailyDuty: each time the Mini Cactpot board opens is a ticket played, each time the Jumbo number window opens is

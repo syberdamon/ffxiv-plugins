@@ -389,7 +389,11 @@ public sealed unsafe class Runner : IDisposable
 
     private bool BuyTicket(uint baseId)
     {
-        if (GameUi.Get("Talk") is var talk && talk != null)
+        var ss = GameUi.Get("SelectString");
+        var yn = GameUi.Get("SelectYesno");
+        // The purchase question can sit on top of the broker's speech bubble: answer it first
+        // (0.1.4 kept clicking the bubble underneath and never got to the question).
+        if (ss == null && yn == null && GameUi.Get("Talk") is var talk && talk != null)
         {
             // The broker telling you there's nothing left this time: count it as done.
             var said = string.Join(" ", GameUi.Texts(talk));
@@ -402,11 +406,10 @@ public sealed unsafe class Runner : IDisposable
             GameUi.ClickTalk(talk);
             return true;
         }
-        var ss = GameUi.Get("SelectString");
-        var yn = GameUi.Get("SelectYesno");
         if (ss == null && yn == null) { menuSeen = DateTime.MinValue; return false; }
         if (menuSeen == DateTime.MinValue) { menuSeen = DateTime.UtcNow; return true; }
-        if ((DateTime.UtcNow - menuSeen).TotalSeconds < 1.5) return true;
+        // Mini Cactpot: Saucy only plays the board, so buy straight away. Jumbo: give Saucy a moment first.
+        if ((DateTime.UtcNow - menuSeen).TotalSeconds < (baseId == MiniBroker ? 0.4 : 1.5)) return true;
         menuSeen = DateTime.MinValue;
         if (yn != null)
         {
@@ -414,6 +417,7 @@ public sealed unsafe class Runner : IDisposable
             if (text.Contains("ticket", StringComparison.OrdinalIgnoreCase) || text.Contains("MGP", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Cactpot", StringComparison.OrdinalIgnoreCase))
                 yn->FireCallbackInt(0);
+            else if (baseId == MiniBroker) { Plugin.Log.Info($"[Saucer] mini broker question: \"{text}\" -> yes"); yn->FireCallbackInt(0); GameUi.Dump("SelectYesno", "Saucer: mini broker question (answered yes)"); }
             else GameUi.Dump("SelectYesno", "Saucer: unexpected question at the broker (left alone)");
             next = DateTime.UtcNow.AddSeconds(1);
             return true;
