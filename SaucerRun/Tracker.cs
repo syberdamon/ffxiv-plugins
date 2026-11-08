@@ -47,10 +47,10 @@ public sealed unsafe class Tracker : IDisposable
         if (Me() is { } s) { s.JumboBought = Math.Min(3, s.JumboBought + 1); config.Save(); }
     }
 
-    private void OnReward(AddonEvent t, AddonArgs a)
-    {
-        if (Me() is { } s) { s.JumboCashierVisited = true; config.Save(); }
-    }
+    /// <summary>The cashier's reward list opened (a claim). The run keeps talking to the cashier until one opens none.</summary>
+    private void OnReward(AddonEvent t, AddonArgs a) => LastRewardOpen = DateTime.UtcNow;
+
+    public DateTime LastRewardOpen { get; private set; } = DateTime.MinValue;
 
     /// <summary>This character's state, rolled over to the current periods.</summary>
     public CharacterState? Me()

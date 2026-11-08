@@ -10,7 +10,7 @@ stop; right-click for settings. Hidden in combat and duties unless you pin it.
 ## A run
 1. **Learn cards**: any Triple Triad card in your bags you don't have yet is used (learned).
 2. **Teleport** to the Gold Saucer (if you're not there).
-3. **Jumbo Cactpot** (if this week isn't done): the **cashier** first (winnings from the last drawing), then the
+3. **Jumbo Cactpot** (if this week isn't done): the **cashier** first (winnings from the last drawing; talked to again after each claim until there's nothing left to claim), then the
    **broker** for this week's three tickets.
 4. **Mini Cactpot** (if today isn't done): the broker, once per ticket.
 5. **Sell cards**: the Triple Triad Trader buys every card in your bags you've already learned, for MGP. A card you
