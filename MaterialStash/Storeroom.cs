@@ -33,6 +33,7 @@ public sealed unsafe class Storeroom : IDisposable
     private readonly Configuration config;
     private readonly LifestreamIpc lifestream = new();
     private Phase phase = Phase.Idle;
+    private DateTime travelIdleSince = DateTime.MinValue;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue, askedAt = DateTime.MinValue;
     private int stored, tries, retainerResets;
     private bool travelAsked, toldToClick, dumpedOther, clickedIndoor, bagsReset;
@@ -83,7 +84,7 @@ public sealed unsafe class Storeroom : IDisposable
     public void Start()
     {
         if (Busy) return;
-        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; dumpedOther = false; clickedIndoor = false; bagsReset = false; housingBefore = new(); askedAt = DateTime.MinValue; travelAsked = false; toldToClick = false;
+        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; dumpedOther = false; clickedIndoor = false; bagsReset = false; housingBefore = new(); askedAt = DateTime.MinValue; travelAsked = false; travelIdleSince = DateTime.MinValue; toldToClick = false;
         if (InBags().Count == 0) { Status = "No indoor furnishings in your bags (\"Furnishings out\" at the bell brings them from your retainers)."; return; }
         if (!AtHome && !lifestream.IsLoaded) { Status = "Go inside your house first (or install Lifestream so I can take you)."; return; }
         // Close the bell / retainer first: with a retainer open the item menu offers "Entrust to Retainer", not "Store".
@@ -177,9 +178,17 @@ public sealed unsafe class Storeroom : IDisposable
             next = DateTime.UtcNow.AddSeconds(2);
             return;
         }
-        if (lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.ObjectTable.LocalPlayer == null) return;
+        // Lifestream works in steps (teleport, walk, talk, zone in) and can read idle for a moment between
+        // them, so only give up after it has been idle for a while, measured from when it went idle.
+        if (lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.ObjectTable.LocalPlayer == null)
+        {
+            travelIdleSince = DateTime.MinValue;
+            if ((DateTime.UtcNow - phaseStart).TotalSeconds > 200) phaseStart = DateTime.UtcNow.AddSeconds(-200); // still moving: keep the clock from running out
+            return;
+        }
+        if (travelIdleSince == DateTime.MinValue) travelIdleSince = DateTime.UtcNow;
         if (AtHome) { Set(Phase.OpenMenu, "Opening the housing menu..."); next = DateTime.UtcNow.AddSeconds(2); return; }
-        if ((DateTime.UtcNow - phaseStart).TotalSeconds > 20)
+        if ((DateTime.UtcNow - travelIdleSince).TotalSeconds > 25)
             Fail("Lifestream took you home but not inside. In Lifestream's house settings, set the teleport behaviour to \"Enter house\", or walk in and press again.");
     }
 
@@ -315,7 +324,7 @@ public sealed unsafe class Storeroom : IDisposable
         if (current is { } c)
         {
             var slot = im->GetInventorySlot(c.Type, c.Slot);
-            if (slot == null || slot->ItemId != c.Item) { stored++; current = null; GameUi.Close("ContextMenu"); return; }
+            if (slot == null || slot->ItemId != c.Item) { stored++; current = null; phaseStart = DateTime.UtcNow; GameUi.Close("ContextMenu"); return; }
             var menu = GameUi.Get("ContextMenu");
             if (menu != null)
             {
@@ -374,6 +383,7 @@ public sealed unsafe class Storeroom : IDisposable
         skip.Add(key);
         refused.Add($"{Items.Info(c.Item)?.Name}: {why}");
         current = null;
+        phaseStart = DateTime.UtcNow;
         // Several in a row with no Store option: the furnishing mode isn't the right one; stop rather than loop.
         if (refused.Count >= 5 && stored == 0) Fail("The game isn't offering \"Store\" for these (dump saved).");
     }
