@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.10.2.0</Version>
+    <Version>0.10.3.0</Version>
     <Author>syberdamon</Author>
     <Name>Material Stash</Name>
     <Punchline>One button at the summoning bell puts your gathered and mob-dropped crafting mats and crystals on the right retainers.</Punchline>
