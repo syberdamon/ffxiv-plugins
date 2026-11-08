@@ -493,6 +493,7 @@ public sealed unsafe class Cleanup : IDisposable
         if (dialog != null)
         {
             var btn = GameUi.FindButton(dialog, "Desynthesize");
+            if (btn == null) btn = GameUi.FindButton(dialog, "Desynthesis");
             if (btn != null) GameUi.ClickButton(dialog, btn);
             else
             {
@@ -523,12 +524,13 @@ public sealed unsafe class Cleanup : IDisposable
         {
             var index = -1;
             for (var i = 7; i < menu->AtkValuesCount && index < 0; i++)
-                if (GameUi.Str(menu, i).Trim().Equals("Desynthesize", StringComparison.OrdinalIgnoreCase)) index = i - 8;
+                if (GameUi.Str(menu, i).Trim() is var t && (t.Equals("Desynthesis", StringComparison.OrdinalIgnoreCase) ||
+                                                            t.Equals("Desynthesize", StringComparison.OrdinalIgnoreCase))) index = i - 8; // the menu says "Desynthesis"
             if (index < 0)
             {
                 if (!desynthDumped) { desynthDumped = true; GameUi.Dump("ContextMenu", "desynth: no Desynthesize entry"); }
                 menu->FireCallbackInt(-1);
-                DesynthSkip(m, "no Desynthesize option (desynthesis not unlocked, or this item can't be)");
+                DesynthSkip(m, "no Desynthesis option in its menu (dump saved)");
                 return;
             }
             GameUi.Fire(menu, 0, index, 0);
