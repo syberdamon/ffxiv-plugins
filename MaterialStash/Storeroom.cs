@@ -147,7 +147,7 @@ public sealed unsafe class Storeroom : IDisposable
     {
         if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
         foreach (var n in RetainerWindows)
-            if (GameUi.IsOpen(n)) { GameUi.Close(n); next = DateTime.UtcNow.AddSeconds(0.7); return; }
+            if (GameUi.Get(n) is var w && w != null) { w->Close(true); next = DateTime.UtcNow.AddSeconds(0.7); return; }
         if (Plugin.Condition[ConditionFlag.OccupiedSummoningBell]) return; // closing animation
         // The bag window can stay in "Select an item to entrust to your retainer" mode after the bell
         // closes, and its item menu then offers Entrust instead of Store: close it so it reopens clean.
@@ -190,7 +190,21 @@ public sealed unsafe class Storeroom : IDisposable
         GameUi.VisibleAddons().Where(n => n.StartsWith("Housing", StringComparison.Ordinal) && !MenuWindows.Contains(n));
 
     /// <summary>Layout mode: the Housing agent is active and a housing window has appeared that wasn't up before we started.</summary>
-    private bool LayoutOpen => AgentActive && HousingWindows().Any(n => !housingBefore.Contains(n));
+    private bool LayoutOpen => AgentActive && (clickedIndoor || toldToClick) && HousingMenu() == null &&
+                               HousingWindows().Any(n => !housingBefore.Contains(n));
+
+    /// <summary>The /housing menu, whatever its window is called: the one listing both "Indoor Furnishings" and "Move to Front Door".</summary>
+    private static string? HousingMenu()
+    {
+        foreach (var n in GameUi.VisibleAddons())
+        {
+            var a = GameUi.Get(n);
+            if (a == null) continue;
+            var t = GameUi.Texts(a).Select(x => x.Trim()).ToList();
+            if (t.Contains("Indoor Furnishings") && t.Contains("Move to Front Door")) return n;
+        }
+        return null;
+    }
 
     private static bool AgentActive
     {
@@ -198,7 +212,7 @@ public sealed unsafe class Storeroom : IDisposable
     }
 
     /// <summary>Layout mode: a housing window is up, or we (or you) clicked Indoor Furnishings and the agent is active.</summary>
-    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen && !MenuWindows.Any(GameUi.IsOpen) &&
+    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen && HousingMenu() == null && !GameUi.IsOpen("ContextMenu") &&
                                             (DateTime.UtcNow - phaseStart).TotalSeconds > 2);
 
     private void TickOpenMenu()
@@ -216,7 +230,15 @@ public sealed unsafe class Storeroom : IDisposable
                 if (o == null || !GameUi.Texts(o).Any(t => t.Trim().Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase))) continue;
                 dumpedOther = true;
                 GameUi.Dump(other, "storeroom: 'Indoor Furnishings' is in this window");
-                Plugin.Log.Info($"[Stash] storeroom: Indoor Furnishings found in {other}");
+                // [Assumption] a plain list menu: its callback takes the row number (Indoor Furnishings is row 0).
+                var rows = GameUi.Texts(o).Select(x => x.Trim()).Where(x => x.Length > 0 && x != "Housing").ToList();
+                var row = Math.Max(0, rows.IndexOf("Indoor Furnishings"));
+                Plugin.Log.Info($"[Stash] storeroom: Indoor Furnishings found in {other}; clicking row {row}");
+                o->FireCallbackInt(row);
+                clickedIndoor = true;
+                Set(Phase.Layout, "Opening Indoor Furnishings...");
+                next = DateTime.UtcNow.AddSeconds(1.5);
+                return;
             }
         foreach (var name in known)
         {
