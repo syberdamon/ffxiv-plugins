@@ -28,7 +28,7 @@ namespace MaterialStash;
 /// </summary>
 public sealed unsafe class Wardrobe : IDisposable
 {
-    private enum Phase { Idle, Travel, Walk, Open, Store, Leave }
+    private enum Phase { Idle, Travel, Repair, Walk, Open, Store, Leave }
 
     public const uint GlamourPrism = 21800;
     private const string DresserName = "Glamour Dresser", ArmoireName = "Armoire";
@@ -43,7 +43,8 @@ public sealed unsafe class Wardrobe : IDisposable
     private Phase phase = Phase.Idle;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue;
     private bool armoireTurn, travelAsked;
-    private int stored, tries;
+    private int stored, tries, repaired;
+    private (InventoryType Type, int Slot, ushort Condition)? repairing;
     private (InventoryType Type, int Slot, uint Item)? current;
     private readonly HashSet<uint> skip = new();
     private readonly List<string> refused = new();
@@ -90,7 +91,7 @@ public sealed unsafe class Wardrobe : IDisposable
     public void Start()
     {
         if (Busy) return;
-        skip.Clear(); refused.Clear(); stored = 0;
+        skip.Clear(); refused.Clear(); stored = 0; repaired = 0; repairing = null;
         var list = ToStore();
         if (list.Count == 0) { Status = "No approved \"keep the look\" items in your bags (Run clean-up brings them out first)."; return; }
         var dresserCount = list.Count(x => !x.Armoire);
@@ -98,7 +99,7 @@ public sealed unsafe class Wardrobe : IDisposable
             Plugin.ChatGui.Print($"[Stash] {dresserCount} item(s) need the dresser but you have {Prisms()} Glamour Prism(s): the rest stay in your bags.");
         armoireTurn = list.Any(x => x.Armoire);
         travelAsked = false;
-        if (InInn()) Set(Phase.Walk, "Walking to the " + Station + "...");
+        if (InInn()) Set(Phase.Repair, "Repairing...");
         else if (lifestream.IsLoaded) Set(Phase.Travel, "Going to an inn room (Lifestream)...");
         else { Status = "Go to an inn room first (or install Lifestream so I can take you)."; return; }
     }
@@ -150,6 +151,7 @@ public sealed unsafe class Wardrobe : IDisposable
             switch (phase)
             {
                 case Phase.Travel: TickTravel(); break;
+                case Phase.Repair: TickRepair(); break;
                 case Phase.Walk: TickWalk(); break;
                 case Phase.Open: TickOpen(); break;
                 case Phase.Store: TickStore(); break;
@@ -179,8 +181,59 @@ public sealed unsafe class Wardrobe : IDisposable
         }
         if (lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.ObjectTable.LocalPlayer == null) return;
         if (!InInn()) { if ((DateTime.UtcNow - phaseStart).TotalSeconds > 20) Fail("Lifestream finished but this isn't an inn room."); return; }
-        Set(Phase.Walk, "Walking to the " + Station + "...");
+        Set(Phase.Repair, "Repairing...");
         next = DateTime.UtcNow.AddSeconds(1.5);
+    }
+
+    /// <summary>
+    /// The dresser and Armoire only take gear at 100% condition, so anything below gets self-repaired
+    /// first (Dark Matter, and a crafter high enough for it, as with the game's Repair window).
+    /// An item that won't repair is left in your bags and named at the end.
+    /// [Assumption] the game's repair call works on items sitting in your bags, as the Repair window's
+    /// own list doesn't show them; if it doesn't, those items are reported instead of stored.
+    /// </summary>
+    private void TickRepair()
+    {
+        var im = InventoryManager.Instance();
+        var yn = GameUi.Get("SelectYesno");
+        if (yn != null)
+        {
+            var text = GameUi.YesNoText();
+            if (text.Contains("repair", StringComparison.OrdinalIgnoreCase) || text.Contains("Dark Matter", StringComparison.OrdinalIgnoreCase))
+            {
+                yn->FireCallbackInt(0);
+                next = DateTime.UtcNow.AddSeconds(1.5);
+                return;
+            }
+            Fail($"Unexpected question while repairing: {text}");
+            return;
+        }
+        if (repairing is { } r)
+        {
+            var slot = im->GetInventorySlot(r.Type, r.Slot);
+            if (slot == null || slot->ItemId == 0 || slot->Condition >= 30000) { repaired++; repairing = null; tries = 0; phaseStart = DateTime.UtcNow; return; }
+            if (++tries < 6) return;
+            var key = slot->ItemId + (slot->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ? 1_000_000u : 0u);
+            skip.Add(key);
+            refused.Add($"{Items.Info(slot->ItemId)?.Name ?? $"#{slot->ItemId}"} (needs repair: {slot->Condition / 300}%, couldn't self-repair)");
+            repairing = null;
+            tries = 0;
+            return;
+        }
+        if (Plugin.Condition[ConditionFlag.InCombat] || Plugin.Condition[ConditionFlag.Casting]) return;
+        foreach (var (st, _) in ToStore())
+        {
+            var slot = im->GetInventorySlot(st.Type, st.Slot);
+            if (slot == null || slot->ItemId == 0 || slot->Condition >= 30000) continue;
+            repairing = (st.Type, st.Slot, slot->Condition);
+            tries = 0;
+            RepairManager.Instance()->RepairItem(st.Type, (ushort)st.Slot, false);
+            next = DateTime.UtcNow.AddSeconds(1.5);
+            return;
+        }
+        if (ToStore().Count == 0) { Done(); return; }
+        armoireTurn = ToStore().Any(x => x.Armoire);
+        Set(Phase.Walk, (repaired > 0 ? $"Repaired {repaired}. " : "") + "Walking to the " + Station + "...");
     }
 
     private IGameObject? FindStation() =>
