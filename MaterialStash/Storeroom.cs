@@ -190,8 +190,30 @@ public sealed unsafe class Storeroom : IDisposable
         GameUi.VisibleAddons().Where(n => n.StartsWith("Housing", StringComparison.Ordinal) && !MenuWindows.Contains(n));
 
     /// <summary>Layout mode: the Housing agent is active and a housing window has appeared that wasn't up before we started.</summary>
-    private bool LayoutOpen => AgentActive && (clickedIndoor || toldToClick) && HousingMenu() == null &&
-                               HousingWindows().Any(n => !housingBefore.Contains(n));
+    /// <summary>
+    /// Layout mode, read from what's on screen: the bag window's "Select furnishing to place." prompt, or the
+    /// Indoor Furnishings list (its "Item Bind Prompt" / "Display Preview" toggles). The Housing agent's
+    /// active flag isn't used: it doesn't track layout mode reliably.
+    /// </summary>
+    private static string? LayoutWindow()
+    {
+        foreach (var n in GameUi.VisibleAddons())
+        {
+            var a = GameUi.Get(n);
+            if (a == null) continue;
+            foreach (var t in GameUi.Texts(a))
+            {
+                var x = t.Trim();
+                if (x.StartsWith("Select furnishing to place", StringComparison.OrdinalIgnoreCase) ||
+                    x.Equals("Item Bind Prompt", StringComparison.OrdinalIgnoreCase) ||
+                    x.Equals("Display Preview", StringComparison.OrdinalIgnoreCase) ||
+                    x.Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase)) return n; // the list's title (the menu is ruled out by the caller)
+            }
+        }
+        return null;
+    }
+
+    private bool LayoutOpen => HousingMenu() == null && LayoutWindow() != null;
 
     /// <summary>The /housing menu, whatever its window is called: the one listing both "Indoor Furnishings" and "Move to Front Door".</summary>
     private static string? HousingMenu()
@@ -212,8 +234,7 @@ public sealed unsafe class Storeroom : IDisposable
     }
 
     /// <summary>Layout mode: a housing window is up, or we (or you) clicked Indoor Furnishings and the agent is active.</summary>
-    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen && HousingMenu() == null && !GameUi.IsOpen("ContextMenu") &&
-                                            (DateTime.UtcNow - phaseStart).TotalSeconds > 2);
+    private bool InLayout => LayoutOpen && !RetainerStillOpen;
 
     private void TickOpenMenu()
     {
@@ -359,9 +380,13 @@ public sealed unsafe class Storeroom : IDisposable
 
     private void TickLeave()
     {
-        if (LayoutOpen)
+        if (LayoutOpen && ++tries <= 6)
         {
-            AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing)->Hide();
+            // Close the Indoor Furnishings list (that ends layout mode); the agent hide as a fallback.
+            foreach (var n in GameUi.VisibleAddons().Where(n => n.StartsWith("Housing", StringComparison.Ordinal)))
+                if (GameUi.Get(n) is var w && w != null) w->Close(true);
+            if (tries > 3) AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing)->Hide();
+            next = DateTime.UtcNow.AddSeconds(0.8);
             return;
         }
         phase = Phase.Idle;
