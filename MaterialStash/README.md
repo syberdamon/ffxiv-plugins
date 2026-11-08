@@ -150,7 +150,9 @@ the market ones at your selling retainer (Selling tab). When a retainer is dismi
 when it's loaded at an inn; with the dresser open, **Take dresser duplicates out** removes extra copies.
 
 **Store looks at an inn** (also automatic after a run, switchable; or `/stash looks`): approved "keep the look" items in
-your bags go to an inn room with Lifestream (`/li inn`, skipped if you're already in one), walk to the Armoire with
+your bags go to an inn room with Lifestream (`/li inn`, skipped if you're already in one), get self-repaired if below
+100% condition (Dark Matter and a high enough crafter, as with the game's Repair window; items that won't repair are
+listed and stay in your bags), walk to the Armoire with
 vnavmesh and store what fits there (free), then the Glamour Dresser for the rest (one Glamour Prism each; without
 prisms they stay in your bags). Items the game won't take are listed. No Lifestream: be in an inn room first; no
 vnavmesh: stand next to the Armoire / dresser first.
@@ -191,6 +193,8 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - The item sort commands for a retainer (`/itemsort clear|condition|execute retainer`).
 - Moving part of a crystal stack: the item menu's "Entrust..." / "Retrieve..." then the number prompt. Whole stacks
   move directly. A wrong menu guess skips that crystal and saves a dump in `pluginConfigs/MaterialStash/dumps/`.
+- Self-repairing gear that's in your bags (not equipped / Armoury Chest) before storing looks: the game's repair call
+  is used directly; if it won't take bag items, they're listed as "needs repair" instead of stored.
 - Allagan Tools' `GetCharacterItems` layout ([item, flags, owner, quantity] per stack).
 - Reading AutoRetainer's recorded retainer stats (`GetAdditionalRetainerData`) into our own type; if it fails, stats
   count as unknown.
