@@ -198,6 +198,34 @@ public static unsafe class GameUi
     }
 
     /// <summary>Every text shown in a window: its string values and its text nodes.</summary>
+    /// <summary>Names of every window on screen.</summary>
+    public static List<string> VisibleAddons()
+    {
+        var result = new List<string>();
+        var mgr = RaptureAtkUnitManager.Instance();
+        if (mgr == null) return result;
+        var list = &mgr->AtkUnitManager.AllLoadedUnitsList;
+        for (var i = 0; i < list->Count; i++)
+        {
+            var u = list->Entries[i].Value;
+            if (u != null && u->IsVisible) result.Add(u->NameString);
+        }
+        return result;
+    }
+
+    /// <summary>A window on screen (not the chat log) showing this text, with the row it's on among its texts.</summary>
+    public static (AtkUnitBase* Addon, string Name)? FindWithText(string text)
+    {
+        foreach (var name in VisibleAddons())
+        {
+            if (name.StartsWith("ChatLog", StringComparison.Ordinal) || name.StartsWith("_", StringComparison.Ordinal)) continue;
+            var a = Get(name);
+            if (a == null) continue;
+            if (Texts(a).Exists(t => t.Contains(text, StringComparison.OrdinalIgnoreCase))) return (a, name);
+        }
+        return null;
+    }
+
     public static List<string> Texts(AtkUnitBase* addon)
     {
         var list = new List<string>();
