@@ -317,6 +317,17 @@ public sealed unsafe class Runner : IDisposable
             _ => s.MiniPlayed >= 3,
         };
 
+        // The broker's ticket menu is up (opened by Saucy, TextAdvance or an earlier talk) while we're
+        // still walking / about to talk: 0.1.5 waited for it to close and sat there. Take it from here.
+        if (baseId != Cashier && sub != Sub.Wait && BrokerMenuOpen(baseId))
+        {
+            sub = Sub.Wait;
+            talkedAt = DateTime.UtcNow;
+            menuSeen = DateTime.MinValue;
+            saidDone = false;
+            idleSince = DateTime.MinValue;
+        }
+
         switch (sub)
         {
             case Sub.Walk:
@@ -386,6 +397,21 @@ public sealed unsafe class Runner : IDisposable
     {
         "already", "no more", "no tickets", "maximum", "come back", "used all", "next week", "tomorrow", "until the",
     };
+
+    /// <summary>A "Purchase a ... Cactpot ticket" menu, or a ticket yes/no, is on screen.</summary>
+    private static bool BrokerMenuOpen(uint baseId)
+    {
+        if (GameUi.Get("SelectString") is var ss && ss != null)
+            return GameUi.MenuEntries(ss, false).Any(r =>
+                r.Contains("Purchase", StringComparison.OrdinalIgnoreCase) && r.Contains("ticket", StringComparison.OrdinalIgnoreCase) ||
+                r.Contains(baseId == MiniBroker ? "Mini Cactpot" : "Jumbo Cactpot", StringComparison.OrdinalIgnoreCase));
+        if (GameUi.Get("SelectYesno") != null)
+        {
+            var t = GameUi.YesNoText();
+            return t.Contains("ticket", StringComparison.OrdinalIgnoreCase) || t.Contains("Cactpot", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
 
     private bool BuyTicket(uint baseId)
     {
