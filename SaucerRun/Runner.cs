@@ -319,7 +319,7 @@ public sealed unsafe class Runner : IDisposable
 
         // The broker's ticket menu is up (opened by Saucy, TextAdvance or an earlier talk) while we're
         // still walking / about to talk: 0.1.5 waited for it to close and sat there. Take it from here.
-        if (baseId != Cashier && sub != Sub.Wait && BrokerMenuOpen(baseId))
+        if (baseId != Cashier && sub != Sub.Wait && (BrokerMenuOpen(baseId) || NearWithMenu(baseId)))
         {
             sub = Sub.Wait;
             talkedAt = DateTime.UtcNow;
@@ -398,6 +398,13 @@ public sealed unsafe class Runner : IDisposable
         "already", "no more", "no tickets", "maximum", "come back", "used all", "next week", "tomorrow", "until the",
     };
 
+    /// <summary>A menu is up while we stand by the broker (rows maybe not readable): treat it as theirs.</summary>
+    private bool NearWithMenu(uint baseId)
+    {
+        if (GameUi.Get("SelectString") == null || Plugin.ObjectTable.LocalPlayer is not { } me || Find(baseId) is not { } npc) return false;
+        return Vector3.Distance(me.Position, npc.Position) <= 6f;
+    }
+
     /// <summary>A "Purchase a ... Cactpot ticket" menu, or a ticket yes/no, is on screen.</summary>
     private static bool BrokerMenuOpen(uint baseId)
     {
@@ -412,6 +419,8 @@ public sealed unsafe class Runner : IDisposable
         }
         return false;
     }
+
+    private int menuTries;
 
     private bool BuyTicket(uint baseId)
     {
@@ -451,7 +460,16 @@ public sealed unsafe class Runner : IDisposable
         var rows = GameUi.MenuEntries(ss, false);
         var row = rows.FindIndex(r => r.Contains("Purchase", StringComparison.OrdinalIgnoreCase) && r.Contains("ticket", StringComparison.OrdinalIgnoreCase));
         if (row < 0) row = rows.FindIndex(r => r.Contains(baseId == MiniBroker ? "Mini Cactpot" : "Jumbo Cactpot", StringComparison.OrdinalIgnoreCase));
-        if (row < 0) { GameUi.Dump("SelectString", "Saucer: no purchase entry"); ss->FireCallbackInt(rows.Count - 1); return true; }
+        if (row < 0)
+        {
+            // Rows not readable (yet): look again a few times before giving up on this menu.
+            if (++menuTries < 6) return true;
+            menuTries = 0;
+            GameUi.Dump("SelectString", "Saucer: no purchase entry");
+            if (baseId == MiniBroker) row = 0; // the broker's menu always starts with "Purchase a Mini Cactpot ticket"
+            else { ss->FireCallbackInt(rows.Count > 0 ? rows.Count - 1 : -1); return true; }
+        }
+        menuTries = 0;
         ss->FireCallbackInt(row);
         next = DateTime.UtcNow.AddSeconds(1);
         return true;

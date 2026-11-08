@@ -39,6 +39,19 @@ public static unsafe class GameUi
         var names = (byte**)menu->EntryNames;
         for (var i = 0; i < menu->EntryCount; i++)
             result.Add(names[i] == null ? "" : MemoryHelper.ReadSeStringNullTerminated((nint)names[i]).TextValue);
+        if (result.Exists(r => r.Length > 0)) return result;
+        // The popup's own list can be empty while the window's values already hold the rows
+        // (as Material Stash found with the retainer menu): count at value 3, rows from value 7.
+        result.Clear();
+        if (icon) return result;
+        var count = Int(addon, 3);
+        if (count <= 0 || count > 30) count = 30;
+        for (var i = 7; i < 7 + count && i < addon->AtkValuesCount; i++)
+        {
+            var t = Str(addon, i);
+            if (t.Length == 0) break;
+            result.Add(t);
+        }
         return result;
     }
 
