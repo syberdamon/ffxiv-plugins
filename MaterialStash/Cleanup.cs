@@ -315,14 +315,30 @@ public sealed unsafe class Cleanup : IDisposable
         var overridden = config.CleanupVerdicts.TryGetValue(f.Id, out var mine);
         var verdict = overridden ? mine : auto;
         if (verdict == Verdict.Discard && f.Indisposable) verdict = Verdict.Keep;
+        // Relic gear is never sold, vendored, discarded, desynthesized or turned in, whatever the setting or your override.
+        if (Relic(f) && verdict is not (Verdict.Keep or Verdict.Dresser))
+        {
+            verdict = Verdict.Keep;
+            if (auto is not (Verdict.Keep or Verdict.Dresser)) { auto = Verdict.Keep; why = "relic (purple) weapon/tool/gear: always kept"; }
+            notes.Add("relic: never sold, discarded or desynthesized");
+        }
         if (easiest <= Regain.Effort.SmallGroup) notes.Add(easiest == Regain.Effort.Solo ? "easy to get again (solo)" : "easy to get again (small group)");
         var name = f.Name + (key >= 1_000_000 ? " (HQ)" : "");
         return new CleanLine(rid, key, name, qty, Math.Max(1, stacks), unit, value, auto, verdict, overridden, why, notes, easiest, ways, pending);
     }
 
-    /// <summary>The verdict for a held item if you approved it (null if not approved or not analysed).</summary>
+    /// <summary>
+    /// Relic weapons and tools (and relic armour): the game's purple rarity (4) on equipment. Every relic
+    /// line (Zodiac, Anima, Eureka, Bozja, Manderville, Phantom, Skysteel/Splendorous/Cosmic tools) is purple.
+    /// </summary>
+    private static bool Relic(Facts f) => f.Equip && f.Rarity == 4;
+
+    /// <summary>True for relic gear (never sold, discarded or desynthesized).</summary>
+    public bool IsRelic(uint itemId) => Fact(itemId % 1_000_000) is { } f && Relic(f);
+
+    /// <summary>The verdict for a held item if you approved it (null if not approved or not analysed). Relics: always Keep.</summary>
     public Verdict? ApprovedAction(uint key, CharacterData me) =>
-        me.CleanupApproved.Contains(key) && verdictOf.TryGetValue(key, out var v) ? v : null;
+        me.CleanupApproved.Contains(key) && verdictOf.TryGetValue(key, out var v) ? (IsRelic(key) ? Verdict.Keep : v) : null;
 
     /// <summary>Retainers holding an approved item that needs moving.</summary>
     public List<ulong> RetainersToVisit(CharacterData me) =>
@@ -551,6 +567,7 @@ public sealed unsafe class Cleanup : IDisposable
         if (!QuestManager.IsQuestComplete(65688)) { why = "desynthesis isn't unlocked"; return false; }
         var row = Plugin.DataManager.GetExcelSheet<Item>().GetRowOrDefault(id);
         if (row == null || row.Value.Desynth == 0) { why = "can't be desynthesized"; return false; }
+        if (row.Value.Rarity == 4 && row.Value.EquipSlotCategory.RowId != 0) { why = "relic: never desynthesized"; return false; }
         var job = row.Value.ClassJobRepair.ValueNullable;
         if (job == null || job.Value.ExpArrayIndex < 0) { why = "no crafter for it"; return false; }
         if (PlayerState.Instance()->ClassJobLevels[job.Value.ExpArrayIndex] < 30) { why = $"{job.Value.Abbreviation} is below 30"; return false; }
