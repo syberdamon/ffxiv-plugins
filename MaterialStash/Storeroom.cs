@@ -22,7 +22,7 @@ namespace MaterialStash;
 /// </summary>
 public sealed unsafe class Storeroom : IDisposable
 {
-    private enum Phase { Idle, Travel, OpenMenu, Layout, Store, Leave }
+    private enum Phase { Idle, Prepare, Travel, OpenMenu, Layout, Store, Leave }
 
     private static readonly string[] NotIndoor =
     {
@@ -34,7 +34,7 @@ public sealed unsafe class Storeroom : IDisposable
     private readonly LifestreamIpc lifestream = new();
     private Phase phase = Phase.Idle;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue, askedAt = DateTime.MinValue;
-    private int stored, tries;
+    private int stored, tries, retainerResets;
     private bool travelAsked, toldToClick;
     private (InventoryType Type, int Slot, uint Item)? current;
     private readonly HashSet<uint> skip = new();
@@ -83,11 +83,11 @@ public sealed unsafe class Storeroom : IDisposable
     public void Start()
     {
         if (Busy) return;
-        skip.Clear(); refused.Clear(); stored = 0; travelAsked = false; toldToClick = false;
+        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; travelAsked = false; toldToClick = false;
         if (InBags().Count == 0) { Status = "No indoor furnishings in your bags (\"Furnishings out\" at the bell brings them from your retainers)."; return; }
-        if (AtHome) Set(Phase.OpenMenu, "Opening the housing menu...");
-        else if (lifestream.IsLoaded) Set(Phase.Travel, "Going home (Lifestream)...");
-        else { Status = "Go inside your house first (or install Lifestream so I can take you)."; return; }
+        if (!AtHome && !lifestream.IsLoaded) { Status = "Go inside your house first (or install Lifestream so I can take you)."; return; }
+        // Close the bell / retainer first: with a retainer open the item menu offers "Entrust to Retainer", not "Store".
+        Set(Phase.Prepare, "Closing the retainer...");
     }
 
     public void Stop()
@@ -116,6 +116,7 @@ public sealed unsafe class Storeroom : IDisposable
             if ((DateTime.UtcNow - phaseStart).TotalSeconds > limit) { Fail($"Timed out ({phase})."); return; }
             switch (phase)
             {
+                case Phase.Prepare: TickPrepare(); break;
                 case Phase.Travel: TickTravel(); break;
                 case Phase.OpenMenu: TickOpenMenu(); break;
                 case Phase.Layout: TickLayout(); break;
@@ -128,6 +129,23 @@ public sealed unsafe class Storeroom : IDisposable
             Plugin.Log.Error(ex, "Material Stash: storeroom run failed");
             Fail("Error (see /xllog).");
         }
+    }
+
+    private static readonly string[] RetainerWindows =
+        { "InventoryRetainerLarge", "InventoryRetainer", "RetainerGrid0", "RetainerSellList", "RetainerSell", "SelectString", "RetainerList", "Bank" };
+
+    private static bool RetainerStillOpen =>
+        Plugin.Condition[ConditionFlag.OccupiedSummoningBell] || RetainerWindows.Any(GameUi.IsOpen);
+
+    /// <summary>Close any retainer/bell windows (one per tick, innermost first), then go home or straight to the menu.</summary>
+    private void TickPrepare()
+    {
+        if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return; }
+        foreach (var n in RetainerWindows)
+            if (GameUi.IsOpen(n)) { GameUi.Close(n); next = DateTime.UtcNow.AddSeconds(0.7); return; }
+        if (Plugin.Condition[ConditionFlag.OccupiedSummoningBell]) return; // closing animation
+        if (AtHome) { Set(Phase.OpenMenu, "Opening the housing menu..."); next = DateTime.UtcNow.AddSeconds(1); }
+        else Set(Phase.Travel, "Going home (Lifestream)...");
     }
 
     private void TickTravel()
@@ -152,8 +170,11 @@ public sealed unsafe class Storeroom : IDisposable
     {
         get
         {
+            // [Assumption] The Housing agent alone can read active while just standing inside, so also
+            // require one of its windows (the furnishings list or the layout bar) to be showing.
             var agent = AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing);
-            return agent != null && agent->IsAgentActive();
+            if (agent == null || !agent->IsAgentActive()) return false;
+            return GameUi.VisibleAddons().Any(n => n.StartsWith("Housing", StringComparison.Ordinal));
         }
     }
 
@@ -175,7 +196,7 @@ public sealed unsafe class Storeroom : IDisposable
                 next = DateTime.UtcNow.AddSeconds(1.5);
                 return;
             }
-            if (!toldToClick) GameUi.Dump(name, "storeroom: housing menu (looking for Indoor Furnishings)");
+            if (!toldToClick) GameUi.Dump(name, "storeroom: housing menu (looking for Indoor Furnishings). Visible windows: " + string.Join(", ", GameUi.VisibleAddons().OrderBy(x => x)));
         }
         if (askedAt == DateTime.MinValue || (DateTime.UtcNow - askedAt).TotalSeconds > 6)
         {
@@ -199,6 +220,7 @@ public sealed unsafe class Storeroom : IDisposable
     private void TickStore()
     {
         if (!LayoutOpen) { Fail("Indoor Furnishings closed."); return; }
+        if (RetainerStillOpen) { GameUi.Close("ContextMenu"); current = null; Set(Phase.Prepare, "Closing the retainer..."); return; }
         var im = InventoryManager.Instance();
         var yn = GameUi.Get("SelectYesno");
         if (yn != null && current != null) { yn->FireCallbackInt(0); next = DateTime.UtcNow.AddSeconds(1); return; }
@@ -219,9 +241,18 @@ public sealed unsafe class Storeroom : IDisposable
                     entries.Add(t);
                     if (index < 0 && t.Contains("Store", StringComparison.OrdinalIgnoreCase) && !t.Contains("Restore", StringComparison.OrdinalIgnoreCase)) index = i - 8;
                 }
+                if (index < 0 && entries.Any(e => e.Contains("Entrust to Retainer", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // A retainer is still attached to the item menu: close it and try this item again.
+                    menu->FireCallbackInt(-1);
+                    current = null;
+                    if (++retainerResets > 3) { Fail("A retainer window keeps the item menu from offering Store. Close the retainer and run /stash storeroom."); return; }
+                    Set(Phase.Prepare, "Closing the retainer...");
+                    return;
+                }
                 if (index < 0)
                 {
-                    if (refused.Count == 0) GameUi.Dump("ContextMenu", "storeroom: no Store entry");
+                    if (refused.Count == 0) GameUi.Dump("ContextMenu", "storeroom: no Store entry. Visible windows: " + string.Join(", ", GameUi.VisibleAddons().OrderBy(x => x)));
                     menu->FireCallbackInt(-1);
                     Skip(c, slot, $"no Store option ({string.Join(" | ", entries.Take(6))})");
                     return;
