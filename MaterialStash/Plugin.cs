@@ -58,7 +58,6 @@ public sealed class Plugin : IDalamudPlugin
         Selling = new Selling(Configuration, Tracker, Market, Director);
         Director.Selling = Selling;
         Runner = new Runner(Configuration, Tracker, Planner, AutoRetainer, Selling);
-        Director.Planner = Planner;
         Cleanup = new Cleanup(Configuration, Tracker, Market);
         Runner.Cleanup = Cleanup;
         Wardrobe = new Wardrobe(Configuration, Tracker, Cleanup);

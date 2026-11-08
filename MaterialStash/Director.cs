@@ -75,7 +75,6 @@ public sealed unsafe class Director : IDisposable
         try
         {
             if (!Core.GameUi.IsOpen("RetainerList")) return; // the list's data is fresh while it's up
-            foreach (var x in Retainers()) if (x.VentureId != 0) lastSeen[x.Id] = x.VentureId;
             if (recent.Count == 0) return;
             var me = tracker.Me();
             foreach (var r in Retainers())
@@ -170,31 +169,12 @@ public sealed unsafe class Director : IDisposable
         return null;
     }
 
-    /// <summary>Venture each retainer was last seen on (from the retainer list).</summary>
-    private readonly Dictionary<ulong, uint> lastSeen = new();
-    /// <summary>Set by the plugin: where items live, to tell whether a venture's item belongs elsewhere.</summary>
-    public Planner? Planner { get; set; }
-
-    /// <summary>
-    /// A retainer about to be sent out is back from its last venture, and AutoRetainer has collected
-    /// it: the item is now in that retainer. If it belongs with another retainer (its home) the
-    /// retainer is noted, and the next tidy (after AutoRetainer, if switched on) visits it.
-    /// </summary>
-    private void NoteReturn(RetainerInfo r)
-    {
-        var task = lastSeen.TryGetValue(r.Id, out var t) && t != 0 ? t : r.VentureId;
-        if (task == 0 || Ventures.Task(task) is not { } vt || tracker.Me() is not { } me || Planner == null) return;
-        var homes = Planner.Homes(vt.ItemId, me);
-        if (homes.Count > 0 && !homes.Contains(r.Id) && me.VentureReturns.Add(r.Id)) config.Save();
-    }
-
     private void OnSend(string retainerName)
     {
         try
         {
             var r = Retainers().FirstOrDefault(x => x.Name == retainerName);
             if (r.Id == 0) return;
-            NoteReturn(r);
             if (!config.RedirectVentures) return;
             if (tracker.Me() is { } me0 && me0.NoRedirect.Contains(r.Id)) return;
             if (Choose(r) is not { } c)

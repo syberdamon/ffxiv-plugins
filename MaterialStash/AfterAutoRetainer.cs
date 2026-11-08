@@ -7,10 +7,10 @@ using MaterialStash.Core;
 namespace MaterialStash;
 
 /// <summary>
-/// Puts what ventures brought back into its home retainers once AutoRetainer is done.
-/// Venture rewards land in the retainer that went, and AutoRetainer doesn't open its inventory, so
-/// the Director notes which retainers came back with an item that lives elsewhere; a tidy run then
-/// visits those (plus anything the usual tidy plan wants) and moves the items home.
+/// Puts what ventures brought back into its home retainers once AutoRetainer is done. Venture
+/// rewards land in your bags when AutoRetainer collects them, so this is a Stash run on whatever's
+/// in your bags that Stash takes (materials, crystals above your keep amount; money-venture items
+/// stay to be sold), only when there is something.
 ///
 /// Two ways in:
 ///  - Multi mode: AutoRetainer's character post-processing (the IPC other plugins use for work
@@ -58,7 +58,7 @@ public sealed class AfterAutoRetainer : IDisposable
         if (inPostprocess) Done("plugin unloaded");
     }
 
-    private bool Waiting => plugin.Configuration.TidyAfterAutoRetainer && plugin.Tracker.Me() is { VentureReturns.Count: > 0 };
+    private bool Waiting => plugin.Configuration.StashAfterAutoRetainer && plugin.Planner.RetainersToVisit().Count > 0;
 
     private void OnAdditional()
     {
@@ -79,7 +79,7 @@ public sealed class AfterAutoRetainer : IDisposable
         step = Runner.BellListOpen ? Step.Run : Step.Bell;
         stepStart = DateTime.UtcNow;
         if (step == Step.Bell) plugin.Bell.Start();
-        Status = "Tidying venture returns...";
+        Status = "Stashing venture returns...";
     }
 
     private void Done(string? why)
@@ -111,19 +111,16 @@ public sealed class AfterAutoRetainer : IDisposable
                 case Step.Bell:
                     if (Runner.BellListOpen) { step = Step.Run; stepStart = DateTime.UtcNow; break; }
                     if (!plugin.Bell.Busy && (DateTime.UtcNow - stepStart).TotalSeconds > 5 || (DateTime.UtcNow - stepStart).TotalMinutes > 3)
-                        Done("couldn't get to a summoning bell; they wait for your next tidy.");
+                        Done("couldn't get to a summoning bell; they wait in your bags for your next Stash.");
                     break;
                 case Step.Run:
-                    if (plugin.Tracker.Me() is not { } me) { Done(null); break; }
-                    plugin.Runner.Start(Runner.RunMode.Tidy, me.VentureReturns.ToList(), inPostprocess);
-                    if (plugin.Runner.Busy) { step = Step.Running; Plugin.ChatGui.Print("[Stash] Putting venture returns in their home retainers..."); }
+                    plugin.Runner.Start(Runner.RunMode.Stash, null, inPostprocess);
+                    if (plugin.Runner.Busy) { step = Step.Running; Plugin.ChatGui.Print("[Stash] Stashing what the ventures brought back..."); }
                     else if ((DateTime.UtcNow - stepStart).TotalSeconds > 10) Done(plugin.Runner.Status);
                     break;
                 case Step.Running:
                     if (!plugin.Runner.Busy)
                     {
-                        // Retainers the run opened are off the list already; drop ones no longer hired.
-                        if (plugin.Tracker.Me() is { } m) m.VentureReturns.RemoveWhere(id => !m.Order.Contains(id));
                         if (inPostprocess) GameUi.Close("RetainerList"); // AutoRetainer moves on from a closed bell
                         Done(null);
                     }
