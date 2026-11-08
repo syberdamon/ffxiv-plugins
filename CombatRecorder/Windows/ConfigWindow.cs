@@ -88,6 +88,14 @@ public sealed class ConfigWindow : Window
             }
             var cp = c.MeterCompact;
             if (ImGui.Checkbox("Compact view (bars only)", ref cp)) { c.MeterCompact = cp; c.Save(); }
+            if (c.MeterCompact)
+            {
+                ImGui.Indent();
+                var pc = c.MeterCompactPercent;
+                if (ImGui.Checkbox("Show % share on the bars", ref pc)) { c.MeterCompactPercent = pc; c.Save(); }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Each player's share of the party total for what you sort by (damage, healing or damage taken).");
+                ImGui.Unindent();
+            }
             var ti = c.MeterShowTitle;
             if (ImGui.Checkbox("Show the title line (fight, time, total DPS)", ref ti)) { c.MeterShowTitle = ti; c.Save(); }
             var hn = c.MeterHideNames;
