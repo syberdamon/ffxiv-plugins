@@ -101,9 +101,14 @@ public sealed unsafe class VentureWindow : Window
             text = ready == 0 && out_ == 0 ? "Ventures: none out" : "Ventures: open a bell once";
             color = Dim;
         }
+        if (plugin.Bell.Busy) { text = "Going to the bell... (click to stop)"; color = Dim; }
         ImGui.TextColored(color, text);
-        if (ImGui.IsItemClicked()) plugin.ToggleMain();
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click for Material Stash. Hide or pin it on the Retainers tab.");
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Left)) plugin.Bell.Start();
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Right)) plugin.ToggleMain();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Left-click: go to the nearest summoning bell (walks to one in sight; otherwise Lifestream to the market board first).\n" +
+                             "Right-click: Material Stash. Hide or pin this on the Retainers tab." +
+                             (plugin.Bell.Status.Length > 0 && !plugin.Bell.Busy ? $"\n{plugin.Bell.Status}" : ""));
     }
 
     private static string Minutes(long seconds) =>
