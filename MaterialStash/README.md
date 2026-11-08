@@ -48,6 +48,23 @@ anything a full retainer bounced back to one already visited.
   if needed, then handing control back). Single character at the bell: it starts when AutoRetainer goes idle with the
   list open.
 
+## ICE break (keep ventures going while you grind cosmocredits)
+Retainers tab: **ICE break** (off by default; `/stash icebreak` toggles it). It only acts while ICE (Ices Cosmic
+Exploration) is running. Once enough retainers are back (default 1, counted only for retainers that were out on a
+venture; AutoRetainer must also see one ready):
+1. ICE is told **stop after the current mission** (stopped outright if that takes longer than 12 min, settable).
+2. Off to a summoning bell: one in sight, else Lifestream to the market board.
+3. **AutoRetainer** runs: it starts by itself when the bell opens with ventures ready (its expert setting
+   "Action on accessing retainer bell if any ventures available" = Enable AutoRetainer, the default). With "stay 5 min"
+   on, the break waits at the bell for retainers due back within 5 minutes, as AutoRetainer does.
+4. **Stash** of this cycle's venture returns (the stock-list items, as above), if that option is on. AutoRetainer is
+   suppressed while the bell is reopened for this, and released after.
+5. Lifestream back (`/li cosmic`) and **ICE starts again** (works with a scrip goal's ICE run too: it waits).
+
+At least 10 min (settable) between breaks. It waits while any other Material Stash job runs. **Cancel** on the
+Retainers tab or `/stash stop` ends a break where it is (ICE is then left off if it was already stopped);
+`/stash icebreak now` takes one right away. Needs ICE, AutoRetainer and Lifestream; vnavmesh walks to a bell in sight.
+
 ## Homes: groups, categories, name rules, pins (Categories tab)
 Most specific first: **item pin** (one item -> retainers), **name rule** ("name contains Totem" -> retainers),
 **game category** (e.g. Rug), **group** (Housing, Armor, Accessories, Weapons & tools, Food & potions, Materials,

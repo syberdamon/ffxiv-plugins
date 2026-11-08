@@ -247,6 +247,41 @@ public sealed class MainWindow : Window
             ImGui.SetTooltip("Venture rewards land in your bags. Once AutoRetainer is done, a Stash run puts just that cycle's stock-list items\n"
                 + "in their home retainers (no crystals; nothing else from your bags): in multi mode as AutoRetainer's post-processing step,\n"
                 + "or at the bell when it goes idle with the list open.");
+
+        ImGui.Separator();
+        var ib = C.IceBreakEnabled;
+        if (ImGui.Checkbox("ICE break: while ICE is running, pause it for the retainers", ref ib))
+        {
+            C.IceBreakEnabled = ib; changed = true;
+            if (!ib) plugin.IceBreak.Stop("cancelled (turned off)");
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Only acts while ICE (Ices Cosmic Exploration) is running. Once enough retainers are back:\n"
+                + "ICE finishes its current mission and stops, you go to a summoning bell (one in sight, else Lifestream to the market board),\n"
+                + "AutoRetainer collects and resends (it starts when the bell opens), the stock items those ventures brought back are stashed\n"
+                + "(if the option above is on), then Lifestream takes you back (/li cosmic) and ICE starts again.\n"
+                + "/stash icebreak toggles this; /stash icebreak now takes a break right away; /stash stop cancels one.");
+        ImGui.SameLine();
+        var iceOk = plugin.IceBreak.IceLoaded;
+        ImGui.TextColored(iceOk ? Good : Warn, iceOk ? "ICE loaded" : "ICE not loaded");
+        if (C.IceBreakEnabled || plugin.IceBreak.Active)
+        {
+            ImGui.Indent();
+            var mr = C.IceBreakMinReady;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("retainers back before a break", ref mr, 1, 1)) { C.IceBreakMinReady = Math.Clamp(mr, 1, 10); changed = true; }
+            var gap = C.IceBreakMinGapMinutes;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("min between breaks (at least)", ref gap, 5, 5)) { C.IceBreakMinGapMinutes = Math.Clamp(gap, 0, 240); changed = true; }
+            var mw = C.IceBreakMissionWaitMinutes;
+            ImGui.SetNextItemWidth(110);
+            if (ImGui.InputInt("min to let ICE finish its mission, then stop it", ref mw, 1, 1)) { C.IceBreakMissionWaitMinutes = Math.Clamp(mw, 1, 60); changed = true; }
+            ImGui.TextDisabled($"Now: {plugin.IceBreak.Status}");
+            if (plugin.IceBreak.Active) { ImGui.SameLine(); if (ImGui.SmallButton("Cancel break")) plugin.IceBreak.Stop(); }
+            else if (ImGui.SmallButton("Break now")) { var why = plugin.IceBreak.StartNow(); if (why.Length > 0) Plugin.ChatGui.Print($"[Stash] ICE break: {why}"); }
+            ImGui.Unindent();
+        }
+        ImGui.Separator();
         var delay = C.StepDelay;
         ImGui.SetNextItemWidth(110);
         if (ImGui.SliderFloat("Seconds between moves", ref delay, 0.2f, 1.5f, "%.1f")) { C.StepDelay = delay; changed = true; }
