@@ -125,6 +125,13 @@ suggests a verdict for each item. Materials, materia, crystals, stock-list and k
   the 7-day median) and more than the vendor pays; else **Grand Company** for green/blue gear (Turn-In Manager takes
   it from there), else **Vendor** ("Have Retainer Sell Items"), else **Desynthesize**, else **Discard**.
 
+**Spiritbond**: gear with any spiritbond can't go on the market board, so spiritbound copies get no market value
+(the run never pulls or lists them for the market). Their value is the vendor price or, if higher, the desynthesis
+results [Estimate: the average home-world price of the results players have reported to Teamcraft, one per
+desynthesis; that list is partial, so some items show "desynth results unknown"]. Desynthesis also wins for any item
+whose results are worth more than selling or vendoring it. Spiritbond is read when a retainer is opened (Scan all once
+after updating); records from Allagan Tools don't carry it.
+
 Any verdict can be changed per item. Stacks worth more than 10,000 gil get their own look; the rest can be approved a
 group at a time. Approving a discard first shows how you'd get each item back (market, vendors, exchanges, crafting,
 and the duties it drops in with how hard each is to run today). Items that are easy to get again (solo or a small

@@ -28,6 +28,7 @@ public static class Regain
     private static Dictionary<uint, long>? gil;
     private static Dictionary<uint, long[]>? shops;
     private static Dictionary<uint, uint[]>? tokens;
+    private static Dictionary<uint, uint[]>? desynth;
 
     private static readonly string[] AllianceRaids =
     {
@@ -39,7 +40,7 @@ public static class Regain
     private static void Load()
     {
         if (instances != null) return;
-        instances = new(); duties = new(); gil = new(); shops = new(); tokens = new();
+        instances = new(); duties = new(); gil = new(); shops = new(); tokens = new(); desynth = new();
         try
         {
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MaterialStash.cleanup_sources.json");
@@ -60,6 +61,9 @@ public static class Regain
                 shops[uint.Parse(p.Name)] = p.Value.EnumerateArray().Select(x => x.GetInt64()).ToArray();
             foreach (var p in root.GetProperty("tokens").EnumerateObject())
                 tokens[uint.Parse(p.Name)] = p.Value.EnumerateArray().Select(x => x.GetUInt32()).ToArray();
+            if (root.TryGetProperty("desynth", out var ds))
+                foreach (var p in ds.EnumerateObject())
+                    desynth[uint.Parse(p.Name)] = p.Value.EnumerateArray().Select(x => x.GetUInt32()).ToArray();
         }
         catch (Exception ex) { Plugin.Log.Warning(ex, "Material Stash: couldn't read the clean-up sources"); }
     }
@@ -82,6 +86,9 @@ public static class Regain
 
     /// <summary>What this item buys if it's an exchange token (empty if it isn't one).</summary>
     public static uint[] TokenRewards(uint itemId) { Load(); return tokens!.GetValueOrDefault(itemId % 1_000_000) ?? Array.Empty<uint>(); }
+
+    /// <summary>What desynthesizing this item can give (reported results; empty if none known).</summary>
+    public static uint[] DesynthResults(uint itemId) { Load(); return desynth!.GetValueOrDefault(itemId % 1_000_000) ?? Array.Empty<uint>(); }
 
     /// <summary>How hard a duty is to run again today (level 100, unsynced where allowed), with a short note.</summary>
     public static (Effort Effort, string How) HowHard(Duty d)

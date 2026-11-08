@@ -179,7 +179,9 @@ public sealed unsafe class Cleanup : IDisposable
             {
                 if (qty <= 0 || Fact(key) is not { } f || Skipped(f, wanted)) continue;
                 if (f.Marketable) ask.Add(f.Id);
-                var line = Judge(rid, key, qty, snap.Stacks.GetValueOrDefault(key, 1), f, me, inDresser);
+                if (f.Desynth) foreach (var d in Regain.DesynthResults(f.Id)) if (!Items.IsCrystal(d)) ask.Add(d);
+                var line = Judge(rid, key, qty, snap.Stacks.GetValueOrDefault(key, 1), f, me, inDresser,
+                                 snap.Bound.GetValueOrDefault(key), snap.BoundKnown);
                 lines.Add(line);
                 verdictOf[key] = line.Verdict;
             }
@@ -187,7 +189,7 @@ public sealed unsafe class Cleanup : IDisposable
         // Approved items already brought to your bags keep their verdict (the run and the inn trip act on them).
         foreach (var s in Tracker.Stacks(Tracker.Bags))
             if (me.CleanupApproved.Contains(s.ItemId) && !verdictOf.ContainsKey(s.ItemId) && Fact(s.ItemId) is { } bf)
-                verdictOf[s.ItemId] = Judge(0, s.ItemId, s.Qty, 1, bf, me, inDresser).Verdict;
+                verdictOf[s.ItemId] = Judge(0, s.ItemId, s.Qty, 1, bf, me, inDresser, Tracker.Spiritbound(s.Type, s.Slot) ? s.Qty : 0, true).Verdict;
         if (ask.Count > 0) market.Request(ask, Selling.HomeWorld(), Math.Max(10, config.PriceRefreshMinutes));
 
         // Approvals for things that are gone (sold, moved, discarded) lapse; HQ/NQ keys as held.
@@ -200,15 +202,37 @@ public sealed unsafe class Cleanup : IDisposable
         return lines;
     }
 
-    private CleanLine Judge(ulong rid, uint key, int qty, int stacks, Facts f, CharacterData me, HashSet<uint> inDresser)
+    /// <summary>
+    /// [Estimate] What one desynthesis is worth: the average home-world price of the results players have
+    /// reported for it (crystals left out), one of them per desynthesis. 0 if no results are known.
+    /// </summary>
+    public long DesynthUnitValue(uint id)
+    {
+        var results = Regain.DesynthResults(id).Where(r => !Items.IsCrystal(r)).ToList();
+        if (results.Count == 0) return 0;
+        var prices = results.Select(r => market.Get(r)?.Price ?? 0).ToList();
+        return (long)(prices.Average() * MarketTax);
+    }
+
+    private CleanLine Judge(ulong rid, uint key, int qty, int stacks, Facts f, CharacterData me, HashSet<uint> inDresser, int bound, bool boundKnown)
     {
         var notes = new List<string>();
         var info = f.Marketable ? market.Get(f.Id) : null;
         var pending = f.Marketable && info == null;
         var unit = info?.Price ?? 0;
-        var marketValue = (long)(unit * qty * MarketTax);
+        // Spiritbound copies can't go on the market board: no market value for them.
+        bound = Math.Clamp(bound, 0, qty);
+        var sellable = qty - bound;
+        var marketValue = (long)(unit * sellable * MarketTax);
+        if (bound > 0) notes.Add(bound == qty ? "spiritbound: can't be sold on the market" : $"{bound} of {qty} spiritbound (can't be sold on the market)");
+        else if (f.Marketable && f.Equip && !boundKnown) notes.Add("spiritbond unknown (open this retainer once to check)");
+        var desynthUnit = f.Desynth ? DesynthUnitValue(f.Id) : 0;
+        var desynthValue = desynthUnit * qty;
+        if (desynthValue > 0) notes.Add($"desynth results ~{desynthValue:N0} [est.]");
+        else if (f.Desynth && f.Equip) notes.Add("desynth results unknown");
+        if (bound == qty && f.Marketable) pending = false; // no market price needed
         var vendorValue = f.Vendor * qty;
-        var value = Math.Max(marketValue, vendorValue);
+        var value = Math.Max(Math.Max(marketValue, vendorValue), desynthValue);
         var (easiest, ways) = Ways(f.Id);
         var unlock = f.HasAction ? Unlock(f.Id) : 4;
 
@@ -253,7 +277,12 @@ public sealed unsafe class Cleanup : IDisposable
             }
 
             if (pending) { reason = "waiting for a price"; return Verdict.Keep; }
-            if (f.Marketable && marketValue >= config.CleanupMinSell && marketValue >= vendorValue)
+            if (desynthValue >= config.CleanupMinSell && desynthValue > marketValue && desynthValue > vendorValue)
+            {
+                reason = (bound > 0 ? "spiritbound; " : "") + $"desynthesis worth ~{desynthValue:N0} [est., average of reported results]";
+                return Verdict.Desynth;
+            }
+            if (f.Marketable && sellable > 0 && marketValue >= config.CleanupMinSell && marketValue >= vendorValue)
             {
                 reason = $"sells for ~{marketValue:N0} after tax" + (info!.UnitsPerDay < 1 ? " (slow seller)" : "");
                 if (f.Equip) notes.Add("popular look? it sells: your call");

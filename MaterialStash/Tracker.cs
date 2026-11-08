@@ -93,6 +93,14 @@ public sealed unsafe class Tracker : IDisposable
         return result;
     }
 
+    /// <summary>A stack with any spiritbond (not a collectable's collectability): it can't go on the market board.</summary>
+    public static bool Spiritbound(InventoryType type, int slot)
+    {
+        var im = InventoryManager.Instance();
+        var s = im == null ? null : im->GetInventorySlot(type, slot);
+        return s != null && s->ItemId != 0 && !s->Flags.HasFlag(InventoryItem.ItemFlags.Collectable) && s->SpiritbondOrCollectability > 0;
+    }
+
     public static bool Loaded(IEnumerable<InventoryType> containers)
     {
         var im = InventoryManager.Instance();
@@ -196,10 +204,12 @@ public sealed unsafe class Tracker : IDisposable
         if (!me.Retainers.TryGetValue(a.Id, out var snap)) me.Retainers[a.Id] = snap = new RetainerSnap { Name = a.Name };
         var items = new Dictionary<uint, int>();
         var stacks = new Dictionary<uint, int>();
+        var bound = new Dictionary<uint, int>();
         var used = 0;
         foreach (var s in Stacks(RetainerPages))
         {
             used++;
+            if (Spiritbound(s.Type, s.Slot)) bound[s.ItemId] = bound.GetValueOrDefault(s.ItemId) + s.Qty;
             items[s.ItemId] = items.GetValueOrDefault(s.ItemId) + s.Qty;
             stacks[s.ItemId] = stacks.GetValueOrDefault(s.ItemId) + 1;
         }
@@ -207,7 +217,8 @@ public sealed unsafe class Tracker : IDisposable
             ? Crystals(InventoryType.RetainerCrystals).ToDictionary(k => k.Key, v => v.Value.Qty)
             : snap.Crystals;
         var same = snap.Source == "opened" && snap.UsedSlots == used && Same(snap.Items, items) && Same(snap.Crystals, crystals);
-        snap.Items = items; snap.Stacks = stacks; snap.UsedSlots = used; snap.Crystals = crystals;
+        if (!Same(snap.Bound, bound)) same = false;
+        snap.Items = items; snap.Stacks = stacks; snap.UsedSlots = used; snap.Crystals = crystals; snap.Bound = bound; snap.BoundKnown = true;
         snap.Seen = DateTime.Now; snap.Source = "opened";
         return !same;
     }

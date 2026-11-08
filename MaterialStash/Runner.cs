@@ -512,6 +512,7 @@ public sealed unsafe class Runner : IDisposable
         foreach (var s in Tracker.Stacks(Tracker.Bags, id => me.SellQueue.Contains(id % 1_000_000)))
         {
             if (skipStacks.Contains((s.Type, s.Slot))) continue;
+            if (Tracker.Spiritbound(s.Type, s.Slot)) { noPrice.Add((Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}") + " (spiritbound)"); skipStacks.Add((s.Type, s.Slot)); continue; }
             var price = selling.ListPrice(s.ItemId);
             if (price <= 0) { noPrice.Add(Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}"); skipStacks.Add((s.Type, s.Slot)); continue; }
             var qty = Math.Min(s.Qty, Math.Max(1, config.MaxPerListing));
@@ -653,6 +654,7 @@ public sealed unsafe class Runner : IDisposable
         {
             if (skipStacks.Contains((s.Type, s.Slot))) continue;
             if (cu.ApprovedAction(s.ItemId, me) is not { } v || v == Verdict.Keep) continue;
+            if (v == Verdict.Market && Tracker.Spiritbound(s.Type, s.Slot)) continue; // can't be listed: leave it
             if (EmptyBagSlot() is not { } dst) { bagsFull = true; return false; }
             if (lastMove is { } lm && lm.Type == s.Type && lm.Slot == s.Slot && lm.Item == s.ItemId && lm.Qty == s.Qty)
             {
