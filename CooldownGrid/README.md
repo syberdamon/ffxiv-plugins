@@ -54,6 +54,13 @@ Icons pulse gold when they're due:
 Buster/raidwide timing comes from Mit Planner's timeline (0.9.7+), or BossMod's when Mit
 Planner has none for the fight.
 
+## Plugins button
+A small floating **Plugins** button (Display tab: show, only during cutscenes, lock) that stays up during cutscenes.
+Click it for a menu: the plugin installer (installed plugins, updates, browse), Dalamud settings, and every loaded
+plugin's window or settings, so you don't need its text command. Right-click it for Cooldown Grid's settings.
+Cooldown Grid opts out of Dalamud's cutscene hiding for this; the cooldown grids still hide during cutscenes. Other
+plugins' windows opened from it follow Dalamud's "Hide plugin UI during cutscenes" setting (Look & Feel tab).
+
 ## How the icons read
 - Dark with a number: on cooldown (for charge abilities: out of charges; the
   number is time to the next charge).
@@ -70,6 +77,7 @@ Planner has none for the fight.
 - Not yet included: items (potions) and other non-action buttons.
 
 ## Unverified (needs an in-game check)
+- Plugins button: Dalamud's own installer and settings windows showing during a cutscene.
 - Starter-layout action IDs are from memory. A wrong ID just won't show up; tell
   me which ability is missing.
 - Clicking should behave exactly like a hotbar press, including targeting.

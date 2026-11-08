@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private readonly WindowSystem windowSystem = new("CooldownGrid");
     private readonly ConfigWindow configWindow;
+    private readonly PluginsButton pluginsButton;
     private readonly Dictionary<Guid, GroupWindow> groupWindows = new();
 
     public Plugin()
@@ -40,6 +41,8 @@ public sealed class Plugin : IDalamudPlugin
 
         configWindow = new ConfigWindow(this);
         windowSystem.AddWindow(configWindow);
+        pluginsButton = new PluginsButton(this);
+        windowSystem.AddWindow(pluginsButton);
         SyncGroupWindows();
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
@@ -47,6 +50,8 @@ public sealed class Plugin : IDalamudPlugin
             HelpMessage = "Open settings. /cdgrid lock | unlock | show | hide",
         });
 
+        // The Plugins button stays up in cutscenes; the cooldown grids hide themselves there instead (GroupWindow).
+        PluginInterface.UiBuilder.DisableCutsceneUiHide = true;
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfig;
         PluginInterface.UiBuilder.OpenMainUi += ToggleConfig;
@@ -93,4 +98,6 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private void ToggleConfig() => configWindow.Toggle();
+
+    public void ToggleConfigPublic() => configWindow.Toggle();
 }

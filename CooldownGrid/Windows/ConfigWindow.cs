@@ -241,5 +241,19 @@ public sealed class ConfigWindow : Window
 
         ImGui.Spacing();
         ImGui.TextDisabled("Tip: turn off a group's title bar and lock it to make it look like a hotbar.");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.TextUnformatted("Floating \"Plugins\" button (stays up during cutscenes)");
+        var pb = Config.ShowPluginsButton;
+        if (ImGui.Checkbox("Show it", ref pb)) { Config.ShowPluginsButton = pb; Config.Save(); }
+        ImGui.SameLine();
+        var co = Config.PluginsButtonCutscenesOnly;
+        if (ImGui.Checkbox("Only during cutscenes", ref co)) { Config.PluginsButtonCutscenesOnly = co; Config.Save(); }
+        ImGui.SameLine();
+        var lk = Config.PluginsButtonLocked;
+        if (ImGui.Checkbox("Lock position", ref lk)) { Config.PluginsButtonLocked = lk; Config.Save(); }
+        ImGui.TextDisabled("Opens the plugin installer (installed / updates), Dalamud settings, or any plugin's window or settings.\n" +
+                           "Other plugins' windows still follow Dalamud's \"Hide plugin UI during cutscenes\" setting."); 
     }
 }
