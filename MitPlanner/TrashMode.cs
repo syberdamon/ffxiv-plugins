@@ -204,6 +204,17 @@ public sealed class TrashMode : IDisposable
                 // rather than letting HP drain until the pull is set.
                 if (sig.MobsOnMe >= S.PullShortMinMobs && hp < S.PullShortHpPercent && !Active(kit.Short) &&
                     TryPress(kit.Short, "pull/short", $"gathering, HP<{S.PullShortHpPercent:0}%", me, kit, sig)) break;
+                // No short mit to press (not learned yet at this level, or recasting after it fell off) while
+                // a big pack is still being gathered: Reprisal, then Rampart lower down, instead of draining to
+                // the 60% forced threshold. From the 2026-11-07 logs: Snowcloak WAR50 (no Raw Intuition before
+                // 56) hit 37-44% on three pulls; Tender Valley WAR100 drained 71% -> 56% after Bloodwhetting ended.
+                if (sig.MobsOnMe >= S.PullShortMinMobs && hp < S.PullShortHpPercent && !Active(kit.Short) && !Ready(kit.Short))
+                {
+                    if (!Active(TankKits.ReprisalId) &&
+                        TryPress(TankKits.ReprisalId, "pull/reprisal", $"gathering, HP<{S.PullShortHpPercent:0}%, no short mit", me, kit, sig)) break;
+                    if (hp < S.PullRampartHpPercent && !Active(kit.Big) && !Active(kit.Rampart) && !Active(kit.Short) &&
+                        TryPress(kit.Rampart, "pull/rampart", $"gathering, HP<{S.PullRampartHpPercent:0}%, no short mit", me, kit, sig)) break;
+                }
                 Skip("moving", "pulling/moving: holding mits");
                 break;
         }

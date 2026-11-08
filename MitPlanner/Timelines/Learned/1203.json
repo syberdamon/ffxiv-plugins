@@ -1,0 +1,92 @@
+{
+ "territory": 1203,
+ "zoneKey": "Tender Valley",
+ "path": "learned/1203",
+ "category": "Learned",
+ "tags": {
+  "100,000 Needles": "Mechanic",
+  "Serrated Spin": "Mechanic",
+  "Barbed Bellow": "Raidwide",
+  "Heavyweight Needles": "Mechanic",
+  "Tender Drop": "Mechanic",
+  "Barrel Breaker": "Raidwide",
+  "Succulent Stomp": "Stack",
+  "Tender Fury": "TankBuster",
+  "Anthrabomb": "Raidwide",
+  "Carbonaceous Combustion": "Raidwide",
+  "Carniflagration": "Mechanic",
+  "Burning Coals": "Raidwide",
+  "Chimney Smack": "TankBuster",
+  "Tectonic Shift": "Mechanic",
+  "Ancient Wrath": "Mechanic",
+  "Boulder Toss": "Mechanic",
+  "Sun Toss": "Mechanic",
+  "Dubious Tulidisaster": "Raidwide",
+  "Bouncy Council": "Mechanic",
+  "Misplaced Mystery": "Mechanic",
+  "Screes of Fury": "TankBuster",
+  "Exalted Wobble": "Mechanic",
+  "Greatest Labyrinth": "Raidwide",
+  "Moist Summoning": "Mechanic",
+  "Mighty Blorp": "Raidwide",
+  "Greatest Flood": "Raidwide"
+ },
+ "triggerIds": {
+  "Mechanic": [
+   "8EBE",
+   "8EC3",
+   "8EC4",
+   "8ECA",
+   "8ECC",
+   "8F86",
+   "8F87",
+   "8F88",
+   "8F8A",
+   "8F8D",
+   "8F8E",
+   "8F8F",
+   "8F90",
+   "8F91",
+   "9208",
+   "920B",
+   "9643",
+   "968A",
+   "968B",
+   "968C",
+   "9935",
+   "9938",
+   "9939"
+  ],
+  "Raidwide": [
+   "8EC9",
+   "8ECB",
+   "8ECD",
+   "8F89",
+   "8F8C",
+   "8F94",
+   "920E",
+   "9210",
+   "9C2D",
+   "9C2E",
+   "9C2F"
+  ],
+  "Stack": [
+   "920F"
+  ],
+  "TankBuster": [
+   "8F95",
+   "9644",
+   "994A"
+  ]
+ },
+ "headMarkers": {},
+ "kills": {
+  "Valley Megamaguey": 2,
+  "Barreltender": 2,
+  "Anthracite": 2,
+  "Yok Huy Attestant": 2,
+  "Greatest Serpent of Tural": 2
+ },
+ "trusted": true,
+ "note": "Curated 2026-11-07: Boulder Toss (Yok Huy Attestant, 0.7 s cast, ~9% on the tank, irregular timing) set to Mechanic, not a tank buster."
+}

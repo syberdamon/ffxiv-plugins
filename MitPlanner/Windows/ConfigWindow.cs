@@ -414,6 +414,7 @@ public sealed class ConfigWindow : Window
             t.GatherShare = F("Share of mobs gathered", t.GatherShare, 0, 1, "%.2f");
             t.MovingHpPercent = F("Act anyway below HP % (while moving/gathering)", t.MovingHpPercent, 0, 100, "%.0f");
             t.PullShortHpPercent = F("Short mit while gathering below HP %", t.PullShortHpPercent, 0, 100, "%.0f");
+            t.PullRampartHpPercent = F("Rampart while gathering (no short mit) below HP %", t.PullRampartHpPercent, 0, 100, "%.0f");
             t.PullShortMinMobs = I("  ...with at least this many mobs on you", t.PullShortMinMobs, 1, 20);
             t.IdleHpPercent = F("No new big mit at or above HP %...", t.IdleHpPercent, 0, 100, "%.0f");
             t.IdleDamagePctPerSec = F("  ...while taking less than %/s", t.IdleDamagePctPerSec, 0, 20, "%.1f");
