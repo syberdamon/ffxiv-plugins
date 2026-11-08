@@ -495,6 +495,7 @@ public sealed unsafe class Cleanup : IDisposable
             var btn = GameUi.FindButton(dialog, "Desynthesize");
             if (btn == null) btn = GameUi.FindButton(dialog, "Desynthesis");
             if (btn != null) GameUi.ClickButton(dialog, btn);
+            else if (dialog->GetComponentButtonById(25) is var b25 && b25 != null) GameUi.ClickButton(dialog, b25); // Desynthesize is button 25 (as ECommons' AddonMaster)
             else
             {
                 if (!desynthDumped) { desynthDumped = true; GameUi.Dump("SalvageDialog", "desynth: no Desynthesize button"); }
