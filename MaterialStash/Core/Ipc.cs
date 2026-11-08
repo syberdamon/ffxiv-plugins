@@ -119,3 +119,75 @@ public sealed class LifestreamIpc
     public bool Execute(string args) { try { executeCommand.InvokeAction(args); return true; } catch (Exception) { return false; } }
     public void Abort() { try { abort.InvokeAction(); } catch (Exception) { } }
 }
+
+/// <summary>Turn-In Manager's scrip run (turn in collectables, buy an item). Every call guarded.</summary>
+public sealed class TurnInIpc
+{
+    private readonly ICallGateSubscriber<uint, int, string> start;
+    private readonly ICallGateSubscriber<bool> busy;
+    private readonly ICallGateSubscriber<bool> failed;
+    private readonly ICallGateSubscriber<string> status;
+    private readonly ICallGateSubscriber<int> bought;
+    private readonly ICallGateSubscriber<object> stop;
+
+    public TurnInIpc()
+    {
+        var pi = Plugin.PluginInterface;
+        start = pi.GetIpcSubscriber<uint, int, string>("TurnInManager.Scrips.Start");
+        busy = pi.GetIpcSubscriber<bool>("TurnInManager.Scrips.IsBusy");
+        failed = pi.GetIpcSubscriber<bool>("TurnInManager.Scrips.Failed");
+        status = pi.GetIpcSubscriber<string>("TurnInManager.Scrips.Status");
+        bought = pi.GetIpcSubscriber<int>("TurnInManager.Scrips.Bought");
+        stop = pi.GetIpcSubscriber<object>("TurnInManager.Scrips.Stop");
+    }
+
+    public bool IsLoaded { get { try { busy.InvokeFunc(); return true; } catch (Exception) { return false; } } }
+    /// <summary>"" when the run started, otherwise why not.</summary>
+    public string Start(uint itemId, int count) { try { return start.InvokeFunc(itemId, count); } catch (Exception) { return "Turn-In Manager isn't installed or is out of date."; } }
+    public bool Busy { get { try { return busy.InvokeFunc(); } catch (Exception) { return false; } } }
+    public bool Failed { get { try { return failed.InvokeFunc(); } catch (Exception) { return true; } } }
+    public string Status { get { try { return status.InvokeFunc(); } catch (Exception) { return ""; } } }
+    public int Bought { get { try { return bought.InvokeFunc(); } catch (Exception) { return 0; } } }
+    public void Stop() { try { stop.InvokeAction(); } catch (Exception) { } }
+}
+
+/// <summary>Artisan: craft N of a recipe (endurance mode), watch and stop it. Every call guarded.</summary>
+public sealed class ArtisanIpc
+{
+    private readonly ICallGateSubscriber<ushort, int, object> craftItem;
+    private readonly ICallGateSubscriber<bool> isBusy;
+    private readonly ICallGateSubscriber<bool> endurance;
+    private readonly ICallGateSubscriber<bool, object> setStop;
+
+    public ArtisanIpc()
+    {
+        var pi = Plugin.PluginInterface;
+        craftItem = pi.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem");
+        isBusy = pi.GetIpcSubscriber<bool>("Artisan.IsBusy");
+        endurance = pi.GetIpcSubscriber<bool>("Artisan.GetEnduranceStatus");
+        setStop = pi.GetIpcSubscriber<bool, object>("Artisan.SetStopRequest");
+    }
+
+    public bool IsLoaded { get { try { isBusy.InvokeFunc(); return true; } catch (Exception) { return false; } } }
+    public bool Craft(uint recipeId, int count) { try { craftItem.InvokeAction((ushort)recipeId, count); return true; } catch (Exception) { return false; } }
+    public bool Busy { get { try { return isBusy.InvokeFunc() || endurance.InvokeFunc(); } catch (Exception) { return false; } } }
+    public void Stop() { try { setStop.InvokeAction(true); } catch (Exception) { } }
+}
+
+/// <summary>GatherBuddy Reborn (Vulcan's host): only whether auto-gather is running. Vulcan itself is started by its /vulcan command.</summary>
+public sealed class GatherBuddyIpc
+{
+    private readonly ICallGateSubscriber<bool> autoGather;
+    private readonly ICallGateSubscriber<bool, object> setAutoGather;
+
+    public GatherBuddyIpc()
+    {
+        var pi = Plugin.PluginInterface;
+        autoGather = pi.GetIpcSubscriber<bool>("GatherBuddyReborn.IsAutoGatherEnabled");
+        setAutoGather = pi.GetIpcSubscriber<bool, object>("GatherBuddyReborn.SetAutoGatherEnabled");
+    }
+
+    public bool IsLoaded { get { try { autoGather.InvokeFunc(); return true; } catch (Exception) { return false; } } }
+    public bool AutoGathering { get { try { return autoGather.InvokeFunc(); } catch (Exception) { return false; } } }
+    public void StopAutoGather() { try { setAutoGather.InvokeAction(false); } catch (Exception) { } }
+}

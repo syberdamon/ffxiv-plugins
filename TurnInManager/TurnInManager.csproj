@@ -10,4 +10,7 @@
     <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\ScripData.cs" Link="Shared\ScripData.cs" />
+  </ItemGroup>
 </Project>
