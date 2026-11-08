@@ -33,7 +33,7 @@ public sealed record BatchMaterials(Dictionary<uint, int> Fetch, Dictionary<uint
 /// </summary>
 public sealed unsafe class ScripGoals : IDisposable
 {
-    private enum Step { Idle, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering }
+    private enum Step { Idle, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering, Cosmo, Earning }
 
     private readonly Plugin plugin;
     private Configuration C => plugin.Configuration;
@@ -42,6 +42,13 @@ public sealed unsafe class ScripGoals : IDisposable
     public readonly GatherBuddyIpc GatherBuddy = new();
     private readonly VNavIpc vnav = new();
     public readonly GatherBuddyLists Lists = new();
+    public readonly IceIpc Ice = new();
+    public CosmoShop Cosmo { get; private set; } = null!;
+    // cosmocredits: tried this batch (goal item / materials), ICE run once per goal
+    private bool cosmoGoalTried, cosmoMatTried, iceTried;
+    private Dictionary<uint, int> cosmoWant = new();
+    private int iceTarget;
+    private int iceGoal = -1;
     private CollectableReward? gatherItem;
     private bool listsTouched;
 
@@ -71,6 +78,7 @@ public sealed unsafe class ScripGoals : IDisposable
     public ScripGoals(Plugin plugin)
     {
         this.plugin = plugin;
+        Cosmo = new CosmoShop(plugin.Configuration);
         Plugin.Framework.Update += OnUpdate;
     }
 
@@ -78,6 +86,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         Plugin.Framework.Update -= OnUpdate;
         if (Busy) Stop("Plugin unloaded.");
+        Cosmo.Dispose();
     }
 
     private static IDataManager Data => Plugin.DataManager;
@@ -235,6 +244,7 @@ public sealed unsafe class ScripGoals : IDisposable
         goals.AddRange(only != null ? new[] { only } : C.ScripGoals.Where(g => g.Enabled && g.Target > 0));
         if (goals.Count == 0) { Status = "No scrip goals switched on."; return; }
         gi = 0;
+        iceGoal = -1;
         notes.Clear();
         ResetBatch();
         Advance();
@@ -248,6 +258,8 @@ public sealed unsafe class ScripGoals : IDisposable
         if (step is Step.ToBell) plugin.Bell.Stop();
         if (step is Step.Fetching) plugin.Runner.Stop();
         if (step == Step.Gathering) GatherBuddy.StopAutoGather();
+        if (step == Step.Cosmo) Cosmo.Stop();
+        if (step == Step.Earning) Ice.StopAndReset();
         RestoreLists();
         if (step == Step.Crafting && viaVulcan)
             why += " Vulcan has no stop command: stop its crafting list in its own window if it's still going.";
@@ -266,6 +278,7 @@ public sealed unsafe class ScripGoals : IDisposable
     private void ResetBatch()
     {
         fetchTried = marketTried = false;
+        cosmoGoalTried = cosmoMatTried = false;
         fetchList = new();
         MarketList = new();
     }
@@ -294,6 +307,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         while (gi < goals.Count)
         {
+            if (gi != iceGoal) { iceTried = false; iceGoal = gi; }
             var me = plugin.Tracker.Me();
             if (me == null) { Stop("Logged out."); return; }
             var g = Goal;
@@ -310,6 +324,13 @@ public sealed unsafe class ScripGoals : IDisposable
                 haveBefore = plan.Have;
                 Set(Step.TurnIn, $"{name}: turning in {plan.Held} collectable(s) and buying (Turn-In Manager)...");
                 return;
+            }
+
+            // Cosmocredits first for the item itself (no materials spent).
+            if (C.ScripUseCosmo && !cosmoGoalTried && CosmoData.Sells(g.ItemId))
+            {
+                cosmoGoalTried = true;
+                if (TryCosmo(new Dictionary<uint, int> { [g.ItemId] = plan.Need }, name)) return;
             }
 
             if (plan.Gather != null && plan.RecipeWhy == null)
@@ -357,6 +378,14 @@ public sealed unsafe class ScripGoals : IDisposable
             plugin.Bell.Start();
             Set(Step.ToBell, $"{name}: going to a summoning bell for materials on your retainers...");
             return true;
+        }
+
+        // 2. cosmocredits (no materials spent), for what the exchange sells
+        var cosmoMissing = mats.Missing.Where(kv => CosmoData.Sells(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (cosmoMissing.Count > 0 && C.ScripUseCosmo && !cosmoMatTried)
+        {
+            cosmoMatTried = true;
+            if (TryCosmo(cosmoMissing, name)) return true;
         }
 
         // Artisan crafts only the recipe itself: missing intermediate crafts need Vulcan.
@@ -424,6 +453,67 @@ public sealed unsafe class ScripGoals : IDisposable
         step = Step.Idle;
         Status = notes.Count == 0 ? "Scrip goals: nothing to do." : "Scrip goals done: " + string.Join(" ", notes);
         Plugin.ChatGui.Print("[Stash] Scrip goals finished.");
+    }
+
+    // ================================================================ cosmocredits
+
+    /// <summary>
+    /// Buy these with cosmocredits (above the reserve) at Mesouaidonque; short of credits, run ICE
+    /// until there are enough (once per goal), then buy. Only in a Cosmic Exploration zone.
+    /// True when a step started.
+    /// </summary>
+    private bool TryCosmo(Dictionary<uint, int> want, string name)
+    {
+        if (!CosmoData.InZone) return false; // [Assumption] no travel to the moon yet: used when you're there
+        var spendable = CosmoData.Credits - C.ScripCosmoReserve;
+        var cheapest = want.Keys.Min(id => CosmoData.Costs[id % 1_000_000]);
+        var total = want.Sum(kv => CosmoData.Costs[kv.Key % 1_000_000] * kv.Value);
+        if (spendable >= cheapest)
+        {
+            var msg = Cosmo.Start(want);
+            if (msg.Length > 0) { Note($"{name}: cosmocredits: {msg}"); return false; }
+            cosmoWant = want;
+            Set(Step.Cosmo, $"{name}: buying with cosmocredits ({CosmoData.Credits:N0}, keeping {C.ScripCosmoReserve:N0})...");
+            return true;
+        }
+        if (C.ScripCosmoEarn && !iceTried && Ice.IsLoaded && !Ice.Running)
+        {
+            iceTried = true;
+            iceTarget = Math.Min(CosmoData.Cap, C.ScripCosmoReserve + total);
+            if (iceTarget <= CosmoData.Credits) return false;
+            if (!Ice.EarnTo(iceTarget)) { Note($"{name}: couldn't start ICE."); return false; }
+            cosmoWant = want;
+            Set(Step.Earning, $"{name}: ICE earning cosmocredits to {iceTarget:N0}...");
+            return true;
+        }
+        return false;
+    }
+
+    private void TickCosmo()
+    {
+        if (Cosmo.Busy) { Status = $"{ItemName(Goal.ItemId)}: {Cosmo.Status}"; return; }
+        if (Cosmo.Failed) { Note($"{ItemName(Goal.ItemId)}: {Cosmo.Status}"); }
+        Advance();
+    }
+
+    private void TickEarning()
+    {
+        var credits = CosmoData.Credits;
+        var running = Ice.Running;
+        Status = $"{ItemName(Goal.ItemId)}: ICE earning cosmocredits {credits:N0} / {iceTarget:N0}{(running ? $" ({Ice.State})" : "")}...";
+        if (credits >= iceTarget || (!running && (DateTime.UtcNow - stepStart).TotalSeconds > 20))
+        {
+            Ice.StopAndReset();
+            if (credits - C.ScripCosmoReserve >= cosmoWant.Keys.Min(id => CosmoData.Costs[id % 1_000_000]) && CosmoData.InZone)
+            {
+                var msg = Cosmo.Start(cosmoWant);
+                if (msg.Length == 0) { Set(Step.Cosmo, $"{ItemName(Goal.ItemId)}: buying with cosmocredits..."); return; }
+                Note($"{ItemName(Goal.ItemId)}: cosmocredits: {msg}");
+            }
+            else Note($"{ItemName(Goal.ItemId)}: ICE stopped with {credits:N0} cosmocredits (wanted {iceTarget:N0}).");
+            Advance();
+            return;
+        }
     }
 
     // ================================================================ gathering (gatherer scrips)
@@ -543,7 +633,7 @@ public sealed unsafe class ScripGoals : IDisposable
         next = DateTime.UtcNow.AddSeconds(1);
         try
         {
-            if (Plugin.Condition[ConditionFlag.InCombat] && step is not (Step.Crafting or Step.Gathering)) { Stop("Combat started."); return; }
+            if (Plugin.Condition[ConditionFlag.InCombat] && step is not (Step.Crafting or Step.Gathering or Step.Earning)) { Stop("Combat started."); return; }
             switch (step)
             {
                 case Step.TurnIn: TickTurnIn(); break;
@@ -553,6 +643,8 @@ public sealed unsafe class ScripGoals : IDisposable
                 case Step.Pricing: TickPricing(); break;
                 case Step.Crafting: TickCrafting(); break;
                 case Step.Gathering: TickGathering(); break;
+                case Step.Cosmo: TickCosmo(); break;
+                case Step.Earning: TickEarning(); break;
             }
         }
         catch (Exception ex)
