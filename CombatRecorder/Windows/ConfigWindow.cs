@@ -41,5 +41,24 @@ public sealed class ConfigWindow : Window
         ImGui.TextWrapped("Mark a moment for review with /crec mark <note> (put it on a macro), e.g. /crec mark downtime here. " +
                           "Party members are saved by job and slot only. Nothing is uploaded.");
         if (r.CurrentFile != null && ImGui.Button("Close current file now")) r.Close("closed from settings");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("DPS meter");
+        var me = c.MeterEnabled;
+        if (ImGui.Checkbox("Count damage and healing", ref me)) { c.MeterEnabled = me; c.Save(); }
+        var sm = c.ShowMeter;
+        if (ImGui.Checkbox("Show the meter window (/crec meter)", ref sm)) { c.ShowMeter = sm; c.Save(); }
+        var cp = c.MeterCompact;
+        if (ImGui.Checkbox("Compact view (bars only)", ref cp)) { c.MeterCompact = cp; c.Save(); }
+        var oc = c.MeterOnlyInCombat;
+        if (ImGui.Checkbox("Only while fighting", ref oc)) { c.MeterOnlyInCombat = oc; c.Save(); }
+        var ev = c.MeterEveryone;
+        if (ImGui.Checkbox("Count everyone, not just my party (open world)", ref ev)) { c.MeterEveryone = ev; c.Save(); }
+        var hn = c.MeterHideNames;
+        if (ImGui.Checkbox("Hide names (show jobs)", ref hn)) { c.MeterHideNames = hn; c.Save(); }
+        var op = c.MeterOpacity;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("Background opacity", ref op, 0f, 1f, "%.2f")) { c.MeterOpacity = op; c.Save(); }
+        ImGui.TextDisabled("Counted like ACT: encounter DPS = damage / time from first to last hit, DoTs and pets included.");
     }
 }
