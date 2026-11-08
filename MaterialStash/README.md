@@ -110,6 +110,38 @@ expanded layout; the window and bag/slot numbers in the smaller ones).
 every Stash run) lists them with the game's own listing call: lowest home-world listing minus your undercut (1 gil),
 else the median sale; up to 99 per listing and the retainer's 20 market slots.
 
+## Clean-up (retainer junk audit)
+The Clean-up tab goes through everything your retainers hold (as last seen; retainers only, not your bags) and
+suggests a verdict for each item. Materials, materia, crystals, stock-list and keep-on-me items are left alone
+(switchable). Nothing happens to an item until you approve it.
+- **Use**: unlearned minions, cards, orchestrion rolls and so on (the game's own "already learned?" check). The run
+  brings them out and uses them.
+- **Card: sell for MGP**: Triple Triad cards you already have (trading them in is the next update; for now they
+  come to your bags).
+- **Keep the look**: gear whose look can't be had any more (no shop, duty, recipe or market source for any item with
+  that model) and gear that fits the Armoire. Gear already in your glamour dresser or Armoire is never kept for its look.
+- **Exchange**: tokens that buy something (hover to see what).
+- **Sell on the market** if a stack fetches at least 1,000 gil after tax (home world: lower of the lowest listing and
+  the 7-day median) and more than the vendor pays; else **Grand Company** for green/blue gear (Turn-In Manager takes
+  it from there), else **Vendor** ("Have Retainer Sell Items"), else **Desynthesize**, else **Discard**.
+
+Any verdict can be changed per item. Stacks worth more than 10,000 gil get their own look; the rest can be approved a
+group at a time. Approving a discard first shows how you'd get each item back (market, vendors, exchanges, crafting,
+and the duties it drops in with how hard each is to run today). Items that are easy to get again (solo or a small
+group unsynced) are tagged.
+
+**Run clean-up** at the summoning bell takes the approved items out of each retainer into empty bag slots, sells the
+vendor ones through that retainer and discards the approved discards (only stacks the run itself took out), then lists
+the market ones at your selling retainer (Selling tab). The glamour dresser is read when you open it and the Armoire
+when it's loaded at an inn; with the dresser open, **Take dresser duplicates out** removes extra copies.
+
+How hard a duty is to run today is a rule of thumb at level 100 [Estimate]: dungeons below the cap, normal trials and
+A Realm Reborn to Stormblood extremes are solo unsynced (except the Pool of Tribute (Extreme), which needs a second
+player); A Realm Reborn to Stormblood alliance raids take three players (one per alliance); Shadowbringers and later
+extremes and savage raids need a full group. Sources: [Sportskeeda: extreme trials you can solo](https://sportskeeda.com/mmo/all-trials-can-fought-solo-final-fantasy-14),
+[Consolegameswiki: Syrcus Tower unsynced](https://ffxiv.consolegameswiki.com/wiki/Syrcus_Tower). Duty drops, shop
+trades and gil prices come from Teamcraft's data (refreshed by CI).
+
 ## Crystals
 Shards, crystals and clusters fill retainers in the bell's list order, each to 9,999 of a type before the next.
 **Keep N on me** (global, or per type) leaves that many with you; below it, the run takes the difference back from
@@ -134,5 +166,9 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - Whether AutoRetainer's venture override also applies in multi-character mode (confirmed for its normal bell run).
 - The "gathered it yourself" check uses a game-function signature (from AutoRetainer); after a patch it may be missing,
   and then every gathering venture is assumed allowed.
+
+- Clean-up: "Have Retainer Sell Items" from the bag item menu with the retainer's inventory open; discarding with
+  the game's discard call (confirmed with its yes/no); using items with the game's item action; taking items out of the
+  dresser; reading the Armoire (`IsItemInCabinet`).
 
 Confirmed from AutoRetainer's source: `AutoRetainer.PluginState.IsBusy`, `OnSendRetainerToVenture`, `SetVenture`.

@@ -90,6 +90,27 @@ jobs:
           git push origin HEAD:main
           "RELEASE_SHA=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
 
+      - name: Sync Teamcraft sources into Material Stash's clean-up data
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python .github/scripts/sync_cleanup_sources.py MaterialStash/Data/cleanup_sources.json
+          if (-not (git status --porcelain MaterialStash/Data/cleanup_sources.json)) { Write-Host "Clean-up sources unchanged"; exit 0 }
+          $proj = 'MaterialStash/MaterialStash.csproj'
+          $text = Get-Content $proj -Raw
+          $m = [regex]::Match($text, '<Version>(\d+)\.(\d+)\.(\d+)\.(\d+)</Version>')
+          $new = "$($m.Groups[1]).$($m.Groups[2]).$($m.Groups[3]).$([int]$m.Groups[4].Value + 1)"
+          $text = $text.Replace($m.Value, "<Version>$new</Version>")
+          [IO.File]::WriteAllText((Resolve-Path $proj), $text)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add MaterialStash/Data/cleanup_sources.json $proj
+          git commit -m "MaterialStash $new`: sync Teamcraft clean-up sources"
+          git push origin HEAD:main
+          "RELEASE_SHA=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
+
       - name: Build all plugins
         run: dotnet build ffxiv-plugins.slnx -c Release
 

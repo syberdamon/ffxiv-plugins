@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
     public SaddleMover Saddle { get; }
     public Market Market { get; } = new();
     public Selling Selling { get; }
+    public Cleanup Cleanup { get; }
     public AutoRetainerIpc AutoRetainer { get; } = new();
     public AllaganIpc Allagan { get; } = new();
 
@@ -52,6 +53,8 @@ public sealed class Plugin : IDalamudPlugin
         Selling = new Selling(Configuration, Tracker, Market, Director);
         Director.Selling = Selling;
         Runner = new Runner(Configuration, Tracker, Planner, AutoRetainer, Selling);
+        Cleanup = new Cleanup(Configuration, Tracker, Market);
+        Runner.Cleanup = Cleanup;
         Saddle = new SaddleMover(Configuration);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
@@ -65,7 +68,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(sellHighlight);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -82,10 +85,11 @@ public sealed class Plugin : IDalamudPlugin
             case "scan": Runner.Start(scan: true); Report(); return;
             case "tidy": Runner.Start(Runner.RunMode.Tidy); Report(); return;
             case "sell": Runner.Start(Runner.RunMode.Sell); Report(); return;
+            case "clean": Runner.Start(Runner.RunMode.Cleanup); Report(); return;
             case "ventures": Configuration.ShowVentureWindow = !Configuration.ShowVentureWindow; Configuration.Save(); return;
             case "saddle in": Saddle.Start(SaddleMover.Direction.ToSaddlebag); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
             case "saddle out": Saddle.Start(SaddleMover.Direction.ToBags); if (!Saddle.Busy) ChatGui.Print($"[Stash] {Saddle.Status}"); return;
-            case "stop": Runner.Stop(); Saddle.Stop(); return;
+            case "stop": Runner.Stop(); Saddle.Stop(); Cleanup.StopAll(); return;
             default: main.Toggle(); return;
         }
     }
@@ -103,6 +107,7 @@ public sealed class Plugin : IDalamudPlugin
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
         Runner.Dispose();
+        Cleanup.Dispose();
         Director.Dispose();
         Selling.Dispose();
         Market.Dispose();
