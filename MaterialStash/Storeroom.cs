@@ -35,7 +35,7 @@ public sealed unsafe class Storeroom : IDisposable
     private Phase phase = Phase.Idle;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue, askedAt = DateTime.MinValue;
     private int stored, tries, retainerResets;
-    private bool travelAsked, toldToClick;
+    private bool travelAsked, toldToClick, dumpedOther, clickedIndoor;
     private (InventoryType Type, int Slot, uint Item)? current;
     private readonly HashSet<uint> skip = new();
     private readonly List<string> refused = new();
@@ -83,7 +83,7 @@ public sealed unsafe class Storeroom : IDisposable
     public void Start()
     {
         if (Busy) return;
-        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; travelAsked = false; toldToClick = false;
+        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; dumpedOther = false; clickedIndoor = false; askedAt = DateTime.MinValue; travelAsked = false; toldToClick = false;
         if (InBags().Count == 0) { Status = "No indoor furnishings in your bags (\"Furnishings out\" at the bell brings them from your retainers)."; return; }
         if (!AtHome && !lifestream.IsLoaded) { Status = "Go inside your house first (or install Lifestream so I can take you)."; return; }
         // Close the bell / retainer first: with a retainer open the item menu offers "Entrust to Retainer", not "Store".
@@ -113,7 +113,12 @@ public sealed unsafe class Storeroom : IDisposable
         try
         {
             var limit = phase switch { Phase.Travel => 240, Phase.Layout => 90, _ => 30 };
-            if ((DateTime.UtcNow - phaseStart).TotalSeconds > limit) { Fail($"Timed out ({phase})."); return; }
+            if ((DateTime.UtcNow - phaseStart).TotalSeconds > limit)
+            {
+                DumpWindows($"timed out in {phase}");
+                Fail($"Timed out ({phase}); dump saved.");
+                return;
+            }
             switch (phase)
             {
                 case Phase.Prepare: TickPrepare(); break;
@@ -178,20 +183,41 @@ public sealed unsafe class Storeroom : IDisposable
         }
     }
 
+    private static bool AgentActive
+    {
+        get { var a = AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing); return a != null && a->IsAgentActive(); }
+    }
+
+    /// <summary>Layout mode: a housing window is up, or we (or you) clicked Indoor Furnishings and the agent is active.</summary>
+    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen);
+
     private void TickOpenMenu()
     {
-        if (LayoutOpen) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); return; }
-        // The housing menu: find its "Indoor Furnishings" entry wherever it lists it.
-        foreach (var name in new[] { "HousingMenu", "SelectString", "AddonContextMenuTitle", "ContextMenu" })
+        if (InLayout) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); return; }
+        // The housing menu: look for "Indoor Furnishings" in the menus we know how to click first,
+        // then in every visible window (so an unexpected window gets dumped instead of silently missed).
+        var known = new[] { "HousingMenu", "SelectString", "AddonContextMenuTitle", "ContextMenu" };
+        if (askedAt != DateTime.MinValue && !dumpedOther)
+            foreach (var other in GameUi.VisibleAddons().Except(known))
+            {
+                var o = GameUi.Get(other);
+                if (o == null || !GameUi.Texts(o).Any(t => t.Trim().Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase))) continue;
+                dumpedOther = true;
+                GameUi.Dump(other, "storeroom: 'Indoor Furnishings' is in this window");
+                Plugin.Log.Info($"[Stash] storeroom: Indoor Furnishings found in {other}");
+            }
+        foreach (var name in known)
         {
             var a = GameUi.Get(name);
             if (a == null) continue;
             for (var i = 0; i < a->AtkValuesCount; i++)
             {
-                if (!GameUi.Str(a, i).Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!GameUi.Str(a, i).Trim().Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase)) continue;
+                Plugin.Log.Info($"[Stash] storeroom: clicking Indoor Furnishings in {name} (value {i})");
                 if (name == "SelectString") a->FireCallbackInt(GameUi.MenuEntries(a, false).FindIndex(r => r.Equals("Indoor Furnishings", StringComparison.OrdinalIgnoreCase)));
                 else if (name == "ContextMenu") GameUi.Fire(a, 0, i - 8, 0);
                 else a->FireCallbackInt(i - 7); // [Assumption] list rows from value 7, as the other menus
+                clickedIndoor = true;
                 Set(Phase.Layout, "Opening Indoor Furnishings...");
                 next = DateTime.UtcNow.AddSeconds(1.5);
                 return;
@@ -206,6 +232,7 @@ public sealed unsafe class Storeroom : IDisposable
             if (++tries > 2 && !toldToClick)
             {
                 toldToClick = true;
+                DumpWindows("housing menu: Indoor Furnishings not found to click");
                 Plugin.ChatGui.Print("[Stash] Click \"Indoor Furnishings\" in the housing menu and I'll carry on (I couldn't find it to click; a dump was saved).");
                 Set(Phase.Layout, "Waiting for you to open Indoor Furnishings...");
             }
@@ -214,12 +241,12 @@ public sealed unsafe class Storeroom : IDisposable
 
     private void TickLayout()
     {
-        if (LayoutOpen) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); }
+        if (InLayout) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); }
     }
 
     private void TickStore()
     {
-        if (!LayoutOpen) { Fail("Indoor Furnishings closed."); return; }
+        if (!InLayout) { Fail("Indoor Furnishings closed."); return; }
         if (RetainerStillOpen) { GameUi.Close("ContextMenu"); current = null; Set(Phase.Prepare, "Closing the retainer..."); return; }
         var im = InventoryManager.Instance();
         var yn = GameUi.Get("SelectYesno");
@@ -294,6 +321,14 @@ public sealed unsafe class Storeroom : IDisposable
         phase = Phase.Idle;
         Status = $"Stored {stored} furnishing(s) in the storeroom." + (refused.Count > 0 ? $" Not stored: {string.Join("; ", refused.Take(6))}." : "");
         Plugin.ChatGui.Print($"[Stash] {Status}");
+    }
+
+    /// <summary>A dump file listing every visible window plus the housing agent's state.</summary>
+    private static void DumpWindows(string why)
+    {
+        var agent = AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing);
+        var names = string.Join(", ", GameUi.VisibleAddons().OrderBy(x => x));
+        GameUi.Dump("Windows", $"storeroom: {why}. Housing agent active: {agent != null && agent->IsAgentActive()}. Inside: {AtHome}. Visible windows: {names}");
     }
 
     private static uint AddonId()
