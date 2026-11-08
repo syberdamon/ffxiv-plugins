@@ -37,6 +37,7 @@ public sealed class MainWindow : Window
         }
         if (plugin.Runner.Status.Length > 0) ImGui.TextColored(Dim, plugin.Runner.Status);
         if (!ImGui.BeginTabBar("##stash")) return;
+        if (ImGui.BeginTabItem("Search")) { DrawSearch(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Bags now")) { DrawBags(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Retainers")) { DrawRetainers(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Categories")) { DrawCategories(me); ImGui.EndTabItem(); }
@@ -1343,5 +1344,77 @@ public sealed class MainWindow : Window
             ImGui.EndCombo();
         }
         return changed;
+    }
+
+    // ================================================================ search
+
+    private string findText = "";
+
+    private static readonly InventoryType[] Armoury =
+    {
+        InventoryType.ArmoryMainHand, InventoryType.ArmoryOffHand, InventoryType.ArmoryHead, InventoryType.ArmoryBody,
+        InventoryType.ArmoryHands, InventoryType.ArmoryLegs, InventoryType.ArmoryFeets, InventoryType.ArmoryEar,
+        InventoryType.ArmoryNeck, InventoryType.ArmoryWrist, InventoryType.ArmoryRings, InventoryType.ArmorySoulCrystal,
+    };
+
+    /// <summary>Find an item, material or category across your bags, armoury chest, saddlebag and every retainer.</summary>
+    private void DrawSearch(CharacterData me)
+    {
+        ImGui.TextWrapped("Type part of an item name or a category (ore, lumber, cloth, abrasive, crystal...). Bags and armoury chest are live; " +
+                          "saddlebag and retainers are as last seen (Retainers tab shows when).");
+        ImGui.SetNextItemWidth(320);
+        ImGui.InputTextWithHint("##find", "Search all inventories...", ref findText, 64);
+        var t = findText.Trim();
+        if (t.Length < 2) return;
+
+        // item id (HQ = +1,000,000) -> place -> quantity
+        var found = new Dictionary<uint, Dictionary<string, int>>();
+        bool Match(uint id)
+        {
+            var info = Items.Info(id % 1_000_000);
+            return info != null && (info.Name.Contains(t, StringComparison.OrdinalIgnoreCase) || info.Category.Contains(t, StringComparison.OrdinalIgnoreCase));
+        }
+        void Add(uint id, string where, int qty)
+        {
+            if (qty <= 0 || !Match(id)) return;
+            if (!found.TryGetValue(id, out var places)) found[id] = places = new();
+            places[where] = places.GetValueOrDefault(where) + qty;
+        }
+        foreach (var s in Tracker.Stacks(Tracker.Bags)) Add(s.ItemId, "Bags", s.Qty);
+        foreach (var s in Tracker.Stacks(Armoury)) Add(s.ItemId, "Armoury chest", s.Qty);
+        foreach (var (id, c) in Tracker.Crystals(InventoryType.Crystals)) Add(id, "Bags (crystals)", c.Qty);
+        foreach (var (id, q) in me.Saddlebag) Add(id, "Saddlebag", q);
+        foreach (var rid in me.Order)
+        {
+            if (!me.Retainers.TryGetValue(rid, out var snap)) continue;
+            var who = snap.Name.Length > 0 ? snap.Name : plugin.Tracker.NameOf(rid);
+            foreach (var (id, q) in snap.Items) Add(id, who, q);
+            foreach (var (id, q) in snap.Crystals) Add(id, $"{who} (crystals)", q);
+        }
+
+        if (found.Count == 0) { ImGui.TextColored(Dim, "No matches."); return; }
+        var rows = found.Select(kv => (Id: kv.Key, Places: kv.Value, Total: kv.Value.Values.Sum()))
+            .OrderBy(r => Items.Info(r.Id % 1_000_000)?.Category).ThenBy(r => Items.Info(r.Id % 1_000_000)?.Name).ThenBy(r => r.Id).ToList();
+        ImGui.TextDisabled($"{rows.Count} item(s), {rows.Sum(r => r.Total):N0} in all.");
+        if (ImGui.BeginTable("##findres", 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY, new Vector2(0, 0)))
+        {
+            ImGui.TableSetupColumn("Item");
+            ImGui.TableSetupColumn("Category", ImGuiTableColumnFlags.WidthFixed, 150);
+            ImGui.TableSetupColumn("Total", ImGuiTableColumnFlags.WidthFixed, 70);
+            ImGui.TableSetupColumn("Where");
+            ImGui.TableSetupScrollFreeze(0, 1);
+            ImGui.TableHeadersRow();
+            foreach (var r in rows)
+            {
+                var info = Items.Info(r.Id % 1_000_000)!;
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(info.Name + (r.Id >= 1_000_000 ? " (HQ)" : ""));
+                if (plugin.Cleanup.IsRelic(r.Id)) { ImGui.SameLine(); ImGui.TextColored(Good, "relic"); }
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(info.Category);
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(r.Total.ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextWrapped(string.Join(", ", r.Places.OrderByDescending(p => p.Value).Select(p => $"{p.Key} {p.Value:N0}")));
+            }
+            ImGui.EndTable();
+        }
     }
 }
