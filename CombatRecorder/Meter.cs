@@ -132,7 +132,7 @@ public sealed unsafe class Meter : IDisposable
     }
 
     private static bool IsEnemy(uint entityId) =>
-        Plugin.ObjectTable.SearchByEntityId(entityId) is IBattleNpc n && n.BattleNpcKind == BattleNpcSubKind.Enemy;
+        Plugin.ObjectTable.SearchByEntityId(entityId) is IBattleNpc n && n.BattleNpcKind == Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind.Enemy;
 
     private static bool InParty(uint entityId)
     {
