@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
     public Planner Planner { get; }
     public Runner Runner { get; }
     public Director Director { get; }
+    public AfterAutoRetainer AfterAr { get; private set; } = null!;
     public SaddleMover Saddle { get; }
     public Market Market { get; } = new();
     public Selling Selling { get; }
@@ -57,6 +58,7 @@ public sealed class Plugin : IDalamudPlugin
         Selling = new Selling(Configuration, Tracker, Market, Director);
         Director.Selling = Selling;
         Runner = new Runner(Configuration, Tracker, Planner, AutoRetainer, Selling);
+        Director.Planner = Planner;
         Cleanup = new Cleanup(Configuration, Tracker, Market);
         Runner.Cleanup = Cleanup;
         Wardrobe = new Wardrobe(Configuration, Tracker, Cleanup);
@@ -64,6 +66,7 @@ public sealed class Plugin : IDalamudPlugin
         Storeroom = new Storeroom(Configuration);
         Runner.Storeroom = Storeroom;
         Saddle = new SaddleMover(Configuration);
+        AfterAr = new AfterAutoRetainer(this);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
         saddle = new SaddleOverlay(this);
@@ -119,6 +122,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleMain;
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
+        AfterAr.Dispose();
         Runner.Dispose();
         Wardrobe.Dispose();
         Storeroom.Dispose();

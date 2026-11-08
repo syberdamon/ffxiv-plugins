@@ -41,6 +41,11 @@ anything a full retainer bounced back to one already visited.
 - After each retainer, the game's own item sort runs on it (`/itemsort ... retainer`; switchable).
 - Items the game refuses (a unique item the retainer already has, or one that can't be entrusted) are skipped and listed.
 - "Never use" retainers are never touched; groups can opt out ("Tidy may move these": Materia is off by default).
+- **Venture returns, after AutoRetainer** (on by default): venture items land in the retainer that went, and
+  AutoRetainer never opens its inventory, so they'd sit there unseen. When a retainer comes back from a venture whose
+  item has a home elsewhere, it's noted, and once AutoRetainer is done a tidy visits it (plus the usual plan) and moves
+  the items home. Multi mode: this runs as AutoRetainer's character post-processing step (walking to a bell if needed,
+  then handing control back). Single character at the bell: it starts when AutoRetainer goes idle with the list open.
 
 ## Homes: groups, categories, name rules, pins (Categories tab)
 Most specific first: **item pin** (one item -> retainers), **name rule** ("name contains Totem" -> retainers),
