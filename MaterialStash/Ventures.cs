@@ -130,6 +130,43 @@ public static class Ventures
     /// True/false from the game; null if the check isn't available (signature from AutoRetainer;
     /// a game patch can move it).
     /// </summary>
+    private static Dictionary<uint, List<uint>>? gatherRows, fishRows, spearRows;
+
+    /// <summary>
+    /// Have you gathered / caught this item yourself? Checks every gathering-log row the item has (one
+    /// item can sit on several), and the fishing / spearfishing logs for fish. Null if it can't be told.
+    /// </summary>
+    public static unsafe bool? GatheredItem(uint itemId)
+    {
+        itemId %= 1_000_000;
+        if (gatherRows == null)
+        {
+            var dm = Plugin.DataManager;
+            gatherRows = new(); fishRows = new(); spearRows = new();
+            foreach (var g in dm.GetExcelSheet<GatheringItem>()) if (g.Item.RowId != 0) Add(gatherRows, g.Item.RowId, g.RowId);
+            foreach (var f in dm.GetExcelSheet<FishParameter>()) if (f.Item.RowId != 0) Add(fishRows, f.Item.RowId, f.RowId);
+            foreach (var s in dm.GetExcelSheet<SpearfishingItem>()) if (s.Item.RowId != 0) Add(spearRows, s.Item.RowId, s.RowId);
+        }
+        var known = false;
+        if (gatherRows.TryGetValue(itemId, out var rows))
+            foreach (var r in rows)
+                switch (Gathered(r)) { case true: return true; case false: known = true; break; }
+        var ps = FFXIVClientStructs.FFXIV.Client.Game.UI.PlayerState.Instance();
+        if (ps != null)
+        {
+            if (fishRows!.TryGetValue(itemId, out var fr)) { foreach (var r in fr) if (ps->IsFishCaught(r)) return true; known = true; }
+            if (spearRows!.TryGetValue(itemId, out var sr)) { foreach (var r in sr) if (ps->IsSpearfishCaught(r)) return true; known = true; }
+        }
+        if (rows == null && !fishRows!.ContainsKey(itemId) && !spearRows!.ContainsKey(itemId)) return true; // not a gathered item
+        return known ? false : null;
+    }
+
+    private static void Add(Dictionary<uint, List<uint>> d, uint k, uint v)
+    {
+        if (!d.TryGetValue(k, out var l)) d[k] = l = new();
+        l.Add(v);
+    }
+
     public static bool? Gathered(uint gatheringItemId)
     {
         if (gatheringItemId == 0) return true;
