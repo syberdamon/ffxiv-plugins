@@ -129,7 +129,7 @@ suggests a verdict for each item. Materials, materia, crystals, stock-list and k
   it from there), else **Vendor** ("Have Retainer Sell Items"), else **Desynthesize**, else **Discard**.
 
 **Desynthesize** items are brought to your bags and, after the run (setting on by default, or `/stash desynth`),
-desynthesized one at a time through each item's own menu: the bell is closed first, the result window is closed after
+desynthesized one at a time the way AutoRetainer does it (the game's Salvage call plus its confirmation, which also ticks "unique/untradable"): the bell is closed first, the result window is closed after
 each one, and it stops when your bags are nearly full. Items the game won't desynthesize (desynthesis not unlocked, class
 too low) are skipped and listed. The inn trip for looks waits until it's done.
 

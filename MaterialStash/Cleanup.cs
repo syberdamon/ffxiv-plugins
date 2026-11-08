@@ -469,9 +469,8 @@ public sealed unsafe class Cleanup : IDisposable
     }
 
     /// <summary>
-    /// One step: close the bell, then per item its right-click menu "Desynthesize", the SalvageDialog's
-    /// Desynthesize button, and close SalvageResult; repeat until the stack is gone. [Assumption] window
-    /// names SalvageDialog / SalvageResult and the button label, as in the English client.
+    /// One step: close the bell, then per item the Salvage agent's SalvageItem plus its confirmation
+    /// (AutoRetainer's TaskDesynthItems), and close SalvageResult; repeat until the stack is gone.
     /// </summary>
     private void TickDesynth()
     {
@@ -492,16 +491,17 @@ public sealed unsafe class Cleanup : IDisposable
         var dialog = GameUi.Get("SalvageDialog");
         if (dialog != null)
         {
-            var btn = GameUi.FindButton(dialog, "Desynthesize");
-            if (btn == null) btn = GameUi.FindButton(dialog, "Desynthesis");
-            if (btn != null) GameUi.ClickButton(dialog, btn);
-            else if (dialog->GetComponentButtonById(25) is var b25 && b25 != null) GameUi.ClickButton(dialog, b25); // Desynthesize is button 25 (as ECommons' AddonMaster)
-            else
+            // Clicking the dialog's Desynthesize button didn't take (0.8.12): answer it through the
+            // Salvage agent instead, as AutoRetainer does ([0, true]; true also covers the
+            // "desynthesize unique/untradable item" box).
+            if (++desynthTries > 6)
             {
-                if (!desynthDumped) { desynthDumped = true; GameUi.Dump("SalvageDialog", "desynth: no Desynthesize button"); }
-                GameUi.Fire(dialog, 0, false); // [Assumption] the dialog's confirm callback
+                dialog->Close(true);
+                if (desynthCur is { } stuck) DesynthSkip(stuck, "its Desynthesis window wouldn't confirm");
+                else EndDesynth("A Desynthesis window wouldn't confirm: stopped.");
+                return;
             }
-            desynthTries++;
+            ConfirmSalvage();
             nextDesynth = DateTime.UtcNow.AddSeconds(2.5); // the desynthesis animation
             return;
         }
@@ -521,23 +521,6 @@ public sealed unsafe class Cleanup : IDisposable
         }
 
         var menu = GameUi.Get("ContextMenu");
-        if (menu != null && desynthCur is { } m)
-        {
-            var index = -1;
-            for (var i = 7; i < menu->AtkValuesCount && index < 0; i++)
-                if (GameUi.Str(menu, i).Trim() is var t && (t.Equals("Desynthesis", StringComparison.OrdinalIgnoreCase) ||
-                                                            t.Equals("Desynthesize", StringComparison.OrdinalIgnoreCase))) index = i - 8; // the menu says "Desynthesis"
-            if (index < 0)
-            {
-                if (!desynthDumped) { desynthDumped = true; GameUi.Dump("ContextMenu", "desynth: no Desynthesize entry"); }
-                menu->FireCallbackInt(-1);
-                DesynthSkip(m, "no Desynthesis option in its menu (dump saved)");
-                return;
-            }
-            GameUi.Fire(menu, 0, index, 0);
-            nextDesynth = DateTime.UtcNow.AddSeconds(1);
-            return;
-        }
 
         if (im->GetEmptySlotsInBag() < 2) { EndDesynth($"Bags nearly full: stopped desynthesizing ({desynthDone} done)."); return; }
 
@@ -550,11 +533,38 @@ public sealed unsafe class Cleanup : IDisposable
             desynthTries = 0;
         }
         var cur = desynthCur.Value;
+        if (!CanDesynth(cur.Item, out var cant)) { DesynthSkip(cur, cant); return; }
         if (++desynthTries > 5) { DesynthSkip(cur, "the game didn't desynthesize it (class level too low?)"); return; }
-        var inv = InventoryAddon();
-        if (inv == 0) { AgentModule.Instance()->GetAgentByInternalId(AgentId.Inventory)->Show(); nextDesynth = DateTime.UtcNow.AddSeconds(0.8); return; }
-        AgentInventoryContext.Instance()->OpenForItemSlot(cur.Type, cur.Slot, 0, inv);
-        nextDesynth = DateTime.UtcNow.AddSeconds(0.8);
+        if (menu != null) menu->Close(true);
+        var item = im->GetInventorySlot(cur.Type, cur.Slot);
+        if (item == null || item->ItemId == 0) { desynthCur = null; return; }
+        // AutoRetainer's route: the Salvage agent's SalvageItem for the slot, then its confirmation.
+        AgentSalvage.Instance()->SalvageItem(item);
+        ConfirmSalvage();
+        nextDesynth = DateTime.UtcNow.AddSeconds(2.5);
+    }
+
+    /// <summary>Desynthesis unlocked (quest 65688) and the item's crafter at 30+ (AutoRetainer's checks).</summary>
+    public static bool CanDesynth(uint id, out string why)
+    {
+        why = "";
+        if (!QuestManager.IsQuestComplete(65688)) { why = "desynthesis isn't unlocked"; return false; }
+        var row = Plugin.DataManager.GetExcelSheet<Item>().GetRowOrDefault(id);
+        if (row == null || row.Value.Desynth == 0) { why = "can't be desynthesized"; return false; }
+        var job = row.Value.ClassJobRepair.ValueNullable;
+        if (job == null || job.Value.ExpArrayIndex < 0) { why = "no crafter for it"; return false; }
+        if (PlayerState.Instance()->ClassJobLevels[job.Value.ExpArrayIndex] < 30) { why = $"{job.Value.Abbreviation} is below 30"; return false; }
+        return true;
+    }
+
+    private static void ConfirmSalvage()
+    {
+        var agent = AgentSalvage.Instance();
+        var ret = new AtkValue();
+        var values = stackalloc AtkValue[2];
+        values[0].Type = AtkValueType.Int; values[0].Int = 0;
+        values[1].Type = AtkValueType.Bool; values[1].Byte = 1;
+        agent->AgentInterface.ReceiveEvent(&ret, values, 2, 1);
     }
 
     private void DesynthSkip((InventoryType Type, int Slot, uint Item, int Qty) c, string why)
