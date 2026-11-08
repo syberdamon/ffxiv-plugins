@@ -365,7 +365,10 @@ public sealed unsafe class Runner : IDisposable
                                          "If tickets were left, check Saucy's module is on.");
                 }
                 if (Finished()) { NextStep(); return; }
-                sub = Sub.Talk;
+                // Back to them (Saucy may have walked you off toward the broker after a claim).
+                sub = Sub.Walk;
+                bestDistance = float.MaxValue;
+                lastProgress = DateTime.UtcNow;
                 return;
         }
     }
