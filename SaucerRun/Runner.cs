@@ -60,6 +60,7 @@ public sealed unsafe class Runner : IDisposable
     private int tries, sold, learned;
     private uint lastCardCount = uint.MaxValue;
     private readonly Dictionary<uint, int> useTries = new();
+    private DateTime menuSeen = DateTime.MinValue;
 
     public string Status { get; private set; } = "";
     public bool Busy => running;
@@ -289,8 +290,11 @@ public sealed unsafe class Runner : IDisposable
     {
         var npc = Find(baseId);
         if (npc == null) return;
+        // Target them first: Saucy only takes over a conversation with the NPC you have targeted.
+        Plugin.TargetManager.Target = npc;
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
         talkedAt = DateTime.UtcNow;
+        menuSeen = DateTime.MinValue;
     }
 
     /// <summary>Cashier, Jumbo broker, Mini broker: walk, talk, let Saucy play, repeat until done.</summary>
@@ -320,6 +324,7 @@ public sealed unsafe class Runner : IDisposable
                 next = DateTime.UtcNow.AddSeconds(1.5);
                 return;
             case Sub.Wait:
+                if (baseId != Cashier && BuyTicket(baseId)) { idleSince = DateTime.MinValue; return; }
                 if (!Idle()) { idleSince = DateTime.MinValue; return; }
                 if (idleSince == DateTime.MinValue) { idleSince = DateTime.UtcNow; return; }
                 if ((DateTime.UtcNow - idleSince).TotalSeconds < 2.5) return;
@@ -342,6 +347,39 @@ public sealed unsafe class Runner : IDisposable
                 sub = Sub.Talk;
                 return;
         }
+    }
+
+    /// <summary>
+    /// Start the ticket purchase if nobody else has within a second and a half: the broker's
+    /// "Purchase a ... ticket" menu entry, then yes to the price. From there (the board or the number
+    /// window) Saucy plays. True while handling it.
+    /// </summary>
+    private bool BuyTicket(uint baseId)
+    {
+        if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return true; }
+        var ss = GameUi.Get("SelectString");
+        var yn = GameUi.Get("SelectYesno");
+        if (ss == null && yn == null) { menuSeen = DateTime.MinValue; return false; }
+        if (menuSeen == DateTime.MinValue) { menuSeen = DateTime.UtcNow; return true; }
+        if ((DateTime.UtcNow - menuSeen).TotalSeconds < 1.5) return true;
+        menuSeen = DateTime.MinValue;
+        if (yn != null)
+        {
+            var text = GameUi.YesNoText();
+            if (text.Contains("ticket", StringComparison.OrdinalIgnoreCase) || text.Contains("MGP", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Cactpot", StringComparison.OrdinalIgnoreCase))
+                yn->FireCallbackInt(0);
+            else GameUi.Dump("SelectYesno", "Saucer: unexpected question at the broker (left alone)");
+            next = DateTime.UtcNow.AddSeconds(1);
+            return true;
+        }
+        var rows = GameUi.MenuEntries(ss, false);
+        var row = rows.FindIndex(r => r.Contains("Purchase", StringComparison.OrdinalIgnoreCase) && r.Contains("ticket", StringComparison.OrdinalIgnoreCase));
+        if (row < 0) row = rows.FindIndex(r => r.Contains(baseId == MiniBroker ? "Mini Cactpot" : "Jumbo Cactpot", StringComparison.OrdinalIgnoreCase));
+        if (row < 0) { GameUi.Dump("SelectString", "Saucer: no purchase entry"); ss->FireCallbackInt(rows.Count - 1); return true; }
+        ss->FireCallbackInt(row);
+        next = DateTime.UtcNow.AddSeconds(1);
+        return true;
     }
 
     /// <summary>Sell cards to the Triple Triad Trader: menu, pick a card the game shows, confirm the amount.</summary>
