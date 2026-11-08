@@ -82,7 +82,10 @@ retainer, AutoRetainer does what it would anyway.
 - **Order:** items under their minimum first, the furthest under (as a % of the minimum) first. Once every minimum is
   met: **spread evenly** (lowest % of target first) or **closest to its target first** (your choice).
 - **Who can go:** any retainer whose class (combat for hunting drops, MIN/BTN/FSH for gathered items and crystals) and
-  level fit, with AutoRetainer's recorded gathering / item level, and (gatherers) only for items you've gathered yourself.
+  level fit, with AutoRetainer's recorded gathering / item level, and (gatherers) only for items you've gathered yourself
+  (every gathering-log entry the item has, plus the fishing and spearfishing logs). **Fallback:** if a venture we pick
+  doesn't take anyway (the retainer comes back to the list on something else), it's noted as refused for that character
+  and skipped for a week, so later sends move on to the next stock item, a money venture, or AutoRetainer's own plan.
   Tick **Keep its ventures** for a retainer (Retainers tab) to leave it alone.
 - **Crystals** (tick "Venture for crystals too"): a minimum and target per element for each tier (shards, crystals,
   clusters), or per element; counted across your crystal tab and every retainer's combined. Below its minimum a type
@@ -206,7 +209,7 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
   count as unknown.
 - Whether AutoRetainer's venture override also applies in multi-character mode (confirmed for its normal bell run).
 - The "gathered it yourself" check uses a game-function signature (from AutoRetainer); after a patch it may be missing,
-  and then every gathering venture is assumed allowed.
+  and then every gathering venture is assumed allowed (the refused-venture fallback still catches it after one try).
 - Storeroom: the housing menu's layout (finding "Indoor Furnishings"), layout mode detected by the Housing agent, the
   item menu's "Store" entry while Indoor Furnishings is open, and which categories count as indoor furnishings.
 - Clean-up: "Have Retainer Sell Items" from the bag item menu with the retainer's inventory open; discarding with

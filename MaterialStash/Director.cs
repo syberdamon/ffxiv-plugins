@@ -36,6 +36,9 @@ public sealed unsafe class Director : IDisposable
     private readonly Dictionary<ulong, (uint Task, DateTime At)> recent = new();
 
     public List<Decision> Log { get; } = new();
+    /// <summary>Set by the Director: a venture the game refused for this character recently.</summary>
+    public static Func<uint, bool>? IsBlocked;
+    private DateTime nextCheck = DateTime.MinValue;
     /// <summary>Money ventures, when nothing on the stock list fits (set by the plugin after both exist).</summary>
     public Selling? Selling { get; set; }
 
@@ -48,11 +51,49 @@ public sealed unsafe class Director : IDisposable
         setVenture = pi.GetIpcSubscriber<uint, object>("AutoRetainer.SetVenture");
         getStats = pi.GetIpcSubscriber<ulong, string, ArRetainerStats>("AutoRetainer.GetAdditionalRetainerData");
         onSend.Subscribe(OnSend);
+        IsBlocked = task => tracker.Me() is { } me && me.BlockedVentures.TryGetValue(task, out var at) && (DateTime.UtcNow - at).TotalDays < 7;
+        Plugin.Framework.Update += OnUpdate;
     }
 
     public void Dispose()
     {
         try { onSend.Unsubscribe(OnSend); } catch (Exception) { }
+        Plugin.Framework.Update -= OnUpdate;
+        IsBlocked = null;
+    }
+
+    /// <summary>
+    /// The fallback when a venture we picked doesn't take (e.g. an item the game says you haven't
+    /// gathered, where our own check couldn't tell): once the retainer list is back with the retainer
+    /// on something else, that venture is noted as refused for this character and skipped for a week,
+    /// so the next send picks the next stock item, a money venture, or leaves it to AutoRetainer.
+    /// </summary>
+    private void OnUpdate(Dalamud.Plugin.Services.IFramework _)
+    {
+        if (recent.Count == 0 || DateTime.UtcNow < nextCheck) return;
+        nextCheck = DateTime.UtcNow.AddSeconds(2);
+        try
+        {
+            if (!Core.GameUi.IsOpen("RetainerList")) return; // the list's data is fresh while it's up
+            var me = tracker.Me();
+            foreach (var r in Retainers())
+            {
+                if (!recent.TryGetValue(r.Id, out var rc)) continue;
+                var age = (DateTime.UtcNow - rc.At).TotalSeconds;
+                if (age < 8) continue; // still being sent
+                if (r.VentureId == rc.Task) { recent.Remove(r.Id); continue; }
+                if (age > 600) { recent.Remove(r.Id); continue; } // too old to judge
+                recent.Remove(r.Id);
+                if (me == null) continue;
+                me.BlockedVentures[rc.Task] = DateTime.UtcNow;
+                config.Save();
+                var name = Ventures.Task(rc.Task) is { } vt ? Items.Info(vt.ItemId)?.Name ?? $"#{vt.ItemId}" : $"venture {rc.Task}";
+                Log.Insert(0, new Decision(DateTime.Now, r.Name, name, 0, "the game refused it: skipped for a week"));
+                if (Log.Count > 30) Log.RemoveAt(Log.Count - 1);
+                Plugin.ChatGui.Print($"[Stash] {r.Name} couldn't be sent for {name} (not gathered yourself yet?). I'll pick something else for a week.");
+            }
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Material Stash: venture check failed"); }
     }
 
     // ------------------------------------------------------------------ retainers
@@ -102,7 +143,8 @@ public sealed unsafe class Director : IDisposable
         if (r.Level < t.RetainerLevel) return $"needs retainer level {t.RetainerLevel}";
         if (t.RequiredGathering > 0 && s.Gathering >= 0 && s.Gathering < t.RequiredGathering) return $"needs gathering {t.RequiredGathering}";
         if (t.RequiredItemLevel > 0 && s.Ilvl >= 0 && s.Ilvl < t.RequiredItemLevel) return $"needs item level {t.RequiredItemLevel}";
-        if (Ventures.IsGatherer(r.ClassJob) && Ventures.Gathered(t.GatheringItemId) == false) return "you haven't gathered it yourself yet";
+        if (Ventures.IsGatherer(r.ClassJob) && Ventures.GatheredItem(t.ItemId) == false) return "you haven't gathered it yourself yet";
+        if (IsBlocked?.Invoke(t.TaskId) == true) return "the game refused it last time (tried again after a week)";
         return null;
     }
 

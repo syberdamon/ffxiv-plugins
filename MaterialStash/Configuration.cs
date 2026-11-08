@@ -43,6 +43,8 @@ public class CharacterData
     public HashSet<ulong> Excluded { get; set; } = new();
     /// <summary>Retainers whose AutoRetainer ventures are never redirected for stock.</summary>
     public HashSet<ulong> NoRedirect { get; set; } = new();
+    /// <summary>Ventures the game refused when we picked them (task id -> when): skipped for a week, then tried again.</summary>
+    public Dictionary<uint, DateTime> BlockedVentures { get; set; } = new();
     /// <summary>Saddlebag contents when last open (item id incl. HQ offset -> quantity).</summary>
     public Dictionary<uint, int> Saddlebag { get; set; } = new();
     public DateTime? SaddlebagSeen { get; set; }
