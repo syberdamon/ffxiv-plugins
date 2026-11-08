@@ -441,8 +441,9 @@ public sealed unsafe class Runner : IDisposable
                 return true;
             }
             Plugin.Log.Info($"[Saucer] mini purchase menu is {pm.Name}: picking row 0");
-            if (buyClicks % 2 == 1) pm.Addon->FireCallbackInt(0);
-            else { var v = stackalloc AtkValue[1]; v[0].SetInt(0); pm.Addon->FireCallback(1, v, true); } // ECommons' way (updates the window)
+            var pa = (AtkUnitBase*)pm.Addon;
+            if (buyClicks % 2 == 1) pa->FireCallbackInt(0);
+            else { var v = stackalloc AtkValue[1]; v[0].SetInt(0); pa->FireCallback(1, v, true); } // ECommons' way (updates the window)
             next = DateTime.UtcNow.AddSeconds(1);
             return true;
         }

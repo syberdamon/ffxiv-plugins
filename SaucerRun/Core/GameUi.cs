@@ -214,14 +214,14 @@ public static unsafe class GameUi
     }
 
     /// <summary>A window on screen (not the chat log) showing this text, with the row it's on among its texts.</summary>
-    public static (AtkUnitBase* Addon, string Name)? FindWithText(string text)
+    public static (nint Addon, string Name)? FindWithText(string text)
     {
         foreach (var name in VisibleAddons())
         {
             if (name.StartsWith("ChatLog", StringComparison.Ordinal) || name.StartsWith("_", StringComparison.Ordinal)) continue;
             var a = Get(name);
             if (a == null) continue;
-            if (Texts(a).Exists(t => t.Contains(text, StringComparison.OrdinalIgnoreCase))) return (a, name);
+            if (Texts(a).Exists(t => t.Contains(text, StringComparison.OrdinalIgnoreCase))) return ((nint)a, name);
         }
         return null;
     }
