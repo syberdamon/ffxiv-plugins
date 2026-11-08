@@ -122,6 +122,17 @@ public class StockRecipe
     public HashSet<uint> KeepAsIs { get; set; } = new();
 }
 
+/// <summary>Keep this many of a scrip-exchange item (bags + saddlebag + retainers): craft collectables, turn them in, buy it.</summary>
+[Serializable]
+public class ScripGoal
+{
+    public uint ItemId { get; set; }
+    public int Target { get; set; }
+    public bool Enabled { get; set; } = true;
+    /// <summary>The collectable recipe to craft (0 = the one paying the most scrips per craft you can make).</summary>
+    public uint RecipeId { get; set; }
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -225,6 +236,22 @@ public class Configuration : IPluginConfiguration
     public bool CleanupAutoDesynth { get; set; } = true;
     /// <summary>Your verdict per item (NQ id), instead of the suggested one.</summary>
     public Dictionary<uint, Verdict> CleanupVerdicts { get; set; } = new();
+
+    // ---- scrip goals
+    public List<ScripGoal> ScripGoals { get; set; } = new();
+    /// <summary>Crafting plugin: 0 = Vulcan (GatherBuddy Reborn: gathers what's missing, then crafts), 1 = Artisan.</summary>
+    public int ScripEngine { get; set; } = 0;
+    /// <summary>Take missing materials out of your retainers first (needs a summoning bell; walks to the nearest).</summary>
+    public bool ScripUseRetainers { get; set; } = true;
+    /// <summary>Then: stop so you can buy materials priced at or below the cap on the market board (Resume carries on).</summary>
+    public bool ScripBuyMarket { get; set; } = false;
+    public int ScripMaxPrice { get; set; } = 500;
+    /// <summary>Then: gather what's still missing (Vulcan's gather + craft). Off = stop when gatherable materials run out.</summary>
+    public bool ScripGather { get; set; } = true;
+    /// <summary>Bag slots left free before a batch starts (collectables take a slot each).</summary>
+    public int ScripReserveSlots { get; set; } = 3;
+    /// <summary>Most collectables crafted per batch, between turn-ins.</summary>
+    public int ScripMaxBatch { get; set; } = 40;
 
     // ---- other plugins / UI
     public bool UseAllaganTools { get; set; } = true;

@@ -5,6 +5,7 @@ using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using Syberdamon.Shared;
 
 namespace MaterialStash.Windows;
 
@@ -41,6 +42,7 @@ public sealed class MainWindow : Window
         if (ImGui.BeginTabItem("Categories")) { DrawCategories(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Crystals")) { DrawCrystals(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Stock")) { DrawStock(me); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Scrip goals")) { DrawScrips(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Selling")) { DrawSelling(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Clean-up")) { DrawCleanup(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Keep on me")) { DrawKeep(); ImGui.EndTabItem(); }
@@ -1114,6 +1116,182 @@ public sealed class MainWindow : Window
             ImGui.SameLine();
             if (ImGui.SmallButton("Remove")) { set.Remove(id); changed = true; }
             ImGui.PopID();
+        }
+        return changed;
+    }
+
+    // ================================================================ scrip goals
+
+    private string scripSearch = "";
+    private System.Collections.Generic.List<ScripShopEntry> scripHits = new();
+
+    private void DrawScrips(CharacterData me)
+    {
+        var sg = plugin.Scrips;
+        ImGui.TextWrapped("Keep a number of a scrip-exchange item (counted in your bags, saddlebag and retainers). A run crafts the collectable " +
+                          "paying the most scrips per craft (or the one you pick), turns it in and buys the item, until you have the target. " +
+                          "Turn-In Manager does the turn-ins and buying.");
+
+        var plugins = new[]
+        {
+            ("Turn-In Manager", sg.TurnIn.IsLoaded), ("GatherBuddy Reborn (Vulcan)", sg.GatherBuddy.IsLoaded), ("Artisan", sg.Artisan.IsLoaded),
+        };
+        foreach (var (n, ok) in plugins) { ImGui.TextColored(ok ? Good : Warn, $"{n}: {(ok ? "loaded" : "not loaded")}"); ImGui.SameLine(); }
+        ImGui.NewLine();
+
+        foreach (var (id, name) in ScripData.ScripNames)
+        {
+            var n = ScripData.Scrips(id);
+            if (n > 0) { ImGui.TextDisabled($"{name}: {n:N0}"); ImGui.SameLine(); }
+        }
+        ImGui.NewLine();
+
+        if (sg.Busy) { if (ImGui.Button("Stop")) sg.Stop(); ImGui.SameLine(); ImGui.TextWrapped(sg.Status); }
+        else
+        {
+            var why = sg.CantStart();
+            if (why != null) ImGui.BeginDisabled();
+            if (ImGui.Button("Run all goals")) sg.Start();
+            if (why != null) { ImGui.EndDisabled(); ImGui.SameLine(); ImGui.TextColored(Warn, why); }
+            if (sg.Status.Length > 0) ImGui.TextWrapped(sg.Status);
+        }
+
+        var changed = false;
+        if (ImGui.CollapsingHeader("How it gets materials and crafts", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            var engine = C.ScripEngine;
+            if (ImGui.RadioButton("Vulcan", ref engine, 0)) { C.ScripEngine = 0; changed = true; }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("GatherBuddy Reborn's crafter: gathers whatever is missing, makes intermediate items, then crafts.");
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Artisan", ref engine, 1)) { C.ScripEngine = 1; changed = true; }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Crafts the collectable only. When materials need gathering (or intermediate crafts), that batch goes to Vulcan.");
+            ImGui.SameLine(); ImGui.TextDisabled("crafts the collectables");
+
+            ImGui.TextDisabled("Materials, in this order:");
+            var b = C.ScripUseRetainers;
+            if (ImGui.Checkbox("1. Take them out of my retainers (walks to the nearest summoning bell)", ref b)) { C.ScripUseRetainers = b; changed = true; }
+            b = C.ScripBuyMarket;
+            if (ImGui.Checkbox("2. Stop so I can buy them on the market board at or under", ref b)) { C.ScripBuyMarket = b; changed = true; }
+            ImGui.SameLine(); ImGui.SetNextItemWidth(90);
+            var mp = C.ScripMaxPrice;
+            if (ImGui.InputInt("gil each##scripmax", ref mp, 0, 0)) { C.ScripMaxPrice = Math.Max(0, mp); changed = true; }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Lowest home-world listing (Universalis). The run pauses with a list; buy them, then Resume. Buying itself isn't automated yet.");
+            b = C.ScripGather;
+            if (ImGui.Checkbox("3. Gather the rest (Vulcan); off = stop when gatherable materials run out", ref b)) { C.ScripGather = b; changed = true; }
+
+            var rs = C.ScripReserveSlots; ImGui.SetNextItemWidth(90);
+            if (ImGui.InputInt("Bag slots to keep free", ref rs, 1, 1)) { C.ScripReserveSlots = Math.Clamp(rs, 0, 50); changed = true; }
+            ImGui.SameLine();
+            var mb = C.ScripMaxBatch; ImGui.SetNextItemWidth(90);
+            if (ImGui.InputInt("Most crafts per batch", ref mb, 5, 10)) { C.ScripMaxBatch = Math.Clamp(mb, 1, 140); changed = true; }
+        }
+
+        if (ImGui.CollapsingHeader($"Goals ({C.ScripGoals.Count})###scripgoals", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            if (ImGui.BeginTable("##scripgoals", 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
+            {
+                ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 24);
+                ImGui.TableSetupColumn("Item");
+                ImGui.TableSetupColumn("Have / target", ImGuiTableColumnFlags.WidthFixed, 150);
+                ImGui.TableSetupColumn("Collectable to craft", ImGuiTableColumnFlags.WidthFixed, 230);
+                ImGui.TableSetupColumn("Plan");
+                ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 150);
+                ImGui.TableHeadersRow();
+                for (var i = 0; i < C.ScripGoals.Count; i++)
+                {
+                    var g = C.ScripGoals[i];
+                    var plan = ScripGoals.Plan(g, me);
+                    ImGui.PushID($"sg{i}");
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    var on = g.Enabled;
+                    if (ImGui.Checkbox("##on", ref on)) { g.Enabled = on; changed = true; }
+                    ImGui.TableNextColumn();
+                    ImGui.TextUnformatted(plan?.Shop.Name ?? Items.Info(g.ItemId)?.Name ?? $"#{g.ItemId}");
+                    if (plan != null && ImGui.IsItemHovered())
+                        ImGui.SetTooltip($"{plan.Shop.Cost} {ScripData.ScripNames[plan.Shop.CurrencyItemId]} each");
+                    ImGui.TableNextColumn();
+                    ImGui.TextColored(plan != null && plan.Need == 0 ? Good : Warn, $"{plan?.Have ?? 0:N0} /");
+                    ImGui.SameLine(); ImGui.SetNextItemWidth(80);
+                    var t = g.Target;
+                    if (ImGui.InputInt("##t", ref t, 0, 0)) { g.Target = Math.Max(0, t); changed = true; }
+
+                    ImGui.TableNextColumn();
+                    if (plan != null) changed |= DrawRecipePick(g, plan);
+
+                    ImGui.TableNextColumn();
+                    if (plan == null) ImGui.TextColored(Warn, "not sold for scrips");
+                    else if (plan.Need == 0) ImGui.TextColored(Good, "done");
+                    else
+                    {
+                        var parts = new System.Collections.Generic.List<string> { $"need {plan.Need} ({plan.Need * plan.Shop.Cost:N0} scrips)" };
+                        if (plan.Held > 0) parts.Add($"{plan.Held} to turn in (~{plan.HeldValue:N0})");
+                        if (plan.RecipeWhy != null) parts.Add(plan.RecipeWhy);
+                        else if (plan.CraftsNeeded > 0) parts.Add($"~{plan.CraftsNeeded} crafts [Estimate: top tier]");
+                        ImGui.TextWrapped(string.Join("; ", parts));
+                    }
+
+                    ImGui.TableNextColumn();
+                    if (sg.Busy || plan == null) ImGui.BeginDisabled();
+                    if (ImGui.SmallButton("Run")) sg.Start(g);
+                    if (sg.Busy || plan == null) ImGui.EndDisabled();
+                    ImGui.SameLine();
+                    var canStock = plan?.Recipe != null && plan.CraftsNeeded > 0;
+                    if (!canStock) ImGui.BeginDisabled();
+                    if (ImGui.SmallButton("Stock mats"))
+                    {
+                        var sr = C.StockRecipes.FirstOrDefault(x => x.RecipeId == plan!.Recipe!.RecipeId);
+                        if (sr == null) C.StockRecipes.Add(sr = new StockRecipe { RecipeId = plan!.Recipe!.RecipeId });
+                        sr.Target = Math.Max(sr.Target, plan!.CraftsNeeded);
+                        changed = true;
+                    }
+                    if (!canStock) ImGui.EndDisabled();
+                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                        ImGui.SetTooltip("Put this collectable's recipe on the Stock list (target = the crafts still needed), so ventures bring back its materials.");
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("x")) { C.ScripGoals.RemoveAt(i); changed = true; ImGui.PopID(); break; }
+                    ImGui.PopID();
+                }
+                ImGui.EndTable();
+            }
+
+            ImGui.SetNextItemWidth(260);
+            if (ImGui.InputTextWithHint("##scripsearch", "Add a goal: type a scrip-exchange item...", ref scripSearch, 64))
+                scripHits = scripSearch.Trim().Length < 2 ? new() :
+                    ScripData.Shop(Plugin.DataManager).Values
+                        .Where(e => e.Name.Contains(scripSearch.Trim(), StringComparison.OrdinalIgnoreCase) && C.ScripGoals.All(g => g.ItemId != e.ItemId))
+                        .OrderBy(e => e.Name.Length).ThenBy(e => e.Name).Take(20).ToList();
+            foreach (var hit in scripHits.ToList())
+                if (ImGui.Selectable($"{hit.Name} ({hit.Cost} {ScripData.ScripNames[hit.CurrencyItemId]})##sh{hit.ItemId}"))
+                {
+                    C.ScripGoals.Add(new ScripGoal { ItemId = hit.ItemId, Target = 1 });
+                    scripHits.Clear(); scripSearch = ""; changed = true;
+                }
+        }
+        if (changed) C.Save();
+    }
+
+    /// <summary>The collectable a goal crafts: Auto (best scrips per craft you can make) or a recipe you pick.</summary>
+    private bool DrawRecipePick(ScripGoal g, ScripPlan plan)
+    {
+        var changed = false;
+        var label = g.RecipeId == 0
+            ? (plan.Recipe != null ? $"Auto: {plan.Recipe.Name} ({plan.Recipe.Job}, {plan.Recipe.Reward.High})" : "Auto: none usable")
+            : plan.Recipe != null ? $"{plan.Recipe.Name} ({plan.Recipe.Job}, {plan.Recipe.Reward.High})" : $"#{g.RecipeId}";
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.BeginCombo("##recipe", label))
+        {
+            if (ImGui.Selectable("Auto (most scrips per craft)", g.RecipeId == 0)) { g.RecipeId = 0; changed = true; }
+            foreach (var r in ScripData.Recipes(Plugin.DataManager).Where(r => r.Reward.CurrencyItemId == plan.Shop.CurrencyItemId)
+                         .OrderByDescending(r => r.Reward.High).ThenByDescending(r => r.RecipeLevel))
+            {
+                var cant = ScripData.CantUse(Plugin.DataManager, r);
+                var text = $"{r.Name} ({r.Job} {r.RecipeLevel}): {r.Reward.Low}/{r.Reward.Mid}/{r.Reward.High}" + (cant != null ? $"  [{cant}]" : "");
+                if (cant != null) ImGui.PushStyleColor(ImGuiCol.Text, Dim);
+                if (ImGui.Selectable(text + $"##r{r.RecipeId}", g.RecipeId == r.RecipeId)) { g.RecipeId = r.RecipeId; changed = true; }
+                if (cant != null) ImGui.PopStyleColor();
+            }
+            ImGui.EndCombo();
         }
         return changed;
     }
