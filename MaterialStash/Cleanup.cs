@@ -140,6 +140,9 @@ public sealed unsafe class Cleanup : IDisposable
 
     private string NameOf(uint id) => Fact(id)?.Name ?? $"#{id}";
 
+    /// <summary>The item's Armoire (Cabinet) row, 0 if it doesn't go in the Armoire.</summary>
+    public uint CabinetOf(uint id) => Fact(id)?.CabinetId ?? 0;
+
     public (Regain.Effort Easiest, List<string> Lines) Ways(uint id)
     {
         var f = Fact(id);
@@ -181,6 +184,10 @@ public sealed unsafe class Cleanup : IDisposable
                 verdictOf[key] = line.Verdict;
             }
         }
+        // Approved items already brought to your bags keep their verdict (the run and the inn trip act on them).
+        foreach (var s in Tracker.Stacks(Tracker.Bags))
+            if (me.CleanupApproved.Contains(s.ItemId) && !verdictOf.ContainsKey(s.ItemId) && Fact(s.ItemId) is { } bf)
+                verdictOf[s.ItemId] = Judge(0, s.ItemId, s.Qty, 1, bf, me, inDresser).Verdict;
         if (ask.Count > 0) market.Request(ask, Selling.HomeWorld(), Math.Max(10, config.PriceRefreshMinutes));
 
         // Approvals for things that are gone (sold, moved, discarded) lapse; HQ/NQ keys as held.

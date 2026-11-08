@@ -212,6 +212,8 @@ public class Configuration : IPluginConfiguration
     public bool CleanupPreferDesynth { get; set; } = false;
     /// <summary>After a clean-up run, use the unlearned items it brought to your bags.</summary>
     public bool CleanupAutoUse { get; set; } = true;
+    /// <summary>After a clean-up run, go to an inn (Lifestream) and put "keep the look" items in the Armoire / glamour dresser.</summary>
+    public bool CleanupStoreLooks { get; set; } = true;
     /// <summary>Your verdict per item (NQ id), instead of the suggested one.</summary>
     public Dictionary<uint, Verdict> CleanupVerdicts { get; set; } = new();
 

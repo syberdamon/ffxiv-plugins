@@ -71,6 +71,9 @@ Our code is our own; credit to their authors:
   `PluginState.IsBusy`), the rules for which retainer can take which venture and how many items it brings back, and the
   game-function signature for "has this gathering item been gathered" (`48 89 5C 24 ?? 57 48 83 EC 20 8B D9 8B F9`).
 - Allagan Tools (Critical-Impact): IPC used to seed retainer contents (optional dependency).
+- Lifestream (NightmareXIV): `/li inn` through its `ExecuteCommand` IPC (optional dependency); vnavmesh for walking.
+- Spring Cleaning (OhGodAGirl, MIT): how the glamour dresser's Glamour Creation list stores an item (agent event 14
+  with the list index, then the confirmation's callback 0) and the Armoire's store call. No code copied.
 
 ## Teamcraft data (Retainer Gear, Material Stash)
 

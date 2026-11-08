@@ -135,6 +135,12 @@ vendor ones through that retainer and discards the approved discards (only stack
 the market ones at your selling retainer (Selling tab). The glamour dresser is read when you open it and the Armoire
 when it's loaded at an inn; with the dresser open, **Take dresser duplicates out** removes extra copies.
 
+**Store looks at an inn** (also automatic after a run, switchable; or `/stash looks`): approved "keep the look" items in
+your bags go to an inn room with Lifestream (`/li inn`, skipped if you're already in one), walk to the Armoire with
+vnavmesh and store what fits there (free), then the Glamour Dresser for the rest (one Glamour Prism each; without
+prisms they stay in your bags). Items the game won't take are listed. No Lifestream: be in an inn room first; no
+vnavmesh: stand next to the Armoire / dresser first.
+
 How hard a duty is to run today is a rule of thumb at level 100 [Estimate]: dungeons below the cap, normal trials and
 A Realm Reborn to Stormblood extremes are solo unsynced (except the Pool of Tribute (Extreme), which needs a second
 player); A Realm Reborn to Stormblood alliance raids take three players (one per alliance); Shadowbringers and later
@@ -166,9 +172,11 @@ each was last seen. A retainer never seen is assumed to have room; it's checked 
 - Whether AutoRetainer's venture override also applies in multi-character mode (confirmed for its normal bell run).
 - The "gathered it yourself" check uses a game-function signature (from AutoRetainer); after a patch it may be missing,
   and then every gathering venture is assumed allowed.
-
 - Clean-up: "Have Retainer Sell Items" from the bag item menu with the retainer's inventory open; discarding with
   the game's discard call (confirmed with its yes/no); using items with the game's item action; taking items out of the
   dresser; reading the Armoire (`IsItemInCabinet`).
+- Storing looks: the inn-room check (territory "intended use" 2), opening the Armoire / dresser by interacting with
+  them, the Armoire's store call (`StoreCabinetItem`), and the dresser's store event (Glamour Creation list event 14,
+  then its confirmation, as Spring Cleaning does it).
 
 Confirmed from AutoRetainer's source: `AutoRetainer.PluginState.IsBusy`, `OnSendRetainerToVenture`, `SetVenture`.
