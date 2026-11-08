@@ -110,7 +110,8 @@ expanded layout; the window and bag/slot numbers in the smaller ones).
 
 **Auto-sell** (off by default): pick a selling retainer; **Sell (N)** at the bell (or `/stash sell`, or at the end of
 every Stash run) lists them with the game's own listing call: lowest home-world listing minus your undercut (1 gil),
-else the median sale; up to 99 per listing and the retainer's 20 market slots.
+else the median sale; up to 99 per listing. When the selling retainer's 20 market slots fill up, it moves on to the
+next retainer with free slots (no selling retainer picked: any retainer with room, in list order).
 
 ## Clean-up (retainer junk audit)
 The Clean-up tab goes through everything your retainers hold (as last seen; retainers only, not your bags) and
@@ -150,7 +151,7 @@ group unsynced) are tagged.
 
 **Run clean-up** at the summoning bell takes the approved items out of each retainer into empty bag slots, sells the
 vendor ones through that retainer and discards the approved discards (only stacks the run itself took out), then lists
-the market ones at your selling retainer (Selling tab). When a retainer is dismissed after vendor sales, the game's
+the market ones on your selling retainer first (Selling tab, optional), then on any other retainer with free market slots (20 each). When a retainer is dismissed after vendor sales, the game's
 "sold items can't be bought back" prompt is confirmed for you. The glamour dresser is read when you open it and the Armoire
 when it's loaded at an inn; with the dresser open, **Take dresser duplicates out** removes extra copies.
 

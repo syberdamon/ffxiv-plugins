@@ -121,25 +121,29 @@ public sealed unsafe class Runner : IDisposable
         crystal = null; lastMove = null; bagsFull = false;
         listed = 0; usedMarketSlots.Clear(); noPrice.Clear();
         cleanRan = m == RunMode.Cleanup; cleanPulled = cleanVendored = cleanDiscarded = 0; pulledSlots.Clear(); ctx = null;
-        sellAfter = (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && me.SellRetainer != 0 && selling.InBags().Count > 0)
-                    || (m == RunMode.Cleanup && me.SellRetainer != 0 && me.Order.Contains(me.SellRetainer));
+        sellTried.Clear();
+        sellAfter = (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && selling.InBags().Count > 0)
+                    || m == RunMode.Cleanup; // clean-up always lists its market items afterwards, on any retainer with room
         PruneCarry(me);
         queue.Clear();
+        ulong firstSell = 0;
         if (m == RunMode.Sell)
         {
-            if (me.SellRetainer == 0 || !me.Order.Contains(me.SellRetainer)) { Status = "Pick a selling retainer first (Selling tab)."; return; }
             if (selling.InBags().Count == 0) { Status = "Nothing to sell in your bags."; return; }
+            firstSell = NextSellRetainer(me);
+            if (firstSell == 0) { Status = "Every retainer's market is full (20 listings each)."; return; }
         }
         var list = m switch
         {
             RunMode.Scan => me.Order,
             RunMode.Tidy => planner.TidyVisits(),
-            RunMode.Sell => new List<ulong> { me.SellRetainer },
+            RunMode.Sell => new List<ulong> { firstSell },
             RunMode.Cleanup => Cleanup == null ? new List<ulong>() : CleanupVisits(me),
             RunMode.Furnish => Storeroom == null ? new List<ulong>() : FurnishVisits(me),
             _ => planner.RetainersToVisit(),
         };
-        if (list.Count == 0 && sellAfter) { mode = RunMode.Sell; sellAfter = false; list = new List<ulong> { me.SellRetainer }; }
+        if (list.Count == 0 && sellAfter && selling.InBags().Count > 0 && NextSellRetainer(me) is var first && first != 0)
+        { mode = RunMode.Sell; sellAfter = false; list = new List<ulong> { first }; }
         if (list.Count == 0)
         {
             Status = m == RunMode.Tidy ? "Already tidy (as far as the records show: Scan all to refresh)."
@@ -334,11 +338,16 @@ public sealed unsafe class Runner : IDisposable
                 foreach (var id in again) queue.Enqueue(id);
             }
             // Stash done: on to the selling retainer, if auto-sell is on.
-            else if (sellAfter && tracker.Me() is { SellRetainer: not 0 } sm && selling.InBags().Count > 0)
+            else if (sellAfter && tracker.Me() is { } sm && selling.InBags().Count > 0 && NextSellRetainer(sm) is var sr && sr != 0)
             {
                 sellAfter = false;
                 mode = RunMode.Sell;
-                queue.Enqueue(sm.SellRetainer);
+                queue.Enqueue(sr);
+            }
+            // Selling: that retainer's market filled up with items left over -> the next retainer with room.
+            else if (mode == RunMode.Sell && tracker.Me() is { } sm2 && selling.InBags().Count > 0 && NextSellRetainer(sm2) is var sr2 && sr2 != 0)
+            {
+                queue.Enqueue(sr2);
             }
             else { Finish(); return; }
         }
@@ -542,6 +551,36 @@ public sealed unsafe class Runner : IDisposable
     /// as Restocker does; needs the sell list open). Price: lowest home-world listing minus your undercut,
     /// else the median sale. True if something was listed.
     /// </summary>
+    private readonly HashSet<ulong> sellTried = new();
+
+    /// <summary>
+    /// The next retainer to list on: your selling retainer first, then any other retainer (list order) whose
+    /// market has a free slot (of 20), each tried once per run. 0 if none. Counts come from the game's
+    /// retainer list (RetainerManager), so they're current once you've been at the bell.
+    /// </summary>
+    private ulong NextSellRetainer(CharacterData me)
+    {
+        var rm = FFXIVClientStructs.FFXIV.Client.Game.RetainerManager.Instance();
+        var free = new Dictionary<ulong, int>();
+        if (rm != null && rm->IsReady)
+            for (var i = 0u; i < rm->GetRetainerCount(); i++)
+            {
+                var r = rm->GetRetainerBySortedIndex(i);
+                if (r != null && r->RetainerId != 0) free[r->RetainerId] = 20 - r->MarketItemCount;
+            }
+        var order = new List<ulong>();
+        if (me.SellRetainer != 0) order.Add(me.SellRetainer);
+        order.AddRange(me.Order.Where(r => r != me.SellRetainer));
+        foreach (var id in order)
+        {
+            if (sellTried.Contains(id) || !me.Order.Contains(id)) continue;
+            if (free.TryGetValue(id, out var f) && f <= 0) continue; // known full
+            sellTried.Add(id);
+            return id;
+        }
+        return 0;
+    }
+
     private bool SellStep()
     {
         var me = tracker.Me();

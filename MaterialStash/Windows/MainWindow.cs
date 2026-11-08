@@ -755,7 +755,7 @@ public sealed class MainWindow : Window
         if (auto)
         {
             ImGui.SetNextItemWidth(200);
-            if (ImGui.BeginCombo("Selling retainer", me.SellRetainer == 0 ? "pick one..." : plugin.Tracker.NameOf(me.SellRetainer)))
+            if (ImGui.BeginCombo("Selling retainer", me.SellRetainer == 0 ? "any with room" : plugin.Tracker.NameOf(me.SellRetainer)))
             {
                 foreach (var id in me.Order)
                     if (ImGui.Selectable(plugin.Tracker.NameOf(id), me.SellRetainer == id)) { me.SellRetainer = id; changed = true; }
@@ -883,7 +883,7 @@ public sealed class MainWindow : Window
             ImGui.TextColored(Dim, "Value: home-world market (lower of the lowest listing and the 7-day median, less 5% tax) or the vendor price, whichever is higher.\n" +
                                    "Keep the look: gear whose look can't be had any more (no shop, duty, recipe or market source), or that fits the Armoire.\n" +
                                    "\"Easy to get again\": solo or small group unsynced at level 100, a rule of thumb (hover an item for its sources).");
-            if (me.SellRetainer == 0) ImGui.TextColored(Warn, "No selling retainer picked (Selling tab): approved market items will wait in your bags, boxed.");
+            ImGui.TextDisabled("Approved market items are listed after the run: your selling retainer first (if picked), then any retainer with free market slots.");
         }
 
         ImGui.Separator();
