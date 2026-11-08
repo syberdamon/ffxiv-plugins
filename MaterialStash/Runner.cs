@@ -55,6 +55,8 @@ public sealed unsafe class Runner : IDisposable
     private bool clean => mode == RunMode.Cleanup;
     /// <summary>Set by the plugin: the Clean-up tab's engine.</summary>
     public Cleanup? Cleanup { get; set; }
+    /// <summary>Set by the plugin: stores "keep the look" items at an inn.</summary>
+    public Wardrobe? Wardrobe { get; set; }
     private bool cleanRan;
     private int cleanPulled, cleanVendored, cleanDiscarded;
     private readonly HashSet<(InventoryType, int)> pulledSlots = new();
@@ -241,6 +243,12 @@ public sealed unsafe class Runner : IDisposable
             Status = CleanupSummary() + (mode == RunMode.Sell ? " " + sold.Trim() : "");
             cleanRan = false;
             if (config.CleanupAutoUse && Cleanup != null && Cleanup.Usable().Count > 0) Cleanup.StartUse();
+            if (config.CleanupStoreLooks && Wardrobe != null && Wardrobe.ToStore().Count > 0)
+            {
+                Cleanup?.Analyze(tracker.Me()!);
+                Wardrobe.Start();
+                Status += " " + Wardrobe.Status;
+            }
         }
         Plugin.ChatGui.Print($"[Stash] {Status}");
     }

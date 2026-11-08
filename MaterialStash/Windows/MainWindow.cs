@@ -844,6 +844,22 @@ public sealed class MainWindow : Window
                                  string.Join("\n", dupes.Select(d => $"{d.Name} x{d.Copies}")));
         }
         if (cu.Using || cu.Restoring) { ImGui.SameLine(); if (ImGui.SmallButton("Stop")) cu.StopAll(); }
+        var wr = plugin.Wardrobe;
+        var looks = wr.ToStore();
+        if (looks.Count > 0 || wr.Busy)
+        {
+            var arm = looks.Count(x => x.Armoire);
+            if (wr.Busy) { if (ImGui.Button("Stop storing")) wr.Stop(); }
+            else if (ImGui.Button($"Store looks at an inn ({arm} Armoire, {looks.Count - arm} dresser)")) wr.Start();
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Approved \"keep the look\" items in your bags: goes to an inn room (Lifestream \"/li inn\") unless you're in one,\n" +
+                                 "walks to the Armoire (vnavmesh) for what fits there (free), then the Glamour Dresser for the rest\n" +
+                                 $"(one Glamour Prism each: you have {Wardrobe.Prisms()}).\n" +
+                                 (wr.LifestreamReady ? "" : "Lifestream isn't installed: go to an inn room yourself first.\n") +
+                                 (wr.VNavReady ? "" : "vnavmesh isn't installed: stand next to the Armoire / dresser first.\n") +
+                                 "/stash looks does the same.");
+        }
+        if (wr.Status.Length > 0) ImGui.TextColored(Dim, wr.Status);
         if (cu.Status.Length > 0) ImGui.TextColored(Dim, cu.Status);
 
         if (ImGui.CollapsingHeader("Clean-up settings"))
@@ -860,6 +876,8 @@ public sealed class MainWindow : Window
             if (ImGui.Checkbox("Desynthesize rather than vendor when an item can be desynthesized", ref pd)) { C.CleanupPreferDesynth = pd; changed = true; }
             var au = C.CleanupAutoUse;
             if (ImGui.Checkbox("After a run, use the unlearned items it brought out (minions, cards, rolls...)", ref au)) { C.CleanupAutoUse = au; changed = true; }
+            var sl = C.CleanupStoreLooks;
+            if (ImGui.Checkbox("After a run, go to an inn and store the \"keep the look\" items (Armoire, then glamour dresser)", ref sl)) { C.CleanupStoreLooks = sl; changed = true; }
             ImGui.TextColored(Dim, "Value: home-world market (lower of the lowest listing and the 7-day median, less 5% tax) or the vendor price, whichever is higher.\n" +
                                    "Keep the look: gear whose look can't be had any more (no shop, duty, recipe or market source), or that fits the Armoire.\n" +
                                    "\"Easy to get again\": solo or small group unsynced at level 100, a rule of thumb (hover an item for its sources).");
@@ -912,7 +930,7 @@ public sealed class MainWindow : Window
         Verdict.GrandCompany => "Brought to your bags: Turn-In Manager takes them to your Grand Company for seals.",
         Verdict.Desynth => "Brought to your bags to desynthesize.",
         Verdict.Exchange => "Exchange tokens: hover to see what they buy. Brought to your bags.",
-        Verdict.Dresser => "Brought to your bags: store them in the glamour dresser or Armoire at an inn.",
+        Verdict.Dresser => "Brought to your bags, then taken to an inn and stored: Armoire if it fits there (free), else the glamour dresser (one Glamour Prism each).",
         Verdict.Discard => "No value found. Approving shows how you'd get each one back first.",
         _ => "Left where it is.",
     };
