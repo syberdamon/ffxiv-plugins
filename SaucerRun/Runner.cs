@@ -301,6 +301,7 @@ public sealed unsafe class Runner : IDisposable
         Plugin.TargetManager.Target = npc;
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
         talkedAt = DateTime.UtcNow;
+        buyClicks = 0;
         menuSeen = DateTime.MinValue;
         saidDone = false;
     }
@@ -347,7 +348,7 @@ public sealed unsafe class Runner : IDisposable
                 if (baseId != Cashier && (DateTime.UtcNow - talkedAt).TotalSeconds > 45 &&
                     (baseId == MiniBroker ? tracker.LastMiniOpen : tracker.LastJumboOpen) < talkedAt)
                 {
-                    GameUi.Dump("Talk", "Saucer: stuck at the broker");
+                    GameUi.Dump("Talk", "Saucer: stuck at the broker. On screen: " + string.Join(", ", GameUi.VisibleAddons().Where(n => !n.StartsWith("_"))));
                     foreach (var d in Dialogs) GameUi.Close(d);
                     if (baseId == MiniBroker) tracker.MarkMiniDone(); else tracker.MarkJumboDone();
                     Plugin.ChatGui.Print($"[Saucer] Stuck talking to the {(baseId == MiniBroker ? "Mini" : "Jumbo")} Cactpot broker; counted as done and moved on (dump saved).");
@@ -408,6 +409,7 @@ public sealed unsafe class Runner : IDisposable
     /// <summary>A "Purchase a ... Cactpot ticket" menu, or a ticket yes/no, is on screen.</summary>
     private static bool BrokerMenuOpen(uint baseId)
     {
+        if (baseId == MiniBroker && GameUi.FindWithText("Purchase a Mini Cactpot ticket") != null) return true;
         if (GameUi.Get("SelectString") is var ss && ss != null)
             return GameUi.MenuEntries(ss, false).Any(r =>
                 r.Contains("Purchase", StringComparison.OrdinalIgnoreCase) && r.Contains("ticket", StringComparison.OrdinalIgnoreCase) ||
@@ -420,10 +422,30 @@ public sealed unsafe class Runner : IDisposable
         return false;
     }
 
-    private int menuTries;
+    private int menuTries, buyClicks;
 
     private bool BuyTicket(uint baseId)
     {
+        // Mini Cactpot: whatever window shows "Purchase a Mini Cactpot ticket" (0.1.7 looked only for
+        // SelectString and never saw it): pick its first row, which is that line.
+        if (baseId == MiniBroker && GameUi.Get("SelectYesno") == null && GameUi.FindWithText("Purchase a Mini Cactpot ticket") is { } pm)
+        {
+            if (menuSeen == DateTime.MinValue) { menuSeen = DateTime.UtcNow; return true; }
+            if ((DateTime.UtcNow - menuSeen).TotalSeconds < 0.4) return true;
+            menuSeen = DateTime.MinValue;
+            if (++buyClicks > 4)
+            {
+                buyClicks = 0;
+                GameUi.Dump(pm.Name, $"Saucer: picking 'Purchase' in {pm.Name} didn't take");
+                Plugin.ChatGui.Print($"[Saucer] The purchase menu ({pm.Name}) won't take the click (dump saved).");
+                return true;
+            }
+            Plugin.Log.Info($"[Saucer] mini purchase menu is {pm.Name}: picking row 0");
+            if (buyClicks % 2 == 1) pm.Addon->FireCallbackInt(0);
+            else { var v = stackalloc AtkValue[1]; v[0].SetInt(0); pm.Addon->FireCallback(1, v, true); } // ECommons' way (updates the window)
+            next = DateTime.UtcNow.AddSeconds(1);
+            return true;
+        }
         var ss = GameUi.Get("SelectString");
         var yn = GameUi.Get("SelectYesno");
         // The purchase question can sit on top of the broker's speech bubble: answer it first
