@@ -29,7 +29,7 @@ public sealed class GroupWindow : Window
     }
 
     public override bool DrawConditions() =>
-        Group.Visible && Plugin.ObjectTable.LocalPlayer != null && Items().Any();
+        Group.Visible && Plugin.ObjectTable.LocalPlayer != null && !Plugin.PluginInterface.UiBuilder.CutsceneActive && Items().Any();
 
     public override void PreDraw()
     {

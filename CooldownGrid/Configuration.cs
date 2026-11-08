@@ -56,6 +56,11 @@ public class Configuration : IPluginConfiguration
     public bool ShowTooltips { get; set; } = true;
     public bool TintUnusable { get; set; } = true;
 
+    // ---- Floating "Plugins" button (shown during cutscenes too)
+    public bool ShowPluginsButton { get; set; } = true;
+    public bool PluginsButtonCutscenesOnly { get; set; } = false;
+    public bool PluginsButtonLocked { get; set; } = false;
+
     // ---- Alerts: icons pulse when they're due.
     public bool PulseBeforeBusters { get; set; } = true;     // icons in a "cast on the tank" group
     public bool PulseBeforeRaidwides { get; set; } = true;   // icons in Defensive (group)
