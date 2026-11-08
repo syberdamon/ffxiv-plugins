@@ -41,6 +41,7 @@ public sealed unsafe class Wardrobe : IDisposable
     private readonly LifestreamIpc lifestream = new();
 
     private Phase phase = Phase.Idle;
+    private DateTime travelIdleSince = DateTime.MinValue;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue;
     private bool armoireTurn, travelAsked;
     private int stored, tries, repaired;
@@ -98,7 +99,7 @@ public sealed unsafe class Wardrobe : IDisposable
         if (dresserCount > 0 && Prisms() < dresserCount)
             Plugin.ChatGui.Print($"[Stash] {dresserCount} item(s) need the dresser but you have {Prisms()} Glamour Prism(s): the rest stay in your bags.");
         armoireTurn = list.Any(x => x.Armoire);
-        travelAsked = false;
+        travelAsked = false; travelIdleSince = DateTime.MinValue;
         if (InInn()) Set(Phase.Repair, "Repairing...");
         else if (lifestream.IsLoaded) Set(Phase.Travel, "Going to an inn room (Lifestream)...");
         else { Status = "Go to an inn room first (or install Lifestream so I can take you)."; return; }
@@ -179,8 +180,16 @@ public sealed unsafe class Wardrobe : IDisposable
             next = DateTime.UtcNow.AddSeconds(2);
             return;
         }
-        if (lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.ObjectTable.LocalPlayer == null) return;
-        if (!InInn()) { if ((DateTime.UtcNow - phaseStart).TotalSeconds > 20) Fail("Lifestream finished but this isn't an inn room."); return; }
+        // Lifestream works in steps (teleport, walk, talk, zone in) and can read idle for a moment between
+        // them, so only give up after it has been idle for a while, measured from when it went idle.
+        if (lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.ObjectTable.LocalPlayer == null)
+        {
+            travelIdleSince = DateTime.MinValue;
+            if ((DateTime.UtcNow - phaseStart).TotalSeconds > 200) phaseStart = DateTime.UtcNow.AddSeconds(-200); // still moving: keep the clock from running out
+            return;
+        }
+        if (travelIdleSince == DateTime.MinValue) travelIdleSince = DateTime.UtcNow;
+        if (!InInn()) { if ((DateTime.UtcNow - travelIdleSince).TotalSeconds > 25) Fail("Lifestream finished but this isn't an inn room."); return; }
         Set(Phase.Repair, "Repairing...");
         next = DateTime.UtcNow.AddSeconds(1.5);
     }
@@ -291,6 +300,7 @@ public sealed unsafe class Wardrobe : IDisposable
             {
                 stored++;
                 current = null;
+                phaseStart = DateTime.UtcNow; // the time limit is per item, not for the whole batch
                 return;
             }
             if (!armoireTurn && ConfirmDialog() is var dlg && dlg != null) { dlg->FireCallbackInt(0); next = DateTime.UtcNow.AddSeconds(1); return; }
@@ -298,6 +308,7 @@ public sealed unsafe class Wardrobe : IDisposable
             skip.Add(c.Item + (slot->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ? 1_000_000u : 0u));
             refused.Add(Items.Info(c.Item)?.Name ?? $"#{c.Item}");
             current = null;
+            phaseStart = DateTime.UtcNow;
             return;
         }
 
