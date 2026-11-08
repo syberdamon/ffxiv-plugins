@@ -98,6 +98,8 @@ public sealed unsafe class CosmoShop : IDisposable
         if (!vnav.IsLoaded) return "vnavmesh isn't loaded.";
         left.Clear(); Bought.Clear(); pending = null; Failed = false;
         foreach (var (id, n) in want) if (n > 0) left[id % 1_000_000] = n;
+        lock (RunLog) RunLog.Clear();
+        Log($"start in territory {Plugin.ClientState.TerritoryType}: {string.Join(", ", left.Select(kv => $"{kv.Value} {Name(kv.Key)}"))}; credits {CosmoData.Credits}, keeping {config.ScripCosmoReserve}");
         if (left.Count == 0) return "Nothing to buy.";
         tries = 0; menuPicked = false; talkedAt = DateTime.MinValue;
         best = float.MaxValue; lastProgress = DateTime.UtcNow;
@@ -124,6 +126,9 @@ public sealed unsafe class CosmoShop : IDisposable
     {
         vnav.Stop();
         Failed = true;
+        Log("STOP: " + why + " | visible windows: " + string.Join(", ", GameUi.VisibleAddons().OrderBy(x => x)));
+        if (phase == Phase.Talk) foreach (var n in new[] { "SelectIconString", "SelectString", "Talk" }) if (GameUi.IsOpen(n)) Dump(n);
+        SaveLog(true);
         Plugin.ChatGui.PrintError($"[Stash] Cosmocredits: {why}");
         Set(Phase.Idle, why);
     }
@@ -156,7 +161,8 @@ public sealed unsafe class CosmoShop : IDisposable
     private void TickWalk()
     {
         var me = Plugin.ObjectTable.LocalPlayer;
-        if (me == null || !vnav.IsReady) return;
+        if (me == null) return;
+        if (!vnav.IsReady) { Status = "Waiting for vnavmesh to finish this zone's mesh (first visit can take a while)..."; phaseStart = DateTime.UtcNow; return; }
         if (!CosmoData.VendorSpots.TryGetValue(Plugin.ClientState.TerritoryType, out var spot)) { Fail("Left the Cosmic Exploration zone."); return; }
         var npc = Npc();
         var goal = npc?.Position ?? spot;
@@ -168,30 +174,41 @@ public sealed unsafe class CosmoShop : IDisposable
         if (!vnav.IsBusy) vnav.MoveCloseTo(dest, 2f);
     }
 
+    private DateTime menuSeen = DateTime.MinValue;
+
     private void TickTalk()
     {
-        if (Ready("ShopExchangeCurrency")) { Set(Phase.Buy, "Buying with cosmocredits..."); next = DateTime.UtcNow.AddSeconds(0.8); return; }
-        var icon = GameUi.Get("SelectIconString");
-        if (icon != null)
+        if (Ready("ShopExchangeCurrency")) { Log("exchange window open"); Set(Phase.Buy, "Buying with cosmocredits..."); next = DateTime.UtcNow.AddSeconds(0.8); return; }
+        if (Ready("ShopExchangeItem")) { Fail("A different exchange window opened (ShopExchangeItem): the menu row guess was wrong."); Dump("ShopExchangeItem"); return; }
+        // The vendor's menu: an icon menu (as ICE handles it) or a plain one.
+        foreach (var (name, icon) in new[] { ("SelectIconString", true), ("SelectString", false) })
         {
+            var menu = GameUi.Get(name);
+            if (menu == null) continue;
             if (menuPicked) return;
-            var rows = GameUi.MenuEntries(icon, true);
-            if (rows.Count == 0) return;
-            // [Assumption] second row is the materials / materia / items exchange (ICE picks row 1); look for the word first.
+            if (menuSeen == DateTime.MinValue) menuSeen = DateTime.UtcNow;
+            var rows = GameUi.MenuEntries(menu, icon);
+            // The popup's own row list can still be empty while the window is up (seen in Saucer Run):
+            // fall back to the window's strings, then after a moment to row 1 (ICE's choice).
+            if (rows.Count == 0 || rows.All(r => r.Length == 0)) rows = GameUi.Texts(menu).Distinct().ToList();
             var row = rows.FindIndex(r => r.Contains("Material", StringComparison.OrdinalIgnoreCase));
-            if (row < 0) row = Math.Min(1, rows.Count - 1);
-            Plugin.Log.Info($"[Stash] {CosmoData.Vendor} menu: {string.Join(" | ", rows)} -> {row}");
-            icon->FireCallbackInt(row);
+            if (row < 0 && (DateTime.UtcNow - menuSeen).TotalSeconds < 1.5) return;
+            if (row < 0) row = 1; // [Assumption] second row is the materials / materia / items exchange (ICE picks row 1)
+            Log($"{name}: [{string.Join(" | ", rows)}] -> row {row}");
+            menu->FireCallbackInt(row);
             menuPicked = true;
+            talkedAt = DateTime.UtcNow;
             return;
         }
         var talk = GameUi.Get("Talk");
         if (talk != null) { GameUi.ClickTalk(talk); return; }
         if (menuPicked && (DateTime.UtcNow - talkedAt).TotalSeconds < 6) return;
-        if (++tries > 3) { Fail($"{CosmoData.Vendor} didn't open the exchange."); return; }
+        if (++tries > 3) { Dump("SelectIconString"); Fail($"{CosmoData.Vendor} didn't open the exchange."); return; }
         var npc = Npc();
         if (npc == null) { Fail($"Can't see {CosmoData.Vendor}."); return; }
         menuPicked = false;
+        menuSeen = DateTime.MinValue;
+        Log($"talking to {CosmoData.Vendor} (try {tries})");
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
         talkedAt = DateTime.UtcNow;
         next = DateTime.UtcNow.AddSeconds(1);
@@ -233,11 +250,13 @@ public sealed unsafe class CosmoShop : IDisposable
             var qty = Math.Min(Math.Min(n, row.Cost == 0 ? 0 : spendable / (int)row.Cost), Math.Min(99, room));
             if (qty <= 0) { left[item] = 0; continue; }
             pending = (item, Count(item), qty, credits, DateTime.UtcNow);
+            Log($"buying {qty} {Name(item)} (row {row.Index}, {row.Cost} each, credits {credits})");
             Fire(shop, 0, row.Index, qty);
             next = DateTime.UtcNow.AddSeconds(0.8);
             return;
         }
         Close();
+        SaveLog(false);
         Set(Phase.Idle, Bought.Count == 0 ? $"Nothing bought (cosmocredits {CosmoData.Credits:N0}, keeping {config.ScripCosmoReserve:N0})."
                                           : $"Bought {string.Join(", ", Bought.Select(kv => $"{kv.Value} {Name(kv.Key)}"))} with cosmocredits.");
         Plugin.ChatGui.Print($"[Stash] {Status}");
@@ -286,6 +305,29 @@ public sealed unsafe class CosmoShop : IDisposable
     {
         var im = InventoryManager.Instance();
         return im == null ? 0 : (int)im->GetEmptySlotsInBag();
+    }
+
+    private static void Dump(string window) => GameUi.Dump(window, "cosmocredit exchange");
+
+    private static readonly List<string> RunLog = new();
+    private static void Log(string msg)
+    {
+        Plugin.Log.Info($"[Stash/Cosmo] {msg}");
+        lock (RunLog) RunLog.Add($"{DateTime.Now:HH:mm:ss.f} {msg}");
+    }
+
+    /// <summary>The run's lines to pluginConfigs/MaterialStash/dumps/&lt;time&gt;_cosmo.txt.</summary>
+    private static void SaveLog(bool failed)
+    {
+        try
+        {
+            string text;
+            lock (RunLog) { text = string.Join(Environment.NewLine, RunLog); RunLog.Clear(); }
+            var dir = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "dumps");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"{DateTime.Now:yyyyMMdd_HHmmss}_cosmo{(failed ? "_FAILED" : "")}.txt"), text);
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write the cosmocredit log"); }
     }
 
     private static string Name(uint id) => Items.Info(id)?.Name ?? Plugin.DataManager.GetExcelSheet<Item>().GetRowOrDefault(id)?.Name.ExtractText() ?? $"#{id}";

@@ -271,6 +271,8 @@ public sealed unsafe class ScripGoals : IDisposable
             why += " Vulcan has no stop command: stop its crafting list in its own window if it's still going.";
         step = Step.Idle;
         Status = why;
+        Log("STOP " + why);
+        SaveLog();
         Plugin.ChatGui.Print($"[Stash] Scrip goals: {why}");
     }
 
@@ -289,8 +291,32 @@ public sealed unsafe class ScripGoals : IDisposable
         MarketList = new();
     }
 
+    private static readonly List<string> RunLog = new();
+
+    private static void Log(string msg)
+    {
+        Plugin.Log.Info($"[Stash/Scrips] {msg}");
+        lock (RunLog) RunLog.Add($"{DateTime.Now:HH:mm:ss.f} {msg}");
+    }
+
+    /// <summary>The run's lines to pluginConfigs/MaterialStash/dumps/&lt;time&gt;_scripgoals.txt.</summary>
+    private static void SaveLog()
+    {
+        try
+        {
+            string text;
+            lock (RunLog) { text = string.Join(Environment.NewLine, RunLog); RunLog.Clear(); }
+            if (text.Length == 0) return;
+            var dir = System.IO.Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "dumps");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"{DateTime.Now:yyyyMMdd_HHmmss}_scripgoals.txt"), text);
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write the scrip goals log"); }
+    }
+
     private void Set(Step s, string status)
     {
+        Log($"{s}: {status}");
         step = s;
         Status = status;
         stepStart = DateTime.UtcNow;
@@ -299,6 +325,7 @@ public sealed unsafe class ScripGoals : IDisposable
 
     private void Note(string text)
     {
+        Log("NOTE " + text);
         notes.Add(text);
         Plugin.ChatGui.Print($"[Stash] {text}");
     }
@@ -458,6 +485,8 @@ public sealed unsafe class ScripGoals : IDisposable
         RestoreLists();
         step = Step.Idle;
         Status = notes.Count == 0 ? "Scrip goals: nothing to do." : "Scrip goals done: " + string.Join(" ", notes);
+        Log("FINISHED");
+        SaveLog();
         Plugin.ChatGui.Print("[Stash] Scrip goals finished.");
     }
 
@@ -511,7 +540,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         var moving = lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.Condition[ConditionFlag.BetweenAreas51]
                      || Plugin.Condition[ConditionFlag.Casting] || Plugin.Condition[ConditionFlag.OccupiedInQuestEvent];
-        if (moving) { arrived = DateTime.MinValue; return; }
+        if (moving) { arrived = DateTime.MinValue; Status = $"{cosmoFor}: travelling (Lifestream {(lifestream.IsBusy ? "busy" : "done")})..."; return; }
         if (CosmoData.InZone && Plugin.ObjectTable.LocalPlayer != null)
         {
             if (arrived == DateTime.MinValue) arrived = DateTime.UtcNow;
