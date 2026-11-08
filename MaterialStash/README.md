@@ -122,10 +122,16 @@ every Stash run) lists them with the game's own listing call: lowest home-world 
 else the median sale; up to 99 per listing. When the selling retainer's 20 market slots fill up, it moves on to the
 next retainer with free slots (no selling retainer picked: any retainer with room, in list order).
 
+## Search (Search tab)
+Type part of an item name or a category (ore, lumber, abrasive, crystal...) to see every match and where it is:
+bags and armoury chest (live), saddlebag and each retainer (as last seen), crystals included, NQ and HQ listed apart.
+
 ## Clean-up (retainer junk audit)
 The Clean-up tab goes through everything your retainers hold (as last seen; retainers only, not your bags) and
 suggests a verdict for each item. Materials, materia, crystals, stock-list and keep-on-me items are left alone
 (switchable). Nothing happens to an item until you approve it.
+**Relics are never touched:** any purple (relic-rarity) weapon, tool or armour piece is always "Keep", whatever the
+suggestion or your own override, and is skipped by the desynthesis, vendor, discard and selling steps.
 - **Use**: unlearned minions, cards, orchestrion rolls and so on (the game's own "already learned?" check). The run
   brings them out and uses them.
 - **Card: sell for MGP**: Triple Triad cards you already have (trading them in is the next update; for now they
