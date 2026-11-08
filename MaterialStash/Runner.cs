@@ -98,20 +98,27 @@ public sealed unsafe class Runner : IDisposable
     public static bool BellListOpen => GameUi.IsOpen("RetainerList");
 
     /// <summary>Why a run can't start right now, or null if it can.</summary>
-    public string? CantStart()
+    /// <summary>True while a run happens inside AutoRetainer's post-processing (it counts as busy then).</summary>
+    private bool duringAr;
+
+    public string? CantStart(bool insideAutoRetainer = false)
     {
         if (Busy) return "Already running.";
         if (!BellListOpen) return "Open the summoning bell (retainer list) first.";
-        if (autoRetainer.IsBusy) return "AutoRetainer is busy: press again when it's done.";
+        if (!insideAutoRetainer && autoRetainer.IsBusy) return "AutoRetainer is busy: press again when it's done.";
         if (tracker.Me() is not { } me || me.Order.Count == 0) return "Retainer list not read yet: wait a second.";
         return null;
     }
 
     public void Start(bool scan) => Start(scan ? RunMode.Scan : RunMode.Stash);
 
-    public void Start(RunMode m)
+    public void Start(RunMode m) => Start(m, null, false);
+
+    /// <summary>A run; extra = retainers to visit first (tidy: ones back from ventures, not yet seen).</summary>
+    public void Start(RunMode m, IReadOnlyCollection<ulong>? extra, bool insideAutoRetainer)
     {
-        if (CantStart() is { } why) { Status = why; return; }
+        if (CantStart(insideAutoRetainer) is { } why) { Status = why; return; }
+        duringAr = insideAutoRetainer;
         var me = tracker.Me()!;
         mode = m;
         pass = 1;
@@ -136,7 +143,7 @@ public sealed unsafe class Runner : IDisposable
         var list = m switch
         {
             RunMode.Scan => me.Order,
-            RunMode.Tidy => planner.TidyVisits(),
+            RunMode.Tidy => TidyList(me, extra),
             RunMode.Sell => new List<ulong> { firstSell },
             RunMode.Cleanup => Cleanup == null ? new List<ulong>() : CleanupVisits(me),
             RunMode.Furnish => Storeroom == null ? new List<ulong>() : FurnishVisits(me),
@@ -155,6 +162,13 @@ public sealed unsafe class Runner : IDisposable
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
         Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", RunMode.Furnish => "Taking furnishings out...", _ => "Stashing..." };
+    }
+
+    private List<ulong> TidyList(CharacterData me, IReadOnlyCollection<ulong>? extra)
+    {
+        var want = planner.TidyVisits().ToHashSet();
+        if (extra != null) want.UnionWith(extra);
+        return me.Order.Where(want.Contains).ToList();
     }
 
     /// <summary>Forget carried items that aren't in your bags any more.</summary>
@@ -314,7 +328,7 @@ public sealed unsafe class Runner : IDisposable
 
     private void TickSelect()
     {
-        if (autoRetainer.IsBusy) { Fail("AutoRetainer started: stopped so the two don't collide."); return; }
+        if (!duringAr && autoRetainer.IsBusy) { Fail("AutoRetainer started: stopped so the two don't collide."); return; }
         if (ClickThroughTalk()) return;
         var list = GameUi.Get("RetainerList");
         if (list == null) return; // still on its way back

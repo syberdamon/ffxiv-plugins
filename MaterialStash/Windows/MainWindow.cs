@@ -238,6 +238,16 @@ public sealed class MainWindow : Window
         var laps = C.TidyMaxLaps;
         ImGui.SetNextItemWidth(110);
         if (ImGui.InputInt("Most laps a tidy may take", ref laps, 1, 1)) { C.TidyMaxLaps = Math.Clamp(laps, 1, 10); changed = true; }
+        var tar = C.TidyAfterAutoRetainer;
+        if (ImGui.Checkbox("After AutoRetainer, put venture returns in their home retainers", ref tar)) { C.TidyAfterAutoRetainer = tar; changed = true; }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Venture items land in the retainer that went. When one belongs with another retainer, a tidy runs once\n"
+                + "AutoRetainer is done: in multi mode as AutoRetainer's post-processing step, or at the bell when it goes idle.");
+        if (plugin.Tracker.Me() is { VentureReturns.Count: > 0 } vrMe)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled($"({vrMe.VentureReturns.Count} waiting)");
+        }
         var delay = C.StepDelay;
         ImGui.SetNextItemWidth(110);
         if (ImGui.SliderFloat("Seconds between moves", ref delay, 0.2f, 1.5f, "%.1f")) { C.StepDelay = delay; changed = true; }
