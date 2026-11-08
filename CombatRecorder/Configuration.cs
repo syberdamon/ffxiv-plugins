@@ -22,5 +22,16 @@ public class Configuration : IPluginConfiguration
     /// <summary>Print a chat line when a recording starts and ends.</summary>
     public bool ChatNotices { get; set; } = true;
 
+    // ---- DPS meter
+    public bool MeterEnabled { get; set; } = true;
+    public bool ShowMeter { get; set; } = true;
+    public bool MeterCompact { get; set; } = false;
+    public bool MeterLocked { get; set; } = false;
+    public bool MeterHideNames { get; set; } = false;
+    /// <summary>Count every player around, not just your party (open world).</summary>
+    public bool MeterEveryone { get; set; } = false;
+    public bool MeterOnlyInCombat { get; set; } = false;
+    public float MeterOpacity { get; set; } = 0.75f;
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

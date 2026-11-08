@@ -59,6 +59,11 @@ public sealed unsafe class Recorder : IDisposable
     private readonly Dictionary<uint, uint> casting = new();                     // who -> action being cast
     private readonly HashSet<uint> dead = new();
 
+    /// <summary>One effect of a resolved action: caster, action, target, type (3 damage, 4 heal...), amount, crit, direct hit, lands on the caster.</summary>
+    public delegate void EffectHandler(uint caster, uint action, uint target, byte type, long value, bool crit, bool dh, bool onSource);
+    /// <summary>Raised for every effect, recording or not (the meter listens).</summary>
+    public event EffectHandler? Effect;
+
     public string Folder { get; } = Path.Combine(Plugin.PluginInterface.GetPluginConfigDirectory(), "logs");
     public string? CurrentFile => path;
     public int EventsWritten { get; private set; }
@@ -309,10 +314,30 @@ public sealed unsafe class Recorder : IDisposable
         hook!.Original(casterEntityId, casterPtr, targetPos, header, effects, targetEntityIds);
         try
         {
-            if (writer == null || header == null) return;
+            if (header == null) return;
+            var actionId = header->ActionId;
+            if (Effect != null)
+            {
+                var nt = Math.Min((int)header->NumTargets, 32);
+                for (var i = 0; i < nt; i++)
+                {
+                    var tid = (uint)targetEntityIds[i].ObjectId;
+                    var bb = (byte*)effects + i * 64;
+                    for (var k = 0; k < 8; k++)
+                    {
+                        var eff = bb + k * 8;
+                        var type = eff[0];
+                        if (type is not (1 or 3 or 4 or 5 or 6)) continue;
+                        long value = *(ushort*)(eff + 6);
+                        if ((eff[5] & 0x40) != 0) value += (long)eff[4] << 16;
+                        var onSource = (eff[5] & 0x80) != 0;
+                        Effect(casterEntityId, actionId, tid, type, value, type == 3 && (eff[1] & 0x20) != 0, type == 3 && (eff[1] & 0x40) != 0, onSource);
+                    }
+                }
+            }
+            if (writer == null) return;
             var caster = Plugin.ObjectTable.SearchByEntityId(casterEntityId);
             if (caster is IBattleChara bc) Entity(bc);
-            var actionId = header->ActionId;
             DefAction(actionId);
 
             var sb = new StringBuilder();

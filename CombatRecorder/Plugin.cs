@@ -25,6 +25,7 @@ public sealed class Plugin : IDalamudPlugin
 
     public Configuration Configuration { get; }
     public Recorder Recorder { get; }
+    public Meter Meter { get; }
 
     private readonly WindowSystem windowSystem = new("CombatRecorder");
     private readonly ConfigWindow configWindow;
@@ -33,12 +34,14 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Recorder = new Recorder(Configuration);
+        Meter = new Meter(Configuration, Recorder);
         configWindow = new ConfigWindow(this);
         windowSystem.AddWindow(configWindow);
+        windowSystem.AddWindow(new MeterWindow(this));
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Settings. /crec mark <note> (flag this moment for review) | on | off | stop (close the current file)",
+            HelpMessage = "Settings. /crec mark <note> (flag this moment for review) | on | off | stop (close the current file) | meter (show/hide the DPS meter) | reset (clear the meter)",
         });
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += configWindow.Toggle;
@@ -51,9 +54,12 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= configWindow.Toggle;
         PluginInterface.UiBuilder.OpenMainUi -= configWindow.Toggle;
         windowSystem.RemoveAllWindows();
+        Meter.Dispose();
         Recorder.Dispose();
         CommandManager.RemoveHandler(CommandName);
     }
+
+    public void ToggleConfig() => configWindow.Toggle();
 
     private void OnCommand(string command, string args)
     {
@@ -64,6 +70,8 @@ public sealed class Plugin : IDalamudPlugin
             case "on": Configuration.Enabled = true; Configuration.Save(); ChatGui.Print("[CombatRecorder] On."); break;
             case "off": Configuration.Enabled = false; Configuration.Save(); Recorder.Close("turned off"); ChatGui.Print("[CombatRecorder] Off."); break;
             case "stop": Recorder.Close("stopped"); break;
+            case "meter": Configuration.ShowMeter = !Configuration.ShowMeter; Configuration.Save(); break;
+            case "reset": Meter.Reset(); break;
             default: configWindow.Toggle(); break;
         }
     }
