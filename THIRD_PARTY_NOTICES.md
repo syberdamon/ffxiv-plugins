@@ -70,6 +70,8 @@ Our code is our own; credit to their authors:
 - AutoRetainer (PunishXIV): its IPC (`OnSendRetainerToVenture`, `SetVenture`, `GetAdditionalRetainerData`,
   `PluginState.IsBusy`), the rules for which retainer can take which venture and how many items it brings back, and the
   game-function signature for "has this gathering item been gathered" (`48 89 5C 24 ?? 57 48 83 EC 20 8B D9 8B F9`).
+  Also its desynthesis call (Salvage agent `SalvageItem`, then agent event [0, true] to confirm) and the crafter
+  level 30 / unlock-quest 65688 checks.
 - Allagan Tools (Critical-Impact): IPC used to seed retainer contents (optional dependency).
 - Lifestream (NightmareXIV): `/li inn` through its `ExecuteCommand` IPC (optional dependency); vnavmesh for walking.
 - Spring Cleaning (OhGodAGirl, MIT): how the glamour dresser's Glamour Creation list stores an item (agent event 14
