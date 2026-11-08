@@ -115,11 +115,21 @@ public sealed unsafe class ScripGoals : IDisposable
         else
         {
             r = ScripData.Best(Data, shop.CurrencyItemId).FirstOrDefault();
-            why = r != null ? null : $"no collectable you can craft pays {ScripData.ScripNames[shop.CurrencyItemId]}";
+            why = r != null ? null : NoneUsable(shop.CurrencyItemId);
         }
         var shortScrips = need * shop.Cost - scrips - value;
         var crafts = r == null || r.Reward.High <= 0 || shortScrips <= 0 ? 0 : (shortScrips + r.Reward.High - 1) / r.Reward.High;
         return new ScripPlan(g, shop, have, need, scrips, held.Count, value, r, why, crafts);
+    }
+
+    /// <summary>Why no crafted collectable fits: how many pay this scrip and the commonest reason they're refused.</summary>
+    private static string NoneUsable(uint currency)
+    {
+        var all = ScripData.Recipes(Data).Where(x => x.Reward.CurrencyItemId == currency).ToList();
+        var name = ScripData.ScripNames[currency];
+        if (all.Count == 0) return $"no collectable recipes found paying {name} (game data not read? see /xllog)";
+        var top = all.Select(x => ScripData.CantUse(Data, x) ?? "").GroupBy(x => x).OrderByDescending(g => g.Count()).First();
+        return $"none of the {all.Count} collectables paying {name} is usable; most: {top.Key}";
     }
 
     private static HashSet<uint>? gatherable;

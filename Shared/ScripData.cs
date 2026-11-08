@@ -274,8 +274,8 @@ public static unsafe class ScripData
     {
         var lv = CraftLevel(dm, r.CraftType);
         if (lv < r.RecipeLevel) return $"{r.Job} {lv} (recipe needs {r.RecipeLevel})";
-        if (r.Reward.LevelMin > 0 && lv < r.Reward.LevelMin) return $"{r.Job} {lv} (appraiser takes it from {r.Reward.LevelMin})";
-        if (r.Reward.LevelMax > 0 && lv > r.Reward.LevelMax) return $"{r.Job} {lv} (appraiser takes it up to {r.Reward.LevelMax})";
+        // LevelMin/LevelMax are the item's level band in the appraiser's list, not a limit on your level
+        // (0.9.0 read them as a limit and refused every lower-level collectable at 100).
         var ps = PlayerState.Instance();
         if (r.SecretBook != 0 && ps != null && !ps->IsSecretRecipeBookUnlocked(r.SecretBook)) return "master recipe book not learned";
         if (r.Reward.RequiredQuest != 0 && !QuestManager.IsQuestComplete(r.Reward.RequiredQuest)) return "turn-in quest not done";
@@ -308,8 +308,8 @@ public static unsafe class ScripData
         if (r.JobTab == 10) return "fish (needs bait setup): not automated";
         if (r.JobTab is not (8 or 9)) return "not a gathered item";
         var lv = GatherLevel(dm, r.JobTab);
-        if (r.LevelMin > 0 && lv < r.LevelMin) return $"{GatherJob(r.JobTab)} {lv} (appraiser takes it from {r.LevelMin})";
-        if (r.LevelMax > 0 && lv > r.LevelMax) return $"{GatherJob(r.JobTab)} {lv} (appraiser takes it up to {r.LevelMax})";
+        // [Assumption] the band's lower level is roughly the node level (not a turn-in limit).
+        if (r.LevelMin > 0 && lv < r.LevelMin) return $"{GatherJob(r.JobTab)} {lv} (item is level {r.LevelMin}+)";
         if (r.RequiredQuest != 0 && !QuestManager.IsQuestComplete(r.RequiredQuest)) return "turn-in quest not done";
         return null;
     }
