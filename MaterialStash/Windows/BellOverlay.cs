@@ -97,7 +97,7 @@ public sealed unsafe class BellOverlay : Window
                     ImGui.SetTooltip(why ?? "List the to-sell items at your selling retainer. /stash sell");
             }
             var me = plugin.Tracker.Me();
-            var furn = me == null ? 0 : me.Retainers.Where(kv => !me.Excluded.Contains(kv.Key)).Select(kv => kv.Value).Sum(s => s.Items.Where(kv => plugin.Storeroom.IsIndoorFurnishing(kv.Key)).Sum(kv => s.Stacks.GetValueOrDefault(kv.Key, 1)));
+            var furn = me == null ? 0 : me.Retainers.Where(kv => !me.Excluded.Contains(kv.Key)).Select(kv => kv.Value).Sum(s => s.Items.Where(kv => plugin.Storeroom.IsIndoorFurnishing(kv.Key)).Sum(kv => (s.Stacks.TryGetValue(kv.Key, out var n) ? n : 1)));
             if (furn > 0)
             {
                 ImGui.SameLine();
