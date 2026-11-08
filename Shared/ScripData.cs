@@ -286,4 +286,36 @@ public static unsafe class ScripData
     public static List<CollectableRecipe> Best(IDataManager dm, uint currencyItemId) =>
         Recipes(dm).Where(r => r.Reward.CurrencyItemId == currencyItemId && CantUse(dm, r) == null)
             .OrderByDescending(r => r.Reward.High).ThenByDescending(r => r.RecipeLevel).ToList();
+
+    // ------------------------------------------------------------------ gathered collectables
+
+    /// <summary>Your level on a gathering job tab (8 Miner, 9 Botanist, 10 Fisher), 0 if unknown.</summary>
+    public static int GatherLevel(IDataManager dm, int jobTab)
+    {
+        var ps = PlayerState.Instance();
+        if (ps == null || jobTab is < 8 or > 10) return 0;
+        var cj = dm.GetExcelSheet<ClassJob>().GetRowOrDefault((uint)(jobTab + 8)); // 16 MIN, 17 BTN, 18 FSH
+        if (cj == null || cj.Value.ExpArrayIndex < 0) return 0;
+        return ps->ClassJobLevels[cj.Value.ExpArrayIndex];
+    }
+
+    private static readonly string[] GatherJobNames = { "MIN", "BTN", "FSH" };
+    public static string GatherJob(int jobTab) => jobTab is >= 8 and <= 10 ? GatherJobNames[jobTab - 8] : "?";
+
+    /// <summary>Why you can't gather and turn in this collectable now (null if you can). Fish aren't supported (bait).</summary>
+    public static string? CantGather(IDataManager dm, CollectableReward r)
+    {
+        if (r.JobTab == 10) return "fish (needs bait setup): not automated";
+        if (r.JobTab is not (8 or 9)) return "not a gathered item";
+        var lv = GatherLevel(dm, r.JobTab);
+        if (r.LevelMin > 0 && lv < r.LevelMin) return $"{GatherJob(r.JobTab)} {lv} (appraiser takes it from {r.LevelMin})";
+        if (r.LevelMax > 0 && lv > r.LevelMax) return $"{GatherJob(r.JobTab)} {lv} (appraiser takes it up to {r.LevelMax})";
+        if (r.RequiredQuest != 0 && !QuestManager.IsQuestComplete(r.RequiredQuest)) return "turn-in quest not done";
+        return null;
+    }
+
+    /// <summary>Gathered collectables (Miner / Botanist) paying this scrip, best first; ones you can't use last.</summary>
+    public static List<CollectableReward> Gatherables(IDataManager dm, uint currencyItemId) =>
+        Rewards(dm).Values.Where(r => r.CurrencyItemId == currencyItemId && r.JobTab is 8 or 9 or 10)
+            .OrderBy(r => CantGather(dm, r) == null ? 0 : 1).ThenByDescending(r => r.High).ThenByDescending(r => r.LevelMin).ToList();
 }
