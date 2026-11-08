@@ -76,6 +76,8 @@ public sealed unsafe class ScripGoals : IDisposable
 
     public string Status { get; private set; } = "";
     public bool Busy => step != Step.Idle;
+    /// <summary>ICE is running for this scrip goal (an ICE break may pause it for the retainers).</summary>
+    public bool Earning => step == Step.Earning;
     public bool WaitingForMarket => step == Step.WaitMarket;
     public List<(uint ItemId, string Name, int Qty, long Price)> MarketList { get; private set; } = new();
 
@@ -561,6 +563,12 @@ public sealed unsafe class ScripGoals : IDisposable
 
     private void TickEarning()
     {
+        if (plugin.IceBreak.Active)
+        {
+            stepStart = DateTime.UtcNow; // ICE is off on purpose: wait for the break to bring it back
+            Status = $"{ItemName(Goal.ItemId)}: ICE paused for the retainers ({plugin.IceBreak.Status})";
+            return;
+        }
         var credits = CosmoData.Credits;
         var running = Ice.Running;
         Status = $"{ItemName(Goal.ItemId)}: ICE earning cosmocredits {credits:N0} / {iceTarget:N0}{(running ? $" ({Ice.State})" : "")}...";

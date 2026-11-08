@@ -151,6 +151,16 @@ public class Configuration : IPluginConfiguration
     /// <summary>After AutoRetainer finishes, stash what ventures brought back (it lands in your bags).</summary>
     public bool StashAfterAutoRetainer { get; set; } = true;
 
+    // ---- ICE break: pause ICE when retainers are back, run AutoRetainer (and the stash), then resume ICE
+    /// <summary>Only acts while ICE is running.</summary>
+    public bool IceBreakEnabled { get; set; } = false;
+    /// <summary>Retainers back from their ventures before ICE is paused.</summary>
+    public int IceBreakMinReady { get; set; } = 1;
+    /// <summary>At least this long between breaks (a guard against loops).</summary>
+    public int IceBreakMinGapMinutes { get; set; } = 10;
+    /// <summary>How long ICE may take to finish its current mission before it's stopped outright.</summary>
+    public int IceBreakMissionWaitMinutes { get; set; } = 12;
+
     // ---- venture timer window
     public bool ShowVentureWindow { get; set; } = true;
     public bool VentureWindowAlways { get; set; } = false;
