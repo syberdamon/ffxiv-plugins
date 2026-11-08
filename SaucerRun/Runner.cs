@@ -62,6 +62,7 @@ public sealed unsafe class Runner : IDisposable
     private readonly Dictionary<uint, int> useTries = new();
     private DateTime menuSeen = DateTime.MinValue;
     private bool saidDone;
+    private int claims;
 
     public string Status { get; private set; } = "";
     public bool Busy => running;
@@ -195,6 +196,7 @@ public sealed unsafe class Runner : IDisposable
         stepStart = lastProgress = DateTime.UtcNow;
         bestDistance = float.MaxValue;
         lastCardCount = uint.MaxValue;
+        claims = 0;
         Status = step switch
         {
             Step.Learn => "Learning new cards...",
@@ -346,9 +348,15 @@ public sealed unsafe class Runner : IDisposable
                 {
                     MiniBroker => tracker.LastMiniOpen > talkedAt,
                     JumboBroker => tracker.LastJumboOpen > talkedAt,
-                    _ => true,
+                    _ => tracker.LastRewardOpen > talkedAt,
                 };
-                if (baseId == Cashier) { s.JumboCashierVisited = true; config.Save(); }
+                if (opened) tries = 0; // progress: a ticket played or a prize claimed
+                if (baseId == Cashier)
+                {
+                    // One claim per conversation: talk again until a conversation has nothing to claim.
+                    if (!opened || claims >= 12) { s.JumboCashierVisited = true; config.Save(); }
+                    else claims++;
+                }
                 else if (!opened && !saidDone)
                 {
                     // Talked, nothing opened: none left (or Saucy's module is off).
