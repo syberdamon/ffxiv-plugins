@@ -63,6 +63,8 @@ public sealed unsafe class Runner : IDisposable
     private DateTime menuSeen = DateTime.MinValue;
     private bool saidDone;
     private int claims;
+    private int lastRow = -1;
+    private readonly HashSet<int> badRows = new();
 
     public string Status { get; private set; } = "";
     public bool Busy => running;
@@ -197,6 +199,8 @@ public sealed unsafe class Runner : IDisposable
         bestDistance = float.MaxValue;
         lastCardCount = uint.MaxValue;
         claims = 0;
+        lastRow = -1;
+        badRows.Clear();
         Status = step switch
         {
             Step.Learn => "Learning new cards...",
@@ -455,12 +459,30 @@ public sealed unsafe class Runner : IDisposable
             next = DateTime.UtcNow.AddSeconds(1);
             return;
         }
-        var menu = GameUi.Get("SelectIconString");
+        // A buying window opened instead (wrong menu row): close it and avoid that row next time.
+        foreach (var wrong in new[] { "ShopExchangeCurrency", "Shop", "InclusionShop", "ShopExchangeItem" })
+        {
+            var w = GameUi.Get(wrong);
+            if (w == null) continue;
+            if (lastRow >= 0) badRows.Add(lastRow);
+            w->Close(true);
+            next = DateTime.UtcNow.AddSeconds(1);
+            return;
+        }
+        var menu = GameUi.Get("SelectIconString") ?? GameUi.Get("SelectString");
         if (menu != null)
         {
-            var rows = GameUi.MenuEntries(menu, true);
-            var row = rows.FindIndex(r => r.Contains("Sell", StringComparison.OrdinalIgnoreCase) || r.Contains("Card", StringComparison.OrdinalIgnoreCase));
-            menu->FireCallbackInt(row < 0 ? 1 : row);
+            var rows = GameUi.MenuEntries(menu, GameUi.IsOpen("SelectIconString"));
+            // The selling entry ("Sell..."), never a "Purchase"/"Buy" one; else the second row, as AutoDuty does.
+            int Pick(Func<string, bool> f) => rows.FindIndex(r => f(r) && !badRows.Contains(rows.IndexOf(r)));
+            var row = Pick(r => r.Contains("Sell", StringComparison.OrdinalIgnoreCase));
+            if (row < 0) row = Pick(r => r.Contains("Card", StringComparison.OrdinalIgnoreCase) && !r.Contains("Purchase", StringComparison.OrdinalIgnoreCase) && !r.Contains("Buy", StringComparison.OrdinalIgnoreCase));
+            if (row < 0) row = Enumerable.Range(0, rows.Count).FirstOrDefault(i => i >= 1 && !badRows.Contains(i) &&
+                              !rows[i].Contains("Purchase", StringComparison.OrdinalIgnoreCase) && !rows[i].Contains("Buy", StringComparison.OrdinalIgnoreCase) &&
+                              !rows[i].Contains("Nothing", StringComparison.OrdinalIgnoreCase) && !rows[i].Contains("Cancel", StringComparison.OrdinalIgnoreCase), -1);
+            if (row < 0) { GameUi.Dump("SelectIconString", "Saucer: no sell entry at the card trader"); Fail($"No selling entry at the Triple Triad Trader ({string.Join(" | ", rows)}); dump saved."); return; }
+            lastRow = row;
+            menu->FireCallbackInt(row);
             next = DateTime.UtcNow.AddSeconds(1);
             return;
         }

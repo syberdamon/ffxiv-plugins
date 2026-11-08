@@ -32,7 +32,7 @@ the settings.
 ## Unverified (needs an in-game check)
 - NPC spots before they're in sight: converted from Teamcraft's map positions (the trader's from AutoDuty); heights
   are found on the navmesh. [Estimate]
-- The Triple Triad Trader: menu entry with "Sell"/"Card" (else the second), the exchange list's layout (count at
+- The Triple Triad Trader: menu entry with "Sell" (never "Purchase"/"Buy"; a buying window that opens anyway is closed and that row avoided), the exchange list's layout (count at
   value 124 + row, card id at 164 + row, as ECommons reads it), the pick callback (0, row) and the amount dialog
   (0, count), as AutoDuty does it.
 - Teleporting with the game's own teleport call; the Gold Saucer aetheryte found from game data.
