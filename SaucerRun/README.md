@@ -25,7 +25,8 @@ half ("Purchase a ... ticket", then yes to the price), waits until Saucy is done
 Like DailyDuty: each time the Mini Cactpot board opens is a ticket played, each time the Jumbo number window opens is
 a ticket bought, the cashier's reward list means winnings checked. Mini resets daily at 15:00 UTC; Jumbo at your
 region's drawing (NA Sunday 02:00 UTC, EU Saturday 19:00 UTC, JP Saturday 12:00 UTC, OCE Saturday 09:00 UTC). If a
-broker opens nothing when talked to, that game counts as done. Played today before installing? Fix the counts in
+broker says there's nothing left ("already", "no more", "maximum"...), opens nothing when talked to, or the
+conversation hangs for 45 seconds, that game counts as done and the run moves on. Played today before installing? Fix the counts in
 the settings.
 
 ## Unverified (needs an in-game check)

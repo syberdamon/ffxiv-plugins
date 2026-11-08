@@ -61,6 +61,7 @@ public sealed unsafe class Runner : IDisposable
     private uint lastCardCount = uint.MaxValue;
     private readonly Dictionary<uint, int> useTries = new();
     private DateTime menuSeen = DateTime.MinValue;
+    private bool saidDone;
 
     public string Status { get; private set; } = "";
     public bool Busy => running;
@@ -295,6 +296,7 @@ public sealed unsafe class Runner : IDisposable
         TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
         talkedAt = DateTime.UtcNow;
         menuSeen = DateTime.MinValue;
+        saidDone = false;
     }
 
     /// <summary>Cashier, Jumbo broker, Mini broker: walk, talk, let Saucy play, repeat until done.</summary>
@@ -324,6 +326,17 @@ public sealed unsafe class Runner : IDisposable
                 next = DateTime.UtcNow.AddSeconds(1.5);
                 return;
             case Sub.Wait:
+                // Stuck in a conversation with nothing opening for a long while: count it as done and move on.
+                if (baseId != Cashier && (DateTime.UtcNow - talkedAt).TotalSeconds > 45 &&
+                    (baseId == MiniBroker ? tracker.LastMiniOpen : tracker.LastJumboOpen) < talkedAt)
+                {
+                    GameUi.Dump("Talk", "Saucer: stuck at the broker");
+                    foreach (var d in Dialogs) GameUi.Close(d);
+                    if (baseId == MiniBroker) tracker.MarkMiniDone(); else tracker.MarkJumboDone();
+                    Plugin.ChatGui.Print($"[Saucer] Stuck talking to the {(baseId == MiniBroker ? "Mini" : "Jumbo")} Cactpot broker; counted as done and moved on (dump saved).");
+                    NextStep();
+                    return;
+                }
                 if (baseId != Cashier && BuyTicket(baseId)) { idleSince = DateTime.MinValue; return; }
                 if (!Idle()) { idleSince = DateTime.MinValue; return; }
                 if (idleSince == DateTime.MinValue) { idleSince = DateTime.UtcNow; return; }
@@ -336,7 +349,7 @@ public sealed unsafe class Runner : IDisposable
                     _ => true,
                 };
                 if (baseId == Cashier) { s.JumboCashierVisited = true; config.Save(); }
-                else if (!opened)
+                else if (!opened && !saidDone)
                 {
                     // Talked, nothing opened: none left (or Saucy's module is off).
                     if (baseId == MiniBroker) tracker.MarkMiniDone(); else tracker.MarkJumboDone();
@@ -354,9 +367,26 @@ public sealed unsafe class Runner : IDisposable
     /// "Purchase a ... ticket" menu entry, then yes to the price. From there (the board or the number
     /// window) Saucy plays. True while handling it.
     /// </summary>
+    private static readonly string[] NothingLeft =
+    {
+        "already", "no more", "no tickets", "maximum", "come back", "used all", "next week", "tomorrow", "until the",
+    };
+
     private bool BuyTicket(uint baseId)
     {
-        if (GameUi.Get("Talk") is var talk && talk != null) { GameUi.ClickTalk(talk); return true; }
+        if (GameUi.Get("Talk") is var talk && talk != null)
+        {
+            // The broker telling you there's nothing left this time: count it as done.
+            var said = string.Join(" ", GameUi.Texts(talk));
+            if (NothingLeft.Any(k => said.Contains(k, StringComparison.OrdinalIgnoreCase)))
+            {
+                Plugin.Log.Info($"[Saucer] broker {baseId}: \"{said}\" -> done");
+                if (baseId == MiniBroker) tracker.MarkMiniDone(); else tracker.MarkJumboDone();
+                saidDone = true;
+            }
+            GameUi.ClickTalk(talk);
+            return true;
+        }
         var ss = GameUi.Get("SelectString");
         var yn = GameUi.Get("SelectYesno");
         if (ss == null && yn == null) { menuSeen = DateTime.MinValue; return false; }
