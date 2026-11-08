@@ -268,7 +268,7 @@
     "Author": "syberdamon",
     "Name": "Saucer Run",
     "InternalName": "SaucerRun",
-    "AssemblyVersion": "0.1.4.0",
+    "AssemblyVersion": "0.1.5.0",
     "Description": "A floating button shows whether today's Mini Cactpot and this week's Jumbo Cactpot are done. Click it and it learns any Triple Triad cards in your bags you don't have yet, teleports to the Gold Saucer, collects Jumbo Cactpot winnings and buys this week's tickets, plays the three Mini Cactpot tickets, then sells your spare cards to the Triple Triad Trader for MGP. The Cactpot games themselves (number picks, the scratch board) are left to Saucy, which must be installed with its Mini Cactpot and Jumbo Cactpot modules on. Walking uses vnavmesh. When the Cactpots are done, the button just does cards. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -287,9 +287,9 @@
     "LoadPriority": 0,
     "Punchline": "One button for your Gold Saucer chores: Mini Cactpot, Jumbo Cactpot, and Triple Triad cards.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.4.0/SaucerRun.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.4.0/SaucerRun.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.4.0/SaucerRun.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.5.0/SaucerRun.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.5.0/SaucerRun.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/SaucerRun-v0.1.5.0/SaucerRun.zip"
   },
   {
     "Author": "syberdamon",
