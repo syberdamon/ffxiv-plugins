@@ -14,6 +14,10 @@ public class RetainerSnap
     public Dictionary<uint, int> Items { get; set; } = new();
     /// <summary>Item id -> number of stacks (slots) it takes.</summary>
     public Dictionary<uint, int> Stacks { get; set; } = new();
+    /// <summary>Item id -> how many have spiritbond (can't be sold on the market).</summary>
+    public Dictionary<uint, int> Bound { get; set; } = new();
+    /// <summary>Spiritbond was read (opened in game since 0.7.1); Allagan Tools records don't carry it.</summary>
+    public bool BoundKnown { get; set; }
     /// <summary>Slots in use out of 175; -1 = unknown (only seen through Allagan Tools so far).</summary>
     public int UsedSlots { get; set; } = -1;
     /// <summary>Crystal item id (2-19) -> quantity.</summary>

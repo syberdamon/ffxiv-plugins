@@ -9,6 +9,8 @@ where an item comes from (so you know what getting it again takes) and what exch
   - "shops":     item id -> [currency item id, amount] of its cheapest single-currency special-shop
                  trade (tomestones, seals, tokens, totems...)
   - "tokens":    currency item id (>= 100, i.e. a real item, not tomestones/seals) -> item ids it buys
+  - "desynth":   item id -> item ids its desynthesis can give (desynth.json, which Teamcraft keys by result;
+                 partial: only what players have reported)
 Usage: sync_cleanup_sources.py OUT.json [CACHE_DIR]
 """
 import json, os, sys, urllib.request
@@ -36,6 +38,7 @@ def main():
     instances = load("instances.json", cache)
     sources = load("instance-sources.json", cache)
     shops = load("shops.json", cache)
+    desynth_by_result = load("desynth.json", cache)
 
     duties, used = {}, set()
     for item, ids in sources.items():
@@ -72,19 +75,28 @@ def main():
                         if iid not in lst and len(lst) < MAX_REWARDS:
                             lst.append(iid)
 
+    desynth = {}
+    for result, srcs in desynth_by_result.items():
+        for src in srcs:
+            if isinstance(src, int) and src > 0:
+                lst = desynth.setdefault(src, [])
+                if int(result) not in lst:
+                    lst.append(int(result))
+
     data = {
         "instances": {str(k): v for k, v in inst.items()},
         "duties": {str(k): v for k, v in sorted(duties.items())},
         "gil": {str(k): v for k, v in sorted(gil.items())},
         "shops": {str(k): v for k, v in sorted(shop.items())},
         "tokens": {str(k): v for k, v in sorted(tokens.items())},
+        "desynth": {str(k): sorted(v) for k, v in sorted(desynth.items())},
     }
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"), sort_keys=False)
         f.write("\n")
     print(f"{out}: {len(inst)} duties, {len(duties)} items with duty drops, {len(gil)} gil-shop items, "
-          f"{len(shop)} special-shop items, {len(tokens)} tokens")
+          f"{len(shop)} special-shop items, {len(tokens)} tokens, {len(desynth)} desynthesizable items")
 
 
 if __name__ == "__main__":
