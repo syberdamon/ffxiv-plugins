@@ -222,8 +222,10 @@ materials (aethersands, Condensed Solution, materia...). While you're in a Cosmi
 exchange sells is bought with cosmocredits before any crafting, and missing materials it sells are bought before
 the market board or gathering, keeping a reserve (default 10,000). Short of credits, it runs ICE (Ices Cosmic
 Exploration, its missions as you've set them up in ICE) until there are enough, once per goal, then buys; ICE's
-credit stop is put back to its defaults (cap 30,000, stop-at-cap off) afterwards. [Assumption] No travel to the
-moon yet: outside those zones this step is skipped. The item list and costs are ICE's as of Nov 2026; the live
+credit stop is put back to its defaults (cap 30,000, stop-at-cap off) afterwards. Not in one of those zones: if
+credits can be spent (or earned with ICE), Lifestream's `/li cosmic` takes you there (home world first if needed),
+once per run. [Assumption] which zone it lands in is Lifestream's choice (it tries the transport menu's options from
+the last one up, so likely the newest you've unlocked); Mesouaidonque is in all four. The item list and costs are ICE's as of Nov 2026; the live
 window decides.
 
 **Gatherer scrips** (e.g. items bought with purple/orange gatherers' scrips): instead of crafting, a batch is gathered

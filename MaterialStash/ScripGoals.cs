@@ -33,7 +33,7 @@ public sealed record BatchMaterials(Dictionary<uint, int> Fetch, Dictionary<uint
 /// </summary>
 public sealed unsafe class ScripGoals : IDisposable
 {
-    private enum Step { Idle, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering, Cosmo, Earning }
+    private enum Step { Idle, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering, Cosmo, Earning, ToMoon }
 
     private readonly Plugin plugin;
     private Configuration C => plugin.Configuration;
@@ -49,6 +49,10 @@ public sealed unsafe class ScripGoals : IDisposable
     private Dictionary<uint, int> cosmoWant = new();
     private int iceTarget;
     private int iceGoal = -1;
+    private readonly LifestreamIpc lifestream = new();
+    private bool moonTried;
+    private DateTime arrived = DateTime.MinValue;
+    private string cosmoFor = "";
     private CollectableReward? gatherItem;
     private bool listsTouched;
 
@@ -245,6 +249,7 @@ public sealed unsafe class ScripGoals : IDisposable
         if (goals.Count == 0) { Status = "No scrip goals switched on."; return; }
         gi = 0;
         iceGoal = -1;
+        moonTried = false;
         notes.Clear();
         ResetBatch();
         Advance();
@@ -260,6 +265,7 @@ public sealed unsafe class ScripGoals : IDisposable
         if (step == Step.Gathering) GatherBuddy.StopAutoGather();
         if (step == Step.Cosmo) Cosmo.Stop();
         if (step == Step.Earning) Ice.StopAndReset();
+        if (step == Step.ToMoon && lifestream.IsBusy) lifestream.Abort();
         RestoreLists();
         if (step == Step.Crafting && viaVulcan)
             why += " Vulcan has no stop command: stop its crafting list in its own window if it's still going.";
@@ -464,9 +470,21 @@ public sealed unsafe class ScripGoals : IDisposable
     /// </summary>
     private bool TryCosmo(Dictionary<uint, int> want, string name)
     {
-        if (!CosmoData.InZone) return false; // [Assumption] no travel to the moon yet: used when you're there
         var spendable = CosmoData.Credits - C.ScripCosmoReserve;
         var cheapest = want.Keys.Min(id => CosmoData.Costs[id % 1_000_000]);
+        if (!CosmoData.InZone)
+        {
+            // Worth the trip only if credits can be spent now, or earned there with ICE.
+            var worth = spendable >= cheapest || (C.ScripCosmoEarn && !iceTried && Ice.IsLoaded);
+            if (!worth || !C.ScripCosmoTravel || moonTried || !lifestream.IsLoaded || lifestream.IsBusy) return false;
+            moonTried = true;
+            if (!lifestream.Execute("cosmic")) return false;
+            cosmoWant = want;
+            cosmoFor = name;
+            arrived = DateTime.MinValue;
+            Set(Step.ToMoon, $"{name}: going to Cosmic Exploration (Lifestream /li cosmic) for cosmocredits...");
+            return true;
+        }
         var total = want.Sum(kv => CosmoData.Costs[kv.Key % 1_000_000] * kv.Value);
         if (spendable >= cheapest)
         {
@@ -487,6 +505,22 @@ public sealed unsafe class ScripGoals : IDisposable
             return true;
         }
         return false;
+    }
+
+    private void TickToMoon()
+    {
+        var moving = lifestream.IsBusy || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.Condition[ConditionFlag.BetweenAreas51]
+                     || Plugin.Condition[ConditionFlag.Casting] || Plugin.Condition[ConditionFlag.OccupiedInQuestEvent];
+        if (moving) { arrived = DateTime.MinValue; return; }
+        if (CosmoData.InZone && Plugin.ObjectTable.LocalPlayer != null)
+        {
+            if (arrived == DateTime.MinValue) arrived = DateTime.UtcNow;
+            if ((DateTime.UtcNow - arrived).TotalSeconds < 4) return; // let the zone settle
+            if (TryCosmo(cosmoWant, cosmoFor)) return;
+            Advance();
+            return;
+        }
+        if ((DateTime.UtcNow - stepStart).TotalSeconds > 240) { Note("Lifestream didn't reach Cosmic Exploration: skipping cosmocredits."); Advance(); }
     }
 
     private void TickCosmo()
@@ -645,6 +679,7 @@ public sealed unsafe class ScripGoals : IDisposable
                 case Step.Gathering: TickGathering(); break;
                 case Step.Cosmo: TickCosmo(); break;
                 case Step.Earning: TickEarning(); break;
+                case Step.ToMoon: TickToMoon(); break;
             }
         }
         catch (Exception ex)
