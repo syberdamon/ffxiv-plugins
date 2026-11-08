@@ -113,11 +113,23 @@ public sealed unsafe class Runner : IDisposable
     public void Start(bool scan) => Start(scan ? RunMode.Scan : RunMode.Stash);
 
     public void Start(RunMode m) => Start(m, null, false);
+    private bool onlyStarting;
+
+    /// <summary>Stash just these items (NQ ids), no crystals, no selling: what AutoRetainer's ventures brought back.</summary>
+    public void StartOnly(IReadOnlyCollection<uint> items, bool insideAutoRetainer)
+    {
+        if (Busy) { Status = "Already running."; return; }
+        planner.Only = items.Select(i => i % 1_000_000).ToHashSet();
+        onlyStarting = true;
+        try { Start(RunMode.Stash, null, insideAutoRetainer); } finally { onlyStarting = false; }
+        if (!Busy) planner.Only = null;
+    }
 
     /// <summary>A run; extra = retainers to visit first (tidy: ones back from ventures, not yet seen).</summary>
     public void Start(RunMode m, IReadOnlyCollection<ulong>? extra, bool insideAutoRetainer)
     {
         if (CantStart(insideAutoRetainer) is { } why) { Status = why; return; }
+        if (!onlyStarting) planner.Only = null; // ordinary runs take everything
         duringAr = insideAutoRetainer;
         var me = tracker.Me()!;
         mode = m;
@@ -129,7 +141,7 @@ public sealed unsafe class Runner : IDisposable
         listed = 0; usedMarketSlots.Clear(); noPrice.Clear();
         cleanRan = m == RunMode.Cleanup; cleanPulled = cleanVendored = cleanDiscarded = 0; pulledSlots.Clear(); ctx = null;
         sellTried.Clear();
-        sellAfter = (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && selling.InBags().Count > 0)
+        sellAfter = planner.Only == null && (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && selling.InBags().Count > 0)
                     || m == RunMode.Cleanup; // clean-up always lists its market items afterwards, on any retainer with room
         PruneCarry(me);
         queue.Clear();
@@ -222,6 +234,7 @@ public sealed unsafe class Runner : IDisposable
     {
         if (dump != null) GameUi.Dump(dump, why);
         phase = Phase.Idle;
+        planner.Only = null;
         crystal = null;
         Status = why;
         Plugin.ChatGui.PrintError($"[Stash] {why}");
@@ -230,6 +243,7 @@ public sealed unsafe class Runner : IDisposable
     private void Finish()
     {
         phase = Phase.Idle;
+        planner.Only = null;
         tracker.Save(force: true);
         if (tracker.Me() is { } me) PruneCarry(me);
         var sold = listed > 0 || mode == RunMode.Sell
@@ -528,7 +542,7 @@ public sealed unsafe class Runner : IDisposable
         var im = InventoryManager.Instance();
         if (im == null) return false;
         var me = tracker.Me();
-        foreach (var s in Tracker.Stacks(Tracker.Bags, id => Items.Depositable(id, config, me)))
+        foreach (var s in Tracker.Stacks(Tracker.Bags, id => Items.Depositable(id, config, me) && planner.Allows(id)))
         {
             if (skipStacks.Contains((s.Type, s.Slot))) continue;
             var carried = me != null && me.TidyCarry.Contains(s.ItemId % 1_000_000);
@@ -911,7 +925,7 @@ public sealed unsafe class Runner : IDisposable
     /// <summary>Start the next crystal move for this retainer. True if one started.</summary>
     private bool CrystalStep()
     {
-        if (!config.IncludeCrystals || !Tracker.Loaded(new[] { InventoryType.RetainerCrystals })) return false;
+        if (!config.IncludeCrystals || planner.Only != null || !Tracker.Loaded(new[] { InventoryType.RetainerCrystals })) return false;
         var mine = Tracker.Crystals(InventoryType.Crystals);
         var theirs = Tracker.Crystals(InventoryType.RetainerCrystals);
         for (var c = Items.FirstCrystal; c <= Items.LastCrystal; c++)

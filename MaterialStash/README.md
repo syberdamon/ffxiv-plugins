@@ -41,11 +41,12 @@ anything a full retainer bounced back to one already visited.
 - After each retainer, the game's own item sort runs on it (`/itemsort ... retainer`; switchable).
 - Items the game refuses (a unique item the retainer already has, or one that can't be entrusted) are skipped and listed.
 - "Never use" retainers are never touched; groups can opt out ("Tidy may move these": Materia is off by default).
-- **Venture returns, after AutoRetainer** (on by default): venture rewards land in your bags when AutoRetainer
-  collects them. Once it's done, a Stash run puts them in their home retainers (only when Stash has something to take;
-  money-venture items stay in your bags to sell). Multi mode: this runs as AutoRetainer's character post-processing
-  step (walking to a bell if needed, then handing control back). Single character at the bell: it starts when
-  AutoRetainer goes idle with the list open.
+- **Venture returns, after AutoRetainer** (on by default): venture rewards land in your bags. While AutoRetainer
+  works, your bags are watched; once it's done, a Stash run takes **only the items that cycle brought back that the
+  stock list wants** (directly or as a recipe ingredient). Crystals, items already in your bags, and money-venture
+  items (to sell) stay put. Multi mode: this runs as AutoRetainer's character post-processing step (walking to a bell
+  if needed, then handing control back). Single character at the bell: it starts when AutoRetainer goes idle with the
+  list open.
 
 ## Homes: groups, categories, name rules, pins (Categories tab)
 Most specific first: **item pin** (one item -> retainers), **name rule** ("name contains Totem" -> retainers),

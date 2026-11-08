@@ -239,10 +239,10 @@ public sealed class MainWindow : Window
         ImGui.SetNextItemWidth(110);
         if (ImGui.InputInt("Most laps a tidy may take", ref laps, 1, 1)) { C.TidyMaxLaps = Math.Clamp(laps, 1, 10); changed = true; }
         var sar = C.StashAfterAutoRetainer;
-        if (ImGui.Checkbox("After AutoRetainer, stash what the ventures brought back", ref sar)) { C.StashAfterAutoRetainer = sar; changed = true; }
+        if (ImGui.Checkbox("After AutoRetainer, stash the stock items its ventures brought back", ref sar)) { C.StashAfterAutoRetainer = sar; changed = true; }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Venture rewards land in your bags. Once AutoRetainer is done, a Stash run puts them in their home retainers\n"
-                + "(money-venture items stay in your bags to sell): in multi mode as AutoRetainer's post-processing step,\n"
+            ImGui.SetTooltip("Venture rewards land in your bags. Once AutoRetainer is done, a Stash run puts just that cycle's stock-list items\n"
+                + "in their home retainers (no crystals; nothing else from your bags): in multi mode as AutoRetainer's post-processing step,\n"
                 + "or at the bell when it goes idle with the list open.");
         var delay = C.StepDelay;
         ImGui.SetNextItemWidth(110);
