@@ -184,6 +184,21 @@ public static unsafe class GameUi
         catch (Exception ex) { Plugin.Log.Warning(ex, "Couldn't write dump file"); }
     }
 
+    /// <summary>Names of every visible game window.</summary>
+    public static HashSet<string> VisibleAddons()
+    {
+        var result = new HashSet<string>();
+        var mgr = RaptureAtkUnitManager.Instance();
+        if (mgr == null) return result;
+        var list = &mgr->AtkUnitManager.AllLoadedUnitsList;
+        for (var i = 0; i < list->Count; i++)
+        {
+            var u = list->Entries[i].Value;
+            if (u != null && u->IsVisible) result.Add(u->NameString);
+        }
+        return result;
+    }
+
     /// <summary>Every text shown in a window: its string values and its text nodes.</summary>
     public static List<string> Texts(AtkUnitBase* addon)
     {
