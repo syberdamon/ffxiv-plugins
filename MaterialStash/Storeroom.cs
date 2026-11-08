@@ -35,7 +35,7 @@ public sealed unsafe class Storeroom : IDisposable
     private Phase phase = Phase.Idle;
     private DateTime next = DateTime.MinValue, phaseStart = DateTime.MinValue, askedAt = DateTime.MinValue;
     private int stored, tries, retainerResets;
-    private bool travelAsked, toldToClick, dumpedOther, clickedIndoor;
+    private bool travelAsked, toldToClick, dumpedOther, clickedIndoor, bagsReset;
     private (InventoryType Type, int Slot, uint Item)? current;
     private readonly HashSet<uint> skip = new();
     private readonly List<string> refused = new();
@@ -83,7 +83,7 @@ public sealed unsafe class Storeroom : IDisposable
     public void Start()
     {
         if (Busy) return;
-        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; dumpedOther = false; clickedIndoor = false; askedAt = DateTime.MinValue; travelAsked = false; toldToClick = false;
+        skip.Clear(); refused.Clear(); stored = 0; retainerResets = 0; dumpedOther = false; clickedIndoor = false; bagsReset = false; housingBefore = new(); askedAt = DateTime.MinValue; travelAsked = false; toldToClick = false;
         if (InBags().Count == 0) { Status = "No indoor furnishings in your bags (\"Furnishings out\" at the bell brings them from your retainers)."; return; }
         if (!AtHome && !lifestream.IsLoaded) { Status = "Go inside your house first (or install Lifestream so I can take you)."; return; }
         // Close the bell / retainer first: with a retainer open the item menu offers "Entrust to Retainer", not "Store".
@@ -149,6 +149,18 @@ public sealed unsafe class Storeroom : IDisposable
         foreach (var n in RetainerWindows)
             if (GameUi.IsOpen(n)) { GameUi.Close(n); next = DateTime.UtcNow.AddSeconds(0.7); return; }
         if (Plugin.Condition[ConditionFlag.OccupiedSummoningBell]) return; // closing animation
+        // The bag window can stay in "Select an item to entrust to your retainer" mode after the bell
+        // closes, and its item menu then offers Entrust instead of Store: close it so it reopens clean.
+        if (!bagsReset)
+        {
+            bagsReset = true;
+            var closedAny = false;
+            foreach (var n in new[] { "InventoryLarge", "Inventory", "InventoryExpansion" })
+                if (GameUi.Get(n) is var inv && inv != null) { inv->Close(true); closedAny = true; }
+            if (closedAny) { next = DateTime.UtcNow.AddSeconds(0.8); return; }
+        }
+        housingBefore = HousingWindows().ToHashSet();
+        Plugin.Log.Info($"[Stash] storeroom: housing windows before: {string.Join(", ", housingBefore)}");
         if (AtHome) { Set(Phase.OpenMenu, "Opening the housing menu..."); next = DateTime.UtcNow.AddSeconds(1); }
         else Set(Phase.Travel, "Going home (Lifestream)...");
     }
@@ -171,17 +183,14 @@ public sealed unsafe class Storeroom : IDisposable
             Fail("Lifestream took you home but not inside. In Lifestream's house settings, set the teleport behaviour to \"Enter house\", or walk in and press again.");
     }
 
-    private static bool LayoutOpen
-    {
-        get
-        {
-            // [Assumption] The Housing agent alone can read active while just standing inside, so also
-            // require one of its windows (the furnishings list or the layout bar) to be showing.
-            var agent = AgentModule.Instance()->GetAgentByInternalId(AgentId.Housing);
-            if (agent == null || !agent->IsAgentActive()) return false;
-            return GameUi.VisibleAddons().Any(n => n.StartsWith("Housing", StringComparison.Ordinal));
-        }
-    }
+    private HashSet<string> housingBefore = new();
+    private static readonly string[] MenuWindows = { "HousingMenu", "AddonContextMenuTitle", "SelectString", "ContextMenu" };
+
+    private static IEnumerable<string> HousingWindows() =>
+        GameUi.VisibleAddons().Where(n => n.StartsWith("Housing", StringComparison.Ordinal) && !MenuWindows.Contains(n));
+
+    /// <summary>Layout mode: the Housing agent is active and a housing window has appeared that wasn't up before we started.</summary>
+    private bool LayoutOpen => AgentActive && HousingWindows().Any(n => !housingBefore.Contains(n));
 
     private static bool AgentActive
     {
@@ -189,10 +198,13 @@ public sealed unsafe class Storeroom : IDisposable
     }
 
     /// <summary>Layout mode: a housing window is up, or we (or you) clicked Indoor Furnishings and the agent is active.</summary>
-    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen);
+    private bool InLayout => LayoutOpen || (clickedIndoor && AgentActive && !RetainerStillOpen && !MenuWindows.Any(GameUi.IsOpen) &&
+                                            (DateTime.UtcNow - phaseStart).TotalSeconds > 2);
 
     private void TickOpenMenu()
     {
+        // Baseline once inside, before /housing: only windows that appear after this count as layout mode.
+        if (askedAt == DateTime.MinValue && !clickedIndoor) housingBefore = HousingWindows().ToHashSet();
         if (InLayout) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); return; }
         // The housing menu: look for "Indoor Furnishings" in the menus we know how to click first,
         // then in every visible window (so an unexpected window gets dumped instead of silently missed).
@@ -241,7 +253,12 @@ public sealed unsafe class Storeroom : IDisposable
 
     private void TickLayout()
     {
-        if (InLayout) { Set(Phase.Store, "Storing furnishings..."); next = DateTime.UtcNow.AddSeconds(1); }
+        if (InLayout)
+        {
+            Plugin.Log.Info($"[Stash] storeroom: layout open; windows: {string.Join(", ", GameUi.VisibleAddons().OrderBy(x => x))}");
+            Set(Phase.Store, "Storing furnishings...");
+            next = DateTime.UtcNow.AddSeconds(1);
+        }
     }
 
     private void TickStore()
@@ -273,6 +290,7 @@ public sealed unsafe class Storeroom : IDisposable
                     // A retainer is still attached to the item menu: close it and try this item again.
                     menu->FireCallbackInt(-1);
                     current = null;
+                    bagsReset = false;
                     if (++retainerResets > 3) { Fail("A retainer window keeps the item menu from offering Store. Close the retainer and run /stash storeroom."); return; }
                     Set(Phase.Prepare, "Closing the retainer...");
                     return;
@@ -290,6 +308,12 @@ public sealed unsafe class Storeroom : IDisposable
                 return;
             }
             if (++tries > 6) { Skip(c, slot, "not taken (storeroom full?)"); return; }
+            if (AddonId() == 0)
+            {
+                AgentModule.Instance()->GetAgentByInternalId(AgentId.Inventory)->Show();
+                next = DateTime.UtcNow.AddSeconds(0.8);
+                return;
+            }
             AgentInventoryContext.Instance()->OpenForItemSlot(c.Type, c.Slot, 0, AddonId());
             next = DateTime.UtcNow.AddSeconds(0.8);
             return;
