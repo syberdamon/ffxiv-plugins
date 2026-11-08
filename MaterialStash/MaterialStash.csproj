@@ -12,5 +12,6 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\cleanup_sources.json" LogicalName="MaterialStash.cleanup_sources.json" />
+    <Compile Include="..\Shared\ScripData.cs" Link="Shared\ScripData.cs" />
   </ItemGroup>
 </Project>

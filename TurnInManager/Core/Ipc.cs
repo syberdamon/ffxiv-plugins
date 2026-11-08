@@ -44,6 +44,8 @@ public sealed class LifestreamIpc
     private readonly ICallGateSubscriber<string, object> executeCommand;
     private readonly ICallGateSubscriber<bool> isBusy;
     private readonly ICallGateSubscriber<object> abort;
+    private readonly ICallGateSubscriber<uint, byte, bool> teleport;
+    private readonly ICallGateSubscriber<uint, bool> aethernetById;
 
     public LifestreamIpc()
     {
@@ -51,10 +53,16 @@ public sealed class LifestreamIpc
         executeCommand = pi.GetIpcSubscriber<string, object>("Lifestream.ExecuteCommand");
         isBusy = pi.GetIpcSubscriber<bool>("Lifestream.IsBusy");
         abort = pi.GetIpcSubscriber<object>("Lifestream.Abort");
+        teleport = pi.GetIpcSubscriber<uint, byte, bool>("Lifestream.Teleport");
+        aethernetById = pi.GetIpcSubscriber<uint, bool>("Lifestream.AethernetTeleportById");
     }
 
     public bool IsLoaded { get { try { isBusy.InvokeFunc(); return true; } catch (Exception) { return false; } } }
     public bool IsBusy { get { try { return isBusy.InvokeFunc(); } catch (Exception) { return false; } } }
     public bool Execute(string args) { try { executeCommand.InvokeAction(args); return true; } catch (Exception) { return false; } }
     public void Abort() { try { abort.InvokeAction(); } catch (Exception) { } }
+    /// <summary>Teleport to an aetheryte (Aetheryte sheet row).</summary>
+    public bool Teleport(uint aetheryte, byte sub) { try { return teleport.InvokeFunc(aetheryte, sub); } catch (Exception) { return false; } }
+    /// <summary>Aethernet hop to a shard (Aetheryte sheet row); you must be near an aetheryte/shard.</summary>
+    public bool AethernetTeleportById(uint id) { try { return aethernetById.InvokeFunc(id); } catch (Exception) { return false; } }
 }

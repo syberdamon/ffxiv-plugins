@@ -20,7 +20,7 @@ namespace MaterialStash;
 public sealed unsafe class Runner : IDisposable
 {
     private enum Phase { Idle, Select, OpenMenu, OpenInventory, Work, CloseInventory, Quit, BackToList }
-    public enum RunMode { Stash, Scan, Tidy, Sell, Cleanup, Furnish }
+    public enum RunMode { Stash, Scan, Tidy, Sell, Cleanup, Furnish, Fetch }
 
     private sealed class CrystalOp
     {
@@ -60,6 +60,12 @@ public sealed unsafe class Runner : IDisposable
     /// <summary>Set by the plugin: puts indoor furnishings in the house storeroom.</summary>
     public Storeroom? Storeroom { get; set; }
     private bool furnish => mode == RunMode.Furnish;
+    private bool fetch => mode == RunMode.Fetch;
+    /// <summary>Fetch runs: item (NQ id) -> how many still to take out of the retainers.</summary>
+    private readonly Dictionary<uint, int> fetchNeed = new();
+    private int fetched;
+    /// <summary>After a fetch run: what it couldn't find (NQ id -> amount).</summary>
+    public Dictionary<uint, int> FetchLeft => fetchNeed.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
     private bool cleanRan;
     private int cleanPulled, cleanVendored, cleanDiscarded;
     private readonly HashSet<(InventoryType, int)> pulledSlots = new();
@@ -112,6 +118,20 @@ public sealed unsafe class Runner : IDisposable
 
     public void Start(bool scan) => Start(scan ? RunMode.Scan : RunMode.Stash);
 
+    /// <summary>Take these items (NQ id -> amount, NQ and HQ both count) out of the retainers holding them, whole stacks.</summary>
+    public void StartFetch(IReadOnlyDictionary<uint, int> need)
+    {
+        if (Busy) { Status = "Already running."; return; }
+        fetchNeed.Clear();
+        foreach (var (id, n) in need) if (n > 0) fetchNeed[id % 1_000_000] = fetchNeed.GetValueOrDefault(id % 1_000_000) + n;
+        fetched = 0;
+        Start(RunMode.Fetch);
+    }
+
+    private List<ulong> FetchVisits(CharacterData me) =>
+        me.Order.Where(r => me.Retainers.TryGetValue(r, out var snap) &&
+                            snap.Items.Keys.Any(id => fetchNeed.GetValueOrDefault(id % 1_000_000) > 0)).ToList();
+
     public void Start(RunMode m) => Start(m, null, false);
     private bool onlyStarting;
 
@@ -159,8 +179,10 @@ public sealed unsafe class Runner : IDisposable
             RunMode.Sell => new List<ulong> { firstSell },
             RunMode.Cleanup => Cleanup == null ? new List<ulong>() : CleanupVisits(me),
             RunMode.Furnish => Storeroom == null ? new List<ulong>() : FurnishVisits(me),
+            RunMode.Fetch => FetchVisits(me),
             _ => planner.RetainersToVisit(),
         };
+        if (list.Count == 0 && m == RunMode.Fetch) { Status = "None of those items are on your retainers (as far as the records show)."; return; }
         if (list.Count == 0 && sellAfter && selling.InBags().Count > 0 && NextSellRetainer(me) is var first && first != 0)
         { mode = RunMode.Sell; sellAfter = false; list = new List<ulong> { first }; }
         if (list.Count == 0)
@@ -173,7 +195,7 @@ public sealed unsafe class Runner : IDisposable
         }
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
-        Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", RunMode.Furnish => "Taking furnishings out...", _ => "Stashing..." };
+        Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", RunMode.Furnish => "Taking furnishings out...", RunMode.Fetch => "Taking materials out...", _ => "Stashing..." };
     }
 
     private List<ulong> TidyList(CharacterData me, IReadOnlyCollection<ulong>? extra)
@@ -275,6 +297,13 @@ public sealed unsafe class Runner : IDisposable
                      $" on {visited.Count} retainer(s)." + (noRoom > 0 ? $" {noRoom} stack(s) had nowhere to go." : "");
         }
         if (mode == RunMode.Sell && stacksMoved > 0) Status += sold;
+        if (fetch)
+        {
+            var left = FetchLeft;
+            Status = $"Took {fetched} stack(s) of materials out of {visited.Count} retainer(s)." +
+                     (left.Count > 0 ? $" Not found: {string.Join(", ", left.Select(kv => $"{kv.Value} {Items.Info(kv.Key)?.Name ?? $"#{kv.Key}"}"))}." : "") +
+                     (bagsFull ? " Bags filled up." : "");
+        }
         if (mode == RunMode.Furnish)
         {
             Status = $"Took {cleanPulled} furnishing stack(s) out" + (bagsFull ? " (bags full)" : "") + ".";
@@ -384,7 +413,7 @@ public sealed unsafe class Runner : IDisposable
         var me = tracker.Me();
         var index = me?.Order.IndexOf(current) ?? -1;
         if (index < 0) { phaseStart = DateTime.UtcNow; return; } // gone from the list; next one
-        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : sell ? "Selling" : clean ? "Cleaning up" : furnish ? "Furnishings" : "Stashing")}: {tracker.NameOf(current)}...";
+        Status = $"{(scanOnly ? "Scanning" : tidy ? $"Tidying (lap {laps})" : sell ? "Selling" : clean ? "Cleaning up" : furnish ? "Furnishings" : fetch ? "Taking materials out" : "Stashing")}: {tracker.NameOf(current)}...";
         GameUi.Fire(list, 2, index);
         Set(Phase.OpenMenu);
         next = DateTime.UtcNow.AddSeconds(0.8);
@@ -449,6 +478,12 @@ public sealed unsafe class Runner : IDisposable
         if (crystal != null) { TickCrystal(); return; }
         tracker.RecordOpen();
         if (scanOnly) { Set(Phase.CloseInventory); return; }
+        if (fetch)
+        {
+            if (FetchStep()) { phaseStart = DateTime.UtcNow; return; }
+            Set(Phase.CloseInventory);
+            return;
+        }
         if (furnish)
         {
             if (FurnishStep()) { phaseStart = DateTime.UtcNow; return; }
@@ -853,6 +888,32 @@ public sealed unsafe class Runner : IDisposable
             if (me.TidyCarry.Add(nq)) tracker.Save(force: true);
             withdrawn++;
             lapMoves++;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Fetch run: take the next wanted stack out of this retainer (whole stacks). True if something moved.</summary>
+    private bool FetchStep()
+    {
+        var im = InventoryManager.Instance();
+        if (im == null || bagsFull) return false;
+        foreach (var s in Tracker.Stacks(Tracker.RetainerPages))
+        {
+            var nq = s.ItemId % 1_000_000;
+            if (fetchNeed.GetValueOrDefault(nq) <= 0 || skipStacks.Contains((s.Type, s.Slot))) continue;
+            if (Tracker.Collectable(s.Type, s.Slot)) continue;
+            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; return false; }
+            if (lastMove is { } lm && lm.Type == s.Type && lm.Slot == s.Slot && lm.Item == s.ItemId && lm.Qty == s.Qty)
+            {
+                if (++sameMoveCount >= 3) { skipStacks.Add((s.Type, s.Slot)); refused.Add(Items.Info(nq)?.Name ?? $"#{nq}"); continue; }
+                return true; // give the last move time to land
+            }
+            sameMoveCount = 0;
+            lastMove = (s.Type, s.Slot, s.ItemId, s.Qty);
+            im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
+            fetchNeed[nq] -= s.Qty;
+            fetched++;
             return true;
         }
         return false;
