@@ -41,6 +41,7 @@ public sealed class Plugin : IDalamudPlugin
     public AllaganIpc Allagan { get; } = new();
     public ScripGoals Scrips { get; private set; } = null!;
     public IceBreak IceBreak { get; private set; } = null!;
+    public ArtisanWatch ArtisanWatch { get; private set; } = null!;
 
     private readonly WindowSystem windows = new("MaterialStash");
     private readonly MainWindow main;
@@ -71,6 +72,7 @@ public sealed class Plugin : IDalamudPlugin
         AfterAr = new AfterAutoRetainer(this);
         Scrips = new ScripGoals(this);
         IceBreak = new IceBreak(this);
+        ArtisanWatch = new ArtisanWatch(this);
         main = new MainWindow(this);
         bell = new BellOverlay(this);
         saddle = new SaddleOverlay(this);
@@ -139,6 +141,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleMain;
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
+        ArtisanWatch.Dispose();
         IceBreak.Dispose();
         AfterAr.Dispose();
         Scrips.Dispose();

@@ -32,12 +32,14 @@ public sealed unsafe class IceBreak : IDisposable
 
     private Phase phase = Phase.Idle;
     private DateTime next, phaseStart, lastEnd = DateTime.MinValue;
-    private DateTime calmSince, arIdleSince, closedSince, arrived;
+    private DateTime calmSince, arIdleSince, closedSince, arrived, leaveStart;
     private bool arSeen, stashStarted, travelAsked, craftLogTried, suppressed;
     private int enableTries;
 
     public string Status { get; private set; } = "";
     public bool Active => phase != Phase.Idle;
+    /// <summary>Waiting for ICE to finish its mission before leaving (ICE is still running).</summary>
+    public bool Finishing => phase == Phase.Finishing;
     /// <summary>ICE is installed (the IPC answers).</summary>
     public bool IceLoaded => ice.IsLoaded;
 
@@ -131,7 +133,7 @@ public sealed unsafe class IceBreak : IDisposable
         phase = p;
         Status = status;
         phaseStart = DateTime.UtcNow;
-        calmSince = arIdleSince = closedSince = arrived = DateTime.MinValue;
+        calmSince = arIdleSince = closedSince = arrived = leaveStart = DateTime.MinValue;
         arSeen = stashStarted = travelAsked = craftLogTried = false;
         enableTries = 0;
     }
@@ -266,21 +268,21 @@ public sealed unsafe class IceBreak : IDisposable
             if (Elapsed > 20)
             {
                 Note("AutoRetainer didn't start at the bell (check its \"Action on accessing retainer bell if any ventures available\" = Enable AutoRetainer).");
-                if (listOpen) GameUi.Close("RetainerList");
                 Set(Phase.Stash, "Stash...");
             }
             return;
         }
 
         var idle = arBusy ? 0 : (DateTime.UtcNow - arIdleSince).TotalSeconds;
-        var soon = Ar.SecondsToNext(Tracker.ContentId()) is { } s && s <= 300;
+        var soon = (Ar.SecondsToNext(Tracker.ContentId()) is { } s && s <= 300) || GameSecondsToNext() is { } g && g <= 300;
         // Done: AutoRetainer closed the list and went quiet, or it sits at an open list with nothing ready
         // and nothing due within 5 min (with "stay 5 min" on it waits for those, and so do we).
-        var done = !arBusy && ((idle >= 3 && !listOpen) || (idle >= 5 && listOpen && !Ar.AnyReady && !soon));
+        // AutoRetainer can keep reporting a retainer as available that it won't touch (e.g. one it's set to skip):
+        // idle 30 s at the open list with nothing due soon counts as done too.
+        var done = !arBusy && ((idle >= 3 && !listOpen) || (idle >= 5 && listOpen && !Ar.AnyReady && !soon) || (idle >= 30 && listOpen && !soon));
         Status = arBusy ? "AutoRetainer is working..." : listOpen ? "AutoRetainer waiting at the bell for a retainer due back soon..." : "AutoRetainer finishing...";
         if (Elapsed > 25 * 60) { Note("AutoRetainer took over 25 min: moving on."); done = true; }
         if (!done) return;
-        if (listOpen) GameUi.Close("RetainerList");
         Set(Phase.Stash, "Stash...");
     }
 
@@ -289,7 +291,7 @@ public sealed unsafe class IceBreak : IDisposable
         if (!stashStarted)
         {
             if (Ar.IsBusy && Elapsed < 15) return; // let AutoRetainer wind down
-            if (Runner.BellListOpen) { GameUi.Close("RetainerList"); return; }
+            if (StillAtBell()) return;
             if (!C.StashAfterAutoRetainer || !plugin.AfterAr.Pending)
             {
                 plugin.AfterAr.Release();
@@ -314,7 +316,7 @@ public sealed unsafe class IceBreak : IDisposable
             Status = plugin.AfterAr.Status.Length > 0 ? plugin.AfterAr.Status : "Stashing this cycle's venture returns...";
             return;
         }
-        if (Runner.BellListOpen) { GameUi.Close("RetainerList"); closedSince = DateTime.MinValue; return; }
+        if (StillAtBell()) { closedSince = DateTime.MinValue; return; }
         if (closedSince == DateTime.MinValue) { closedSince = DateTime.UtcNow; return; }
         if ((DateTime.UtcNow - closedSince).TotalSeconds < 2) return; // let the bell close fully before releasing AutoRetainer
         Unsuppress();
@@ -337,7 +339,7 @@ public sealed unsafe class IceBreak : IDisposable
         if (!travelAsked)
         {
             if (!lifestream.IsLoaded) { Fail("Lifestream isn't loaded, so I can't take you back to Cosmic Exploration. ICE is off."); return; }
-            if (Plugin.Condition[ConditionFlag.OccupiedSummoningBell] || Runner.BellListOpen) { GameUi.Close("RetainerList"); return; }
+            if (StillAtBell()) return;
             if (!lifestream.Execute("cosmic")) { Fail("Lifestream didn't take /li cosmic. ICE is off."); return; }
             travelAsked = true;
             Status = "Lifestream: going back to Cosmic Exploration...";
@@ -367,6 +369,64 @@ public sealed unsafe class IceBreak : IDisposable
             return;
         }
         if (Elapsed > 15) Fail("ICE didn't start again (see ICE's window). ICE is off.");
+    }
+
+    // ------------------------------------------------------------------ leaving the bell
+
+    private static readonly string[] RetainerWindows = { "RetainerSellList", "RetainerSell", "InventoryRetainerLarge", "InventoryRetainer" };
+
+    /// <summary>
+    /// Close whatever is still open at the bell, one window per call: a retainer's inventory or market list,
+    /// its dialogue, its menu (Quit), then the retainer list. True while anything is still open.
+    /// A run that stopped part-way (or AutoRetainer) can leave a retainer open, and the list's own close does
+    /// nothing while one is: that's what used to hold the break at the bell. After a minute, gives up (with a dump).
+    /// </summary>
+    private bool StillAtBell()
+    {
+        var open = Plugin.Condition[ConditionFlag.OccupiedSummoningBell] || Runner.BellListOpen
+                   || RetainerWindows.Any(GameUi.IsOpen);
+        if (!open) { leaveStart = DateTime.MinValue; return false; }
+        if (leaveStart == DateTime.MinValue) leaveStart = DateTime.UtcNow;
+        if ((DateTime.UtcNow - leaveStart).TotalSeconds > 60)
+        {
+            GameUi.Dump("RetainerList", "ICE break: stuck leaving the bell. Visible: " + string.Join(", ", GameUi.VisibleAddons().OrderBy(n => n)));
+            Fail("couldn't close the retainer windows within a minute (dump saved). ICE is off.");
+            return true;
+        }
+        Status = "Leaving the summoning bell...";
+        if (GameUi.IsOpen("ContextMenu")) { GameUi.Close("ContextMenu"); return true; }
+        foreach (var name in RetainerWindows)
+        {
+            var w = GameUi.Get(name);
+            if (w != null) { w->Close(true); return true; }
+        }
+        var talk = GameUi.Get("Talk");
+        if (talk != null) { GameUi.ClickTalk(talk); return true; }
+        var ss = GameUi.Get("SelectString");
+        if (ss != null)
+        {
+            var quit = GameUi.MenuEntries(ss, false).FindIndex(r => r.StartsWith("Quit", StringComparison.OrdinalIgnoreCase));
+            if (quit >= 0) { ss->FireCallbackInt(quit); return true; }
+        }
+        if (Runner.BellListOpen) { GameUi.Close("RetainerList"); return true; }
+        return true; // still "at the bell" for a moment while the game lets go
+    }
+
+    /// <summary>Seconds until the next retainer still out is back, from the game's own list (null = none out / not read).</summary>
+    private static long? GameSecondsToNext()
+    {
+        var rm = RetainerManager.Instance();
+        if (rm == null || !rm->IsReady) return null;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long? best = null;
+        for (uint i = 0; i < rm->GetRetainerCount(); i++)
+        {
+            var r = rm->GetRetainerBySortedIndex(i);
+            if (r == null || r->RetainerId == 0 || r->VentureId == 0 || r->VentureComplete <= now) continue;
+            var left = (long)r->VentureComplete - now;
+            if (best == null || left < best) best = left;
+        }
+        return best;
     }
 
     /// <summary>Send a line through the chat box, like typing it.</summary>
