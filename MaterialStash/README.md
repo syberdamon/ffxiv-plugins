@@ -60,6 +60,16 @@ venture; AutoRetainer must also see one ready):
 4. **Stash** of this cycle's venture returns (the stock-list items, as above), if that option is on. AutoRetainer is
    suppressed while the bell is reopened for this, and released after.
 5. Lifestream back (`/li cosmic`) and **ICE starts again** (works with a scrip goal's ICE run too: it waits).
+   Before leaving, anything still open at the bell is closed in order (a retainer's inventory or market list, its
+   dialogue, its menu via Quit, then the list); if that hasn't worked within a minute, the break stops with a dump.
+   AutoRetainer idle for 30 s at the open list with nothing due within 5 min also counts as done.
+
+### Stuck Artisan crafts (ICE)
+Retainers tab, **ICE + Artisan: when a craft gets stuck, quit it and restart ICE** (on by default). While ICE runs,
+when Artisan prints "Unable to use <action>: ..." (its solver picked an action the game won't allow, e.g. Prudent
+Touch under Waste Not) and the craft hasn't moved 6 s later: ICE off, Artisan's endurance off, the craft is quit
+(the window's Quit, then Yes), ICE on again. During an ICE break's mission wait ICE is left off, so the break goes on.
+Quitting can lose some of that craft's materials. After 3 in 30 minutes it stops stepping in and says so.
 
 At least 10 min (settable) between breaks. It waits while any other Material Stash job runs. **Cancel** on the
 Retainers tab or `/stash stop` ends a break where it is (ICE is then left off if it was already stopped);
@@ -272,6 +282,9 @@ Tools), then every time a retainer's inventory is open, by you, AutoRetainer or 
 each was last seen. A retainer never seen is assumed to have room; it's checked when the run opens it.
 
 ## Unverified (needs an in-game check)
+- Quitting a craft: the Synthesis window's "Quit" button found by its label (else its -1 callback) and the
+  "quit?" yes/no; Artisan's "Unable to use" error arriving as a chat line containing "Artisan".
+- Closing a retainer left open at the bell (its inventory window's close, then Quit in its menu).
 - Closing the retainer inventory with the window's close (selecting a retainer from the list is confirmed in game).
 - Auto-sell: the "Sell items in your inventory on the market" menu row and the game's direct listing call
   (`MoveToRetainerMarket`, as Restocker uses it).

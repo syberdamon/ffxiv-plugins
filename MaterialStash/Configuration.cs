@@ -160,6 +160,8 @@ public class Configuration : IPluginConfiguration
     public int IceBreakMinGapMinutes { get; set; } = 10;
     /// <summary>How long ICE may take to finish its current mission before it's stopped outright.</summary>
     public int IceBreakMissionWaitMinutes { get; set; } = 12;
+    /// <summary>While ICE runs: when Artisan reports it can't use an action and the craft stops moving, quit the craft and restart ICE.</summary>
+    public bool ArtisanStuckRecovery { get; set; } = true;
 
     // ---- venture timer window
     public bool ShowVentureWindow { get; set; } = true;

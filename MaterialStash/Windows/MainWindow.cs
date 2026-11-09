@@ -281,6 +281,14 @@ public sealed class MainWindow : Window
             else if (ImGui.SmallButton("Break now")) { var why = plugin.IceBreak.StartNow(); if (why.Length > 0) Plugin.ChatGui.Print($"[Stash] ICE break: {why}"); }
             ImGui.Unindent();
         }
+        var asr = C.ArtisanStuckRecovery;
+        if (ImGui.Checkbox("ICE + Artisan: when a craft gets stuck, quit it and restart ICE", ref asr)) { C.ArtisanStuckRecovery = asr; changed = true; }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Only while ICE is running. When Artisan says \"Unable to use <action>: ...\" (e.g. Prudent Touch under Waste Not)\n"
+                + "and the craft hasn't moved 6 s later: ICE off, Artisan's endurance off, the craft is quit (Quit, then Yes), ICE on again.\n"
+                + "During an ICE break's mission wait, ICE is left off so the break goes on. Quitting can lose some of the craft's materials.\n"
+                + "After 3 in 30 minutes it stops stepping in (the solver keeps picking a bad action for that recipe).");
+        if (plugin.ArtisanWatch.Status.Length > 0) { ImGui.SameLine(); ImGui.TextDisabled(plugin.ArtisanWatch.Status); }
         ImGui.Separator();
         var delay = C.StepDelay;
         ImGui.SetNextItemWidth(110);
