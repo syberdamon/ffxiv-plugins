@@ -285,6 +285,17 @@ public class TrashSettings
     /// <summary>While gathering with no short mit available, Rampart goes out below this HP (Reprisal goes first,
     /// below PullShortHpPercent).</summary>
     public float PullRampartHpPercent { get; set; } = 70f;
+    /// <summary>
+    /// Last resort while gathering a big pack: the short mit, Reprisal and Rampart are all down, so press
+    /// the big mit before the pull is set. Narrow on purpose (Hullbreaker Isle WAR50, 2026-11-08: 13 mobs
+    /// gathered 25 s after the previous pack, HP 100% -> 56% with nothing to press, then a death). In the
+    /// logs from 2026-11-03..10 these conditions held for at most a few seconds per run.
+    /// </summary>
+    public bool PullBigWhenOut { get; set; } = true;
+    public int PullBigMinMobs { get; set; } = 6;
+    public float PullBigHpPercent { get; set; } = 70f;
+    /// <summary>...and still losing at least this much HP per second (net of heals).</summary>
+    public float PullBigDrainPctPerSec { get; set; } = 2f;
     /// <summary>No new big mit while HP is at least this and incoming damage is below IdleDamagePctPerSec
     /// (Rampart was going out at 100% HP, ~0%/s, with the pull nearly dead).</summary>
     public float IdleHpPercent { get; set; } = 95f;

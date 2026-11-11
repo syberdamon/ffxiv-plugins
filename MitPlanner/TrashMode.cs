@@ -214,6 +214,14 @@ public sealed class TrashMode : IDisposable
                         TryPress(TankKits.ReprisalId, "pull/reprisal", $"gathering, HP<{S.PullShortHpPercent:0}%, no short mit", me, kit, sig)) break;
                     if (hp < S.PullRampartHpPercent && !Active(kit.Big) && !Active(kit.Rampart) && !Active(kit.Short) &&
                         TryPress(kit.Rampart, "pull/rampart", $"gathering, HP<{S.PullRampartHpPercent:0}%, no short mit", me, kit, sig)) break;
+                    // Last resort for a big gather with Reprisal and Rampart also down (both recasting from the
+                    // previous pack): the big mit now, rather than waiting for the pull to be set.
+                    if (S.PullBigWhenOut && sig.MobsOnMe >= S.PullBigMinMobs && hp < S.PullBigHpPercent &&
+                        sig.NetPctPerSec >= S.PullBigDrainPctPerSec &&
+                        !Active(kit.Big) && !Active(kit.Rampart) && !Active(TankKits.ReprisalId) &&
+                        !Ready(kit.Rampart) && !Ready(TankKits.ReprisalId) &&
+                        TryPress(kit.Big, "pull/big", $"gathering {sig.MobsOnMe} mobs, HP<{S.PullBigHpPercent:0}% and dropping, short/Reprisal/Rampart down", me, kit, sig))
+                    { majorUsedThisSet = true; break; }
                 }
                 Skip("moving", "pulling/moving: holding mits");
                 break;

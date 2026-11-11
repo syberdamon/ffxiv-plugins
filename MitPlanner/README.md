@@ -235,6 +235,10 @@ Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
   wait until it has worn off **and** HP is below 70% (both configurable). Refill when it expires
   (Rampart / 40% / Arm's Length), Secondary to fill gaps, heals under 70% (party mits as
   heals allowed; Shake It Off never consumes WAR's buffs). No new big mits with under 6 s left.
+- **While gathering:** Short below 80% with 3+ mobs; with no Short to press, Reprisal, then
+  Rampart below 70%. Last resort for a big gather when Short, Reprisal and Rampart are all
+  down (e.g. a second big pack right after the first, at low level): the 40% with 6+ mobs,
+  below 70% and still losing HP (all configurable; switch on the Trash mode tab).
 - **Emergency** (also while moving): under 35% HP, or a big HP drop rate. **Invuln** when
   2 s (configurable) of incoming damage, with no heals, would kill you and no major mit is
   up or ready. Per-job invuln switches.

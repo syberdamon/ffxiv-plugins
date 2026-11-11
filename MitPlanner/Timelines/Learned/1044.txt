@@ -1,0 +1,64 @@
+### THE PRAETORIUM (learned)
+# ZoneId: 1044
+# Built by tools/build_timeline.py from 2 Combat Recorder log(s). Review before trusting.
+
+hideall "--sync--"
+
+#~~~ Mark II Magitek Colossus ~~~#
+# pulls: 2, kills: 2
+
+1005.5 "--sync--" StartsUsing { id: "6F3A", source: "Mark II Magitek Colossus" } window 1006,5
+1010.2 "Ceruleum Vent" Ability { id: "6F3A", source: "Mark II Magitek Colossus" }
+1024.4 "Prototype Laser Alpha" Ability { id: "6F34", source: "Mark II Magitek Colossus" }
+1044.7 "Prototype Laser Beta" Ability { id: "6F37", source: "Mark II Magitek Colossus" }
+1050.5 "Iron Kiss" Ability { id: "6F38", source: "Mark II Magitek Colossus" }
+1062.9 "Ceruleum Vent" Ability { id: "6F3A", source: "Mark II Magitek Colossus" }
+1077.1 "Prototype Laser Alpha" Ability { id: "6F34", source: "Mark II Magitek Colossus" }
+1084.4 "Grand Sword" Ability { id: "6F39", source: "Mark II Magitek Colossus" }
+
+#~~~ Nero tol Scaeva ~~~#
+# pulls: 2, kills: 2
+
+2005.0 "--sync--" StartsUsing { id: "6F43", source: "Nero tol Scaeva" } window 2005,5
+2009.7 "Spine Shatter" Ability { id: "6F43", source: "Nero tol Scaeva" }
+2018.0 "Augmented Shatter" Ability { id: "6F3D", source: "Nero tol Scaeva" }
+2028.2 "Iron Uprising" Ability { id: "6F42", source: "Nero tol Scaeva" }
+2036.4 "Activate" Ability { id: "6F3F", source: "Nero tol Scaeva" }
+2053.0 "Augmented Uprising" Ability { id: "6F3E", source: "Nero tol Scaeva" }
+2063.1 "Spine Shatter" Ability { id: "6F43", source: "Nero tol Scaeva" }
+2072.5 "Augmented Suffering" Ability { id: "6F3C", source: "Nero tol Scaeva" }
+2079.6 "Augmented Shatter" Ability { id: "6F3D", source: "Nero tol Scaeva" }
+2085.2 "Wheel of Suffering" Ability { id: "6F41", source: "Nero tol Scaeva" }
+2094.4 "Iron Uprising" Ability { id: "6F42", source: "Nero tol Scaeva" }
+2100.6 "Activate" Ability { id: "6F3F", source: "Nero tol Scaeva" }
+2118.2 "Augmented Uprising" Ability { id: "6F3E", source: "Nero tol Scaeva" }
+
+#~~~ Gaius van Baelsar ~~~#
+# pulls: 2, kills: 2
+
+3007.2 "--sync--" StartsUsing { id: "6F4F", source: "Gaius van Baelsar" } window 3007,5
+3011.9 "Horrida Bella" Ability { id: "6F4F", source: "Gaius van Baelsar" }
+3022.9 "Terminus Est" Ability { id: "6F47", source: "Terminus Est" }
+3027.9 "Phantasmata" Ability { id: "6F44", source: "Gaius van Baelsar" }
+3035.9 "Terminus Est" Ability { id: "6F48", source: "Terminus Est" }
+3044.2 "Innocence" Ability { id: "6F4E", source: "Gaius van Baelsar" }
+3053.3 "Festina Lente" Ability { id: "6F4D", source: "Gaius van Baelsar" }
+3064.7 "Ductus" Ability { id: "717B", source: "Gaius van Baelsar" }
+3083.2 "Phantasmata" Ability { id: "6F44", source: "Gaius van Baelsar" }
+3091.2 "Terminus Est" Ability { id: "6F48", source: "Terminus Est" }
+3096.5 "Festina Lente" Ability { id: "6F4D", source: "Gaius van Baelsar" }
+3105.7 "Innocence" Ability { id: "6F4E", source: "Gaius van Baelsar" }
+3113.0 "Ductus" Ability { id: "717B", source: "Gaius van Baelsar" }
+3119.2 "Hand of the Empire" Ability { id: "6F4B", source: "Gaius van Baelsar" }
+3120.9 "--sync--" Ability { id: "717C", source: "Gaius van Baelsar" }
+3125.2 "Hand of the Empire" Ability { id: "6F4C", source: "Gaius van Baelsar" }
+3145.5 "Heirsbane" Ability { id: "6F52", source: "Phantom Gaius" }
+3146.6 "--sync--" Ability { id: "6F46", source: "Phantom Gaius" }
+3152.8 "Terminus Est" Ability { id: "6F48", source: "Terminus Est" }
+3159.6 "Ductus" Ability { id: "717B", source: "Phantom Gaius" }
+3168.7 "Heirsbane" Ability { id: "6F52", source: "Phantom Gaius" }
+3181.7 "Hand of the Empire" Ability { id: "6F4B", source: "Phantom Gaius" }
+3184.9 "Terminus Est" Ability { id: "6F48", source: "Terminus Est" }
+3187.7 "Hand of the Empire" Ability { id: "6F4C", source: "Gaius van Baelsar" }
+3191.7 "Veni Vidi Vici" Ability { id: "6F53", source: "Gaius van Baelsar" }
+

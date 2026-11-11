@@ -641,6 +641,17 @@ public sealed class ConfigWindow : Window
             t.PullShortHpPercent = F("Short mit while gathering below HP %", t.PullShortHpPercent, 0, 100, "%.0f");
             t.PullRampartHpPercent = F("Rampart while gathering (no short mit) below HP %", t.PullRampartHpPercent, 0, 100, "%.0f");
             t.PullShortMinMobs = I("  ...with at least this many mobs on you", t.PullShortMinMobs, 1, 20);
+            var big = t.PullBigWhenOut;
+            if (ImGui.Checkbox("Big mit while gathering when short, Reprisal and Rampart are all down", ref big)) { t.PullBigWhenOut = big; changed = true; }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Last resort for big gathers at low level (e.g. a second big pack right after the first).\n" +
+                                 "Only with this many mobs on you, below this HP, and still losing HP:");
+            if (t.PullBigWhenOut)
+            {
+                t.PullBigMinMobs = I("  ...mobs on you", t.PullBigMinMobs, 3, 30);
+                t.PullBigHpPercent = F("  ...below HP %", t.PullBigHpPercent, 0, 100, "%.0f");
+                t.PullBigDrainPctPerSec = F("  ...losing at least %/s", t.PullBigDrainPctPerSec, 0, 30, "%.1f");
+            }
             t.IdleHpPercent = F("No new big mit at or above HP %...", t.IdleHpPercent, 0, 100, "%.0f");
             t.IdleDamagePctPerSec = F("  ...while taking less than %/s", t.IdleDamagePctPerSec, 0, 20, "%.1f");
         }
