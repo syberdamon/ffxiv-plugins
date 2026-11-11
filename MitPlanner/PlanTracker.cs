@@ -30,6 +30,8 @@ public sealed class PlanTracker : IDisposable
         public bool Started;
         public DateTime StartedAt;
         public bool Placed;          // Earthly Star is on the field
+        public bool PrereqUp;        // Eukrasia was seen up (its spell then uses it up)
+        public DateTime? MainPressedAt; // a GCD spell's auto-press was accepted at
         public bool CooldownAtStart;
         public int ChargesAtStart;
         public bool Done;
@@ -205,7 +207,20 @@ public sealed class PlanTracker : IDisposable
         }
         else if (isGcd)
         {
+            // [Assumption] the GCD's recast records the spell that went off (Eukrasian Diagnosis, not
+            // the Diagnosis button). Two more ways to tell, so it's never cast twice if that's wrong:
+            // Eukrasia was up and is now used up; or the GCD started after our accepted press.
             done = ActionState.GcdUsedWithin(entry.ActionId, (float)(DateTime.UtcNow - st.StartedAt).TotalSeconds);
+            var pressId = HealerKits.PressId(entry.ActionId);
+            if (HealerKits.Prereq(entry.ActionId) != 0)
+            {
+                var up = ActionState.Adjusted(pressId) != pressId;
+                if (up) st.PrereqUp = true;
+                else if (st.PrereqUp) done = true;
+            }
+            if (st.MainPressedAt is { } at && (DateTime.UtcNow - at).TotalSeconds > 0.3 &&
+                ActionState.GcdStartedWithin((float)(DateTime.UtcNow - at).TotalSeconds + 0.1f))
+                done = true;
         }
         else
         {
@@ -242,9 +257,11 @@ public sealed class PlanTracker : IDisposable
         if (HealerKits.Prereq(entry.ActionId) is var prereq and not 0 && ActionState.Adjusted(pressId) == pressId)
             return ActionState.Use(prereq);
 
-        if (place.Location is { } loc) return ActionState.UseAt(pressId, loc);
-        if (place.ObjectId != 0) return ActionState.Use(pressId, place.ObjectId);
-        if (sendTarget != 0) return ActionState.Use(pressId, sendTarget);
-        return ActionState.Use(pressId);
+        var ok = place.Location is { } loc ? ActionState.UseAt(pressId, loc)
+               : place.ObjectId != 0 ? ActionState.Use(pressId, place.ObjectId)
+               : sendTarget != 0 ? ActionState.Use(pressId, sendTarget)
+               : ActionState.Use(pressId);
+        if (ok && isGcd) st.MainPressedAt ??= DateTime.UtcNow;
+        return ok;
     }
 }
