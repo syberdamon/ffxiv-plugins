@@ -11,7 +11,7 @@
   "Anti-personnel Missile": "Raidwide",
   "Ripples of Gloom": "Raidwide",
   "Basic Vomit": "Mechanic",
-  "Bodyweight Exorcism": "Mechanic",
+  "Bodyweight Exorcism": "Raidwide",
   "Mortifying Flesh": "Mechanic",
   "Evil Emission": "Raidwide",
   "Profane Pressure": "Raidwide",
@@ -67,9 +67,9 @@
  },
  "headMarkers": {},
  "kills": {
-  "Eye of the Scorpion": 2,
-  "Chort": 2,
-  "Malphas": 2
+  "Eye of the Scorpion": 4,
+  "Chort": 4,
+  "Malphas": 4
  },
  "trusted": true
 }

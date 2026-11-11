@@ -196,3 +196,11 @@ with thresholds that still hold up with weak healers. How we get there:
   57-65% while gathering 8-9 mobs, and one pull bottomed at 40% right after.
 - **No big mit at full HP with little incoming:** HP >= 95% and < 3%/s incoming holds Rampart and
   friends. Rampart went out twice at 100% HP, ~0%/s, with the pull nearly dead.
+
+## Changes from log review 2026-11-11 (Mit Planner 0.10.0)
+- **Big mit while gathering, last resort:** 6+ mobs on you, HP below 70% and still dropping
+  (>= 2%/s net), and the short mit, Reprisal and Rampart are all down: the 40% goes out before the
+  pull is set. Hullbreaker Isle WAR50: a 13-mob gather 25 s after the previous pack (Reprisal and
+  Rampart recasting, no Raw Intuition before 56) drained 100% -> 56% with nothing pressed, then a
+  death. An extreme case on purpose: across all logs from 2026-11-03 to 11-10 these conditions held
+  for at most a few seconds per run. Switch and thresholds on the Trash mode tab.

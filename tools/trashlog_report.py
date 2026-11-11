@@ -93,8 +93,33 @@ def report(path):
                 flags.append(("LATE", s["t"], f"HP {hp:.0f}% with nothing pressed in the last 5 s (mobs={s['f'].get('mobs')}, dmg={s['f'].get('dmg')}, up={s['f'].get('up')}, state={s['f'].get('state')})"))
                 low_flagged = s["t"]
     for r in rows:
-        if r["ev"] in ("DEATH", "INVULN", "EMERGENCY"):
+        if r["ev"] in ("DEATH", "INVULN"):
             flags.append((r["ev"], r["t"], f"hp={r['f'].get('hp')} dmg={r['f'].get('dmg')} mobs={r['f'].get('mobs')} up={r['f'].get('up')}"))
+    # Emergencies are logged on every check while they last: one flag per episode (lines < 3 s apart).
+    episode = []
+    def close_episode():
+        if not episode:
+            return
+        hps = [num(e["f"].get("hp"), 100) for e in episode]
+        dmgs = [num(e["f"].get("dmg"), 0) for e in episode]
+        mobs = [int(str(e["f"].get("mobs", "0/0")).split("/")[0] or 0) for e in episode]
+        ups = []
+        for e in episode:
+            for u in e["f"].get("up", "[]").strip("[]").split(","):
+                if u and u not in ups:
+                    ups.append(u)
+        secs = (episode[-1]["t"] - episode[0]["t"]).total_seconds()
+        flags.append(("EMERGENCY", episode[0]["t"],
+                      f"{secs:.0f}s ({len(episode)} checks): HP down to {min(hps):.0f}%, peak {max(dmgs):.1f}%/s, "
+                      f"up to {max(mobs)} mobs, up=[{','.join(ups)}]"))
+        episode.clear()
+    for r in rows:
+        if r["ev"] != "EMERGENCY":
+            continue
+        if episode and (r["t"] - episode[-1]["t"]).total_seconds() >= 3:
+            close_episode()
+        episode.append(r)
+    close_episode()
 
     out.append("\n| Pull | Duration | Lowest HP | Presses | Died |\n|---|---|---|---|---|")
     for i, e in enumerate([r for r in rows if r["ev"] == "END"], 1):

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Configuration;
 
 namespace MitPlanner;
@@ -30,6 +31,64 @@ public class PlanEntry
     /// on your current target. Pairs with "If I'm NOT targeted".
     /// </summary>
     public bool SendToTarget { get; set; } = false;
+
+    /// <summary>
+    /// Where it goes: on the tank, on you, on the boss, or (ground-targeted heals: Asylum, Sacred
+    /// Soil, Earthly Star, Liturgy of the Bell) at the arena center. Default = the game's choice.
+    /// </summary>
+    public EntryPlacement Placement { get; set; } = EntryPlacement.Default;
+
+    /// <summary>
+    /// GCD spells (Adloquium, Eukrasian Diagnosis, ...) are callouts only unless this is on:
+    /// auto-pressing a GCD can cut off a cast or delay your rotation.
+    /// </summary>
+    public bool AllowGcdAutoUse { get; set; } = false;
+}
+
+public enum EntryPlacement
+{
+    Default = 0,
+    OnTank = 1,
+    OnSelf = 2,
+    OnBoss = 3,
+    ArenaCenter = 4,
+}
+
+/// <summary>A saved world position (arena centers).</summary>
+[Serializable]
+public class SavedPoint
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
+    public System.Numerics.Vector3 ToVector() => new(X, Y, Z);
+    public static SavedPoint From(System.Numerics.Vector3 v) => new() { X = v.X, Y = v.Y, Z = v.Z };
+}
+
+/// <summary>
+/// One named plan for a fight + job (+ MT/OT for tanks). "Default" is generated from the current
+/// timeline and tags and rebuilt as they improve; editing it saves a "Default - custom" copy.
+/// </summary>
+[Serializable]
+public class NamedPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    /// <summary>The auto-generated plan: rebuilt from the generator, never edited in place by you.</summary>
+    public bool IsDefault { get; set; }
+    /// <summary>Made by editing Default ("Default - custom"): preferred over Default.</summary>
+    public bool FromDefault { get; set; }
+    public List<PlanEntry> Entries { get; set; } = new();
+}
+
+/// <summary>Every plan for one fight + job (+ MT/OT), and which one runs.</summary>
+[Serializable]
+public class PlanSet
+{
+    public List<NamedPlan> Plans { get; set; } = new();
+    public Guid ActiveId { get; set; }
+    /// <summary>You deleted Default: it's only rebuilt once this fight has no plans left.</summary>
+    public bool DefaultDeleted { get; set; }
 }
 
 /// <summary>Which tank you are this pull; plans are kept separately for each.</summary>
@@ -44,6 +103,8 @@ public enum TargetCondition
     Always = 0,
     IfTargeted = 1,
     IfNotTargeted = 2,
+    /// <summary>Healers: when the mechanic targets a tank (not a buster on someone else).</summary>
+    IfTankTargeted = 3,
 }
 
 public enum AbilitySort
@@ -55,12 +116,15 @@ public enum AbilitySort
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 4;
 
     /// <summary>MT or OT: picks which plan runs. Non-tanks just use the MT slot.</summary>
     public TankRole Role { get; set; } = TankRole.MainTank;
 
-    /// <summary>"territoryId:classJobId:MT|OT" -> plan.</summary>
+    /// <summary>"territoryId:classJobId:MT|OT|H" -> that fight's plans for that job (and tank slot).</summary>
+    public Dictionary<string, PlanSet> PlanSets { get; set; } = new();
+
+    /// <summary>Before v4: one unnamed plan per key. Moved into <see cref="PlanSets"/> as "Custom"; kept only to read old settings.</summary>
     public Dictionary<string, List<PlanEntry>> Plans { get; set; } = new();
 
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
@@ -108,21 +172,50 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool ReactToBusterMarkers { get; set; } = true;
 
+    /// <summary>
+    /// Healers: new plan entries (and generated ones) finish this many seconds before the hit.
+    /// Cast time, a Eukrasia first, and Earthly Star's maturing are added on top automatically.
+    /// </summary>
+    public float HealerLeadSeconds { get; set; } = 3f;
+
+    /// <summary>Arena centers you saved, by zone ("Set arena center here").</summary>
+    public Dictionary<uint, SavedPoint> ArenaCenters { get; set; } = new();
+
     /// <summary>Trash mode: automatic tank mitigation for dungeon pulls (see TrashMode.cs).</summary>
     public TrashSettings Trash { get; set; } = new();
 
     public static string RoleCode(TankRole role) => role == TankRole.OffTank ? "OT" : "MT";
-    public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{RoleCode(role)}";
+    /// <summary>"MT"/"OT" for tanks (and everyone else's old plans), "H" for healers (one plan per job).</summary>
+    public static string PlanRoleCode(uint job, TankRole role) => HealerKits.IsHealer(job) ? "H" : RoleCode(role);
+    public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{PlanRoleCode(job, role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";
 
-    public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
+    public PlanSet SetFor(uint territory, uint job) => SetFor(territory, job, Role);
 
-    public List<PlanEntry> PlanFor(uint territory, uint job, TankRole role)
+    public PlanSet SetFor(uint territory, uint job, TankRole role)
     {
         var key = PlanKey(territory, job, role);
-        if (!Plans.TryGetValue(key, out var list)) { list = new(); Plans[key] = list; }
-        return list;
+        if (!PlanSets.TryGetValue(key, out var set)) { set = new(); PlanSets[key] = set; }
+        return set;
     }
+
+    /// <summary>
+    /// The plan that runs: the one you picked, else a "Default - custom", else Default, else the first.
+    /// </summary>
+    public static NamedPlan? ActiveOf(PlanSet set)
+    {
+        var picked = set.Plans.FirstOrDefault(p => p.Id == set.ActiveId);
+        if (picked != null) return picked;
+        picked = set.Plans.LastOrDefault(p => p.FromDefault) ?? set.Plans.FirstOrDefault(p => p.IsDefault) ?? set.Plans.FirstOrDefault();
+        if (picked != null) set.ActiveId = picked.Id;
+        return picked;
+    }
+
+    /// <summary>The running plan's entries (an empty, unsaved list when there's no plan).</summary>
+    public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
+
+    public List<PlanEntry> PlanFor(uint territory, uint job, TankRole role) =>
+        ActiveOf(SetFor(territory, job, role))?.Entries ?? new List<PlanEntry>();
 
     public MechanicType TagFor(FightDefinition fight, string label) =>
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
@@ -131,17 +224,37 @@ public class Configuration : IPluginConfiguration
         : MechanicType.Other;
 
     /// <summary>v1 plans had no role ("897:21"); they become MT plans ("897:21:MT").</summary>
+    /// <summary>v3: healers' plans lived in the MT slot ("897:24:MT"); they move to "897:24:H".</summary>
     public void Migrate()
     {
-        if (Version >= 2) return;
+        if (Version >= 4) return;
+        if (Version < 2)
+        {
+            foreach (var key in new List<string>(Plans.Keys))
+            {
+                if (key.Split(':').Length != 2) continue;
+                var target = key + ":MT";
+                if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
+                Plans.Remove(key);
+            }
+        }
         foreach (var key in new List<string>(Plans.Keys))
         {
-            if (key.Split(':').Length != 2) continue;
-            var target = key + ":MT";
+            var parts = key.Split(':');
+            if (parts.Length != 3 || parts[2] != "MT" || !uint.TryParse(parts[1], out var job) || !HealerKits.IsHealer(job)) continue;
+            var target = $"{parts[0]}:{parts[1]}:H";
             if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
             Plans.Remove(key);
         }
-        Version = 2;
+        // v4: named plans. Each old plan becomes "Custom" and stays the one that runs.
+        foreach (var (key, list) in Plans)
+        {
+            if (list.Count == 0 || PlanSets.ContainsKey(key)) continue;
+            var custom = new NamedPlan { Name = "Custom", Entries = list };
+            PlanSets[key] = new PlanSet { Plans = { custom }, ActiveId = custom.Id };
+        }
+        Plans.Clear();
+        Version = 4;
         Save();
     }
 
@@ -172,6 +285,17 @@ public class TrashSettings
     /// <summary>While gathering with no short mit available, Rampart goes out below this HP (Reprisal goes first,
     /// below PullShortHpPercent).</summary>
     public float PullRampartHpPercent { get; set; } = 70f;
+    /// <summary>
+    /// Last resort while gathering a big pack: the short mit, Reprisal and Rampart are all down, so press
+    /// the big mit before the pull is set. Narrow on purpose (Hullbreaker Isle WAR50, 2026-11-08: 13 mobs
+    /// gathered 25 s after the previous pack, HP 100% -> 56% with nothing to press, then a death). In the
+    /// logs from 2026-11-03..10 these conditions held for at most a few seconds per run.
+    /// </summary>
+    public bool PullBigWhenOut { get; set; } = true;
+    public int PullBigMinMobs { get; set; } = 6;
+    public float PullBigHpPercent { get; set; } = 70f;
+    /// <summary>...and still losing at least this much HP per second (net of heals).</summary>
+    public float PullBigDrainPctPerSec { get; set; } = 2f;
     /// <summary>No new big mit while HP is at least this and incoming damage is below IdleDamagePctPerSec
     /// (Rampart was going out at 100% HP, ~0%/s, with the pull nearly dead).</summary>
     public float IdleHpPercent { get; set; } = 95f;

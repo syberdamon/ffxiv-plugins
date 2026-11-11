@@ -39,10 +39,12 @@ public static class PlanGenerator
         var plan = new List<PlanEntry>();
         var notes = new List<string>();
 
+        if (HealerKits.For(jobId) is { } healer) return GenerateHealer(config, fight, timeline, healer, catalog);
+
         var kit = TankKits.For(jobId);
         if (kit == null)
         {
-            notes.Add("Starter plans are tank-only for now.");
+            notes.Add("Starter plans are for tanks and healers.");
             return new(plan, notes);
         }
 
@@ -127,6 +129,103 @@ public static class PlanGenerator
         return new(plan, notes);
     }
 
+    // ================================================================ healers
+
+    /// <summary>A second shield on the same buster goes this much earlier (animation lock).</summary>
+    private const float HealerStagger = 0.75f;
+
+    /// <summary>
+    /// Healer starter plan (agreed with syberdamon; picks are a first cut, see <see cref="HealerKits"/>):
+    ///   Tank busters: up to two off-GCD shields/mits on the tank, only when the buster targets a
+    ///     tank (any tank, for shared busters). None back in time: the GCD shield, as a callout.
+    ///   Raid-wides (and stacks in raids): one party mit each, the first in the kit's order that's
+    ///     back; ground heals at the arena center. None back: the GCD party shield, as a callout.
+    ///   Everything finishes <see cref="Configuration.HealerLeadSeconds"/> before the hit.
+    /// </summary>
+    private static Result GenerateHealer(Configuration config, FightDefinition fight, Timeline timeline, HealerKit kit,
+        IReadOnlyList<CatalogEntry> catalog)
+    {
+        var plan = new List<PlanEntry>();
+        var notes = new List<string>();
+        var missing = new HashSet<uint>();
+        bool Has(uint id)
+        {
+            if (catalog.Any(c => c.ActionId == id)) return true;
+            if (missing.Add(id)) notes.Add($"Action {id} isn't available on {kit.Job} at this level (or the ID is wrong); skipped.");
+            return false;
+        }
+
+        var busters = FirstPass(config, fight, timeline, MechanicType.TankBuster)
+            .Concat(FirstPass(config, fight, timeline, MechanicType.SharedTankBuster))
+            .OrderBy(e => e.FightTime).ToList();
+        if (busters.Count == 0) notes.Add("This fight has no mechanics tagged as tank busters (yet: head-marker busters are learned in the first pull).");
+        foreach (var ev in busters)
+            AddHealerBusterMits(config, plan, timeline, catalog, notes, kit, Has, ev);
+
+        var stacksCount = fight.Category.Contains("Raid") || fight.Category.Contains("Ultimate");
+        var raidwides = FirstPass(config, fight, timeline, MechanicType.Raidwide)
+            .Concat(stacksCount ? FirstPass(config, fight, timeline, MechanicType.Stack) : Enumerable.Empty<TimelineEvent>())
+            .OrderBy(e => e.FightTime).ThenBy(e => e.Index).ToList();
+        var gaps = new List<string>();
+        var gcdOnly = 0;
+        foreach (var ev in raidwides)
+        {
+            var added = false;
+            foreach (var id in kit.Raidwide.Where(Has))
+                if (TryAdd(plan, timeline, catalog, null, HealerEntry(config, ev, id, catalog, TargetCondition.Always, EntryPlacement.ArenaCenter), ev, "Party mit"))
+                { added = true; break; }
+            if (added) continue;
+            foreach (var id in kit.RaidwideGcd.Where(Has))
+                if (TryAdd(plan, timeline, catalog, null, HealerEntry(config, ev, id, catalog, TargetCondition.Always, EntryPlacement.Default), ev, "GCD party shield"))
+                { added = true; gcdOnly++; break; }
+            if (!added) gaps.Add(Label(ev));
+        }
+        if (raidwides.Count > 0)
+            notes.Add($"Raid-wides{(stacksCount ? " and stacks" : "")}: {raidwides.Count}, each with one party mit (ground heals at the arena center).");
+        if (gcdOnly > 0)
+            notes.Add($"{gcdOnly} raid-wide(s) only get the GCD party shield (no off-GCD mit back in time); GCD spells are callouts unless you tick 'GCD auto' on them.");
+        if (gaps.Count > 0)
+            notes.Add("Nothing back in time for: " + string.Join("; ", gaps) + ".");
+        if (kit.ResourceNote != null) notes.Add(kit.ResourceNote);
+
+        notes.Insert(0, $"Everything is timed to finish {config.HealerLeadSeconds:0.#}s before the hit (Settings: Display); cast times and Eukrasia are added automatically.");
+        return new(plan, notes);
+    }
+
+    /// <summary>Shields for one buster: up to two off-GCDs, else the GCD shield. Returns how many were added.</summary>
+    private static int AddHealerBusterMits(Configuration config, List<PlanEntry> plan, Timeline timeline, IReadOnlyList<CatalogEntry> catalog,
+        List<string>? notes, HealerKit kit, System.Func<uint, bool> has, TimelineEvent ev)
+    {
+        var added = 0;
+        foreach (var id in kit.Buster.Where(has))
+        {
+            var e = HealerEntry(config, ev, id, catalog, TargetCondition.IfTankTargeted, EntryPlacement.OnTank);
+            e.LeadSeconds += added * HealerStagger;
+            if (TryAdd(plan, timeline, catalog, null, e, ev, "Tank shield")) added++;
+            if (added == 2) return added;
+        }
+        if (added > 0) return added;
+        foreach (var id in kit.BusterGcd.Where(has))
+            if (TryAdd(plan, timeline, catalog, null, HealerEntry(config, ev, id, catalog, TargetCondition.IfTankTargeted, EntryPlacement.OnTank), ev, "GCD tank shield"))
+            {
+                notes?.Add($"{Label(ev)}: no off-GCD shield back in time; GCD shield planned (callout unless 'GCD auto').");
+                return 1;
+            }
+        notes?.Add($"{Label(ev)}: nothing back in time to shield the tank.");
+        return 0;
+    }
+
+    private static PlanEntry HealerEntry(Configuration config, TimelineEvent ev, uint actionId, IReadOnlyList<CatalogEntry> catalog,
+        TargetCondition condition, EntryPlacement placement)
+    {
+        var ability = catalog.FirstOrDefault(c => c.ActionId == actionId);
+        var e = Entry(ev, actionId, config.HealerLeadSeconds, condition);
+        // Placement only means something for ground heals and spells cast on someone.
+        e.Placement = ability != null && (ability.IsGround || ability.CanTargetAlly) ? placement : EntryPlacement.Default;
+        if (ability is { IsGround: true } && e.Placement == EntryPlacement.Default) e.Placement = EntryPlacement.ArenaCenter;
+        return e;
+    }
+
     private sealed record BusterTools(TankKit Kit, TankRole Role, bool Short, bool Big, bool Rampart, bool Secondary, bool Sent);
 
     /// <summary>
@@ -167,6 +266,23 @@ public static class PlanGenerator
         uint jobId, IReadOnlyList<CatalogEntry> catalog, string label)
     {
         var added = new List<string>();
+        if (HealerKits.For(jobId) is { } healer)
+        {
+            var hplan = config.PlanFor(fight.TerritoryId, jobId);
+            bool HasH(uint id) => catalog.Any(c => c.ActionId == id);
+            foreach (var ev in new[] { MechanicType.TankBuster, MechanicType.SharedTankBuster }
+                         .SelectMany(ty => FirstPass(config, fight, timeline, ty)).Where(e => e.Label == label))
+            {
+                if (hplan.Any(p => p.EventKey == ev.Key)) continue;
+                var before = hplan.Count;
+                AddHealerBusterMits(config, hplan, timeline, catalog, null, healer, HasH, ev);
+                foreach (var entry in hplan.Skip(before))
+                    added.Add($"{catalog.FirstOrDefault(c => c.ActionId == entry.ActionId)?.Name ?? entry.ActionId.ToString()} @ {Label(ev)}");
+            }
+            if (added.Count > 0) config.Save();
+            return added;
+        }
+
         var kit = TankKits.For(jobId);
         if (kit == null) return added;
 
