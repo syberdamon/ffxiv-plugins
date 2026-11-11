@@ -44,7 +44,7 @@ public static unsafe class PlanCheck
                 .Select(g => g.First())
                 .Select(p => (Entry: p, Event: timeline.Events.FirstOrDefault(e => e.Key == p.EventKey)))
                 .Where(u => u.Event != null)
-                .Select(u => (u.Entry, Event: u.Event!, At: u.Event!.FightTime - u.Entry.LeadSeconds))
+                .Select(u => (u.Entry, Event: u.Event!, At: u.Event!.FightTime - Timing.PressBefore(u.Entry)))
                 .OrderBy(u => u.At)
                 .ToList();
 

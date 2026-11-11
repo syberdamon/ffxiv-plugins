@@ -10,7 +10,11 @@ namespace MitPlanner;
 
 /// <summary>An ability the current job can use that has its own cooldown.</summary>
 /// <param name="CanTargetAlly">The game lets this target another party member (OT Sent Mits).</param>
-public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Level, float RecastSeconds, bool CanTargetAlly);
+/// <param name="IsGcd">On the global cooldown (healer shields like Adloquium): callouts only unless allowed.</param>
+/// <param name="CastSeconds">Base cast time from the sheet (live, spell-speed-adjusted value: <see cref="Timing"/>).</param>
+/// <param name="IsGround">Ground-targeted (Asylum, Sacred Soil, Earthly Star, Liturgy of the Bell).</param>
+public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Level, float RecastSeconds, bool CanTargetAlly,
+    bool IsGcd = false, float CastSeconds = 0, bool IsGround = false);
 
 /// <summary>
 /// Builds the list of cooldown abilities for a job straight from game data, so every combat job
@@ -107,7 +111,22 @@ public static unsafe class ActionCatalog
                 live.Icon,
                 baseRow.ClassJobLevel,
                 live.Recast100ms / 10f,
-                live.CanTargetParty));
+                live.CanTargetParty,
+                CastSeconds: live.Cast100ms / 10f,
+                IsGround: live.TargetArea));
+        }
+
+        // Healers: the GCD shields their plans use (Adloquium, Eukrasian Diagnosis, ...). Eukrasian
+        // spells aren't player actions of their own (Diagnosis turns into one), so they're looked up directly.
+        var sheet = Plugin.DataManager.GetExcelSheet<Action>();
+        foreach (var id in HealerKits.CatalogGcds(jobId))
+        {
+            if (entries.Any(e => e.ActionId == id) || sheet.GetRowOrDefault(id) is not { } row || row.ClassJobLevel > level) continue;
+            var liveId = am != null ? am->GetAdjustedActionId(HealerKits.PressId(id)) : id;
+            // Show the upgrade you have (Succor -> Concitation) unless it's the Eukrasia form of the button.
+            var shown = HealerKits.PressId(id) == id && sheet.GetRowOrDefault(liveId) is { } up && up.ClassJobLevel <= level ? up : row;
+            entries.Add(new CatalogEntry(id, shown.Name.ExtractText(), shown.Icon, row.ClassJobLevel,
+                shown.Recast100ms / 10f, shown.CanTargetParty, IsGcd: true, CastSeconds: shown.Cast100ms / 10f, IsGround: shown.TargetArea));
         }
 
         return entries.OrderBy(e => e.Level).ThenBy(e => e.Name).ToList();

@@ -14,7 +14,7 @@ namespace MitPlanner;
 /// </summary>
 public sealed class BusterGuard : IDisposable
 {
-    private sealed record Press(uint ActionId, DateTime NotBefore, DateTime GiveUpAt)
+    private sealed record Press(uint ActionId, DateTime NotBefore, DateTime GiveUpAt, ulong TargetId = 0)
     {
         public DateTime LastPress { get; set; } = DateTime.MinValue;
     }
@@ -62,6 +62,11 @@ public sealed class BusterGuard : IDisposable
             if (!fight.MarkerKinds.TryGetValue(markerId, out var kind) || !kind.IsBuster()) return;
 
             var me = Plugin.ObjectTable.LocalPlayer;
+            if (me != null && HealerKits.For(me.ClassJob.RowId) is { } healer)
+            {
+                OnHealerMarker(healer, entityId, kind);
+                return;
+            }
             var kit = me != null ? TankKits.For(me.ClassJob.RowId) : null;
             if (me == null || kit == null) return;
 
@@ -111,6 +116,42 @@ public sealed class BusterGuard : IDisposable
     }
 
     /// <summary>
+    /// Healers: a tank-buster marker (any kind) landed on a tank and nothing planned covers it:
+    /// the first off-GCD tank shield that's off cooldown, cast on that tank. One, not all: the
+    /// tank has their own mits too. GCD shields are never pressed here.
+    /// </summary>
+    private void OnHealerMarker(HealerKit kit, uint entityId, MechanicType kind)
+    {
+        if (!IsPartyTank(entityId)) return;
+        if ((DateTime.UtcNow - lastReaction).TotalSeconds < 6) return;
+        lastReaction = DateTime.UtcNow;
+        if (Plugin.ObjectTable.SearchByEntityId(entityId) is not { } tank) return;
+
+        var catalog = ActionCatalog.ForCurrentJob();
+        var shields = kit.Buster.Where(id => catalog.Any(c => c.ActionId == id)).ToList();
+        // Covered: one was used in the last few seconds, or the plan has one coming in the next 10 s.
+        foreach (var id in shields)
+        {
+            var recast = catalog.First(c => c.ActionId == id).RecastSeconds;
+            var st = ActionState.Get(id);
+            if (st.OnCooldown && recast > 0 && recast - st.Remaining <= RecentlyUsedSeconds) return;
+        }
+        if (tracker.Active.Any(p => shields.Contains(p.Entry.ActionId) && !p.Skipped && !p.NotReady && !p.Done &&
+                                    p.SecondsToHit >= -0.5f && p.SecondsToHit <= 10)) return;
+
+        var pick = shields.FirstOrDefault(id => !ActionState.Get(id).OnCooldown);
+        var who = tank.Name.TextValue;
+        var what = kind == MechanicType.SharedTankBuster ? "Shared tank buster" : $"Tank buster on {who}";
+        if (pick == 0) { Show($"{what}: no tank shield off cooldown!"); return; }
+
+        var name = catalog.First(c => c.ActionId == pick).Name;
+        var auto = config.AllowAutoUse;
+        Show($"{what}: {(auto ? "using" : "use")} {name} on {who}");
+        Plugin.ChatGui.Print($"[MitPlanner] {what}, not covered by the plan: {(auto ? "using" : "use")} {name} on {who}.");
+        if (auto) queue.Add(new Press(pick, DateTime.UtcNow, DateTime.UtcNow.AddSeconds(4), tank.GameObjectId));
+    }
+
+    /// <summary>
     /// Already handled if a heavy mit was used in the last few seconds, or the plan has one
     /// coming for a mechanic in the next 10 s that applies to you.
     /// </summary>
@@ -146,6 +187,7 @@ public sealed class BusterGuard : IDisposable
         if (ActionState.Get(press.ActionId).OnCooldown || now > press.GiveUpAt) { queue.RemoveAt(0); return; }
         if ((now - press.LastPress).TotalSeconds < PlanTracker.AutoRetrySeconds) return;
         press.LastPress = now;
-        ActionState.Use(press.ActionId);
+        if (press.TargetId != 0) ActionState.Use(press.ActionId, press.TargetId);
+        else ActionState.Use(press.ActionId);
     }
 }
