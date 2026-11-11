@@ -96,12 +96,24 @@ public static unsafe class GameUi
     /// Advance an NPC's dialogue box ("Talk"): a mouse click on the window, which is what the game
     /// listens for (FireCallback doesn't advance it).
     /// </summary>
+    /// <remarks>
+    /// The event must name the window as its listener and the UI stage as its target: the game's
+    /// handler reads them, and a blank event crashed the game (null read in Talk's ReceiveEvent).
+    /// Same event ECommons' AddonMaster.Talk.Click sends: flags 132, mouse down then click.
+    /// </remarks>
     public static void ClickTalk(AtkUnitBase* talk)
     {
+        if (talk == null) return;
+        var stage = AtkStage.Instance();
+        if (stage == null) return;
         var evt = stackalloc AtkEvent[1];
         evt[0] = default;
+        evt[0].Listener = (AtkEventListener*)talk;
+        evt[0].Target = &stage->AtkEventTarget;
+        evt[0].State.StateFlags = (AtkEventStateFlags)132;
         var data = stackalloc AtkEventData[1];
         data[0] = default;
+        talk->ReceiveEvent(AtkEventType.MouseDown, 0, evt, data);
         talk->ReceiveEvent(AtkEventType.MouseClick, 0, evt, data);
     }
 
