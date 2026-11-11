@@ -1,0 +1,69 @@
+{
+ "territory": 1044,
+ "zoneKey": "the Praetorium",
+ "path": "learned/1044",
+ "category": "Learned",
+ "tags": {
+  "Ceruleum Vent": "Raidwide",
+  "Prototype Laser Alpha": "Mechanic",
+  "Prototype Laser Beta": "Mechanic",
+  "Iron Kiss": "Raidwide",
+  "Grand Sword": "Mechanic",
+  "Spine Shatter": "TankBuster",
+  "Augmented Shatter": "Stack",
+  "Iron Uprising": "Mechanic",
+  "Activate": "Mechanic",
+  "Augmented Uprising": "Mechanic",
+  "Augmented Suffering": "Raidwide",
+  "Wheel of Suffering": "Mechanic",
+  "Horrida Bella": "Raidwide",
+  "Terminus Est": "Mechanic",
+  "Phantasmata": "Mechanic",
+  "Innocence": "TankBuster",
+  "Festina Lente": "Stack",
+  "Ductus": "Mechanic",
+  "Hand of the Empire": "Raidwide",
+  "Heirsbane": "Stack",
+  "Veni Vidi Vici": "Raidwide"
+ },
+ "triggerIds": {
+  "Raidwide": [
+   "6F38",
+   "6F3A",
+   "6F3C",
+   "6F4C",
+   "6F4F",
+   "6F53"
+  ],
+  "Mechanic": [
+   "6F34",
+   "6F37",
+   "6F39",
+   "6F3E",
+   "6F3F",
+   "6F41",
+   "6F42",
+   "6F44",
+   "6F47",
+   "6F48",
+   "6F4B",
+   "717B"
+  ],
+  "TankBuster": [
+   "6F43",
+   "6F4E"
+  ],
+  "Stack": [
+   "6F3D",
+   "6F4D",
+   "6F52"
+  ]
+ },
+ "headMarkers": {},
+ "kills": {
+  "Mark II Magitek Colossus": 2,
+  "Nero tol Scaeva": 2,
+  "Gaius van Baelsar": 2
+ },
+ "trusted": true
+}

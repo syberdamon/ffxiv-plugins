@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
@@ -16,6 +17,9 @@ public sealed class ConfigWindow : Window
     private string abilitySearch = "";
     private string fightSearch = "";
     private System.Collections.Generic.List<string> generatorNotes = new();
+    private bool edited;           // the plan table changed something this frame
+    private bool editingDefault;   // ...on a scratch copy of Default (becomes "Default - custom")
+    private string renameBuffer = "";
     private Configuration Config => plugin.Configuration;
 
     public ConfigWindow(Plugin plugin) : base("Mit Planner - Options###MPConfig")
@@ -86,18 +90,41 @@ public sealed class ConfigWindow : Window
         ImGui.SameLine();
         ImGui.TextDisabled($"Plan for {jobName} (switch job to edit another job's plan)");
 
-        // MT and OT plans are separate; this also sets which one runs in the fight.
-        var role = (int)Config.Role;
-        ImGui.TextUnformatted("Role:");
-        ImGui.SameLine();
-        var roleChanged = ImGui.RadioButton("MT plan", ref role, (int)TankRole.MainTank);
-        ImGui.SameLine();
-        roleChanged |= ImGui.RadioButton("OT plan", ref role, (int)TankRole.OffTank);
-        if (roleChanged) { Config.Role = (TankRole)role; Config.Save(); }
-        ImGui.SameLine();
-        ImGui.TextDisabled("(the selected role's plan is the one that runs)");
+        // MT and OT plans are separate; this also sets which one runs in the fight. Healers have one plan per job.
+        var isHealer = HealerKits.IsHealer(jobId);
+        if (isHealer)
+        {
+            ImGui.TextUnformatted("Healer plan");
+            ImGui.SameLine();
+            ImGui.TextDisabled($"(one per job; shields finish {Config.HealerLeadSeconds:0.#}s before the hit by default: Display tab)");
+        }
+        else
+        {
+            var role = (int)Config.Role;
+            ImGui.TextUnformatted("Role:");
+            ImGui.SameLine();
+            var roleChanged = ImGui.RadioButton("MT plan", ref role, (int)TankRole.MainTank);
+            ImGui.SameLine();
+            roleChanged |= ImGui.RadioButton("OT plan", ref role, (int)TankRole.OffTank);
+            if (roleChanged) { Config.Role = (TankRole)role; Config.Save(); }
+            ImGui.SameLine();
+            ImGui.TextDisabled("(the selected role's plan is the one that runs)");
+        }
+        if (isHealer) DrawArenaCenter(fight);
 
-        var plan = Config.PlanFor(fight.TerritoryId, jobId, Config.Role);
+        // ---- Which plan: Default (auto) / Default - custom / your own. The one picked here runs.
+        var set = Config.SetFor(fight.TerritoryId, jobId, Config.Role);
+        var planKey = Configuration.PlanKey(fight.TerritoryId, jobId, Config.Role);
+        plugin.Library.EnsureDefault(fight, jobId, Config.Role); // throttled; never mid-pull
+        DrawPlanPicker(set, jobId);
+        var active = Configuration.ActiveOf(set);
+        editingDefault = active?.IsDefault == true;
+        // Default is never edited in place: edits go to a scratch copy that becomes "Default - custom".
+        var plan = active == null ? new System.Collections.Generic.List<PlanEntry>()
+                 : editingDefault ? PlanLibrary.Clone(active.Entries, newIds: false)
+                 : active.Entries;
+        edited = false;
+
         var catalog = ActionCatalog.ForFight(fight);
         if (fight.SyncLevel > 0 && fight.SyncLevel < player.Level)
             ImGui.TextColored(Style.Warning, $"Level sync {fight.SyncLevel}: planning with the abilities you'll have at level {fight.SyncLevel}.");
@@ -116,42 +143,66 @@ public sealed class ConfigWindow : Window
             transferMessage = $"Copied {plan.Count} entries.";
         }
         ImGui.SameLine();
-        if (ImGui.SmallButton("Paste plan (replaces this role's plan for this fight)"))
+        if (ImGui.SmallButton("Paste as a new plan"))
         {
             var imported = PlanTransfer.Import(ImGui.GetClipboardText(), fight, jobId, Config.Role, out var error);
             if (imported != null)
             {
-                Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId, Config.Role)] = imported;
-                Config.Save();
-                plan = imported;
-                transferMessage = $"Pasted {imported.Count} entries.";
+                plugin.Library.Add(set, "Pasted", imported);
+                transferMessage = $"Pasted {imported.Count} entries as a new plan.";
             }
             else transferMessage = error;
         }
         if (transferMessage != null) { ImGui.SameLine(); ImGui.TextDisabled(transferMessage); }
 
-        // Rule-based starter plan for tanks (replaces this role's plan; Ctrl+click when one exists).
-        var replacing = plan.Count > 0;
-        if (ImGui.SmallButton(replacing ? "Generate starter plan (Ctrl+click: replaces this role's plan)" : "Generate starter plan") &&
-            (!replacing || ImGui.GetIO().KeyCtrl))
+        // Rule-based plan: Default rebuilds itself; your own plans can be replaced with it (Ctrl+click).
+        if (PlanLibrary.CanGenerate(jobId))
         {
-            var result = PlanGenerator.Generate(Config, fight, timeline, jobId, Config.Role, catalog);
-            Config.Plans[Configuration.PlanKey(fight.TerritoryId, jobId, Config.Role)] = result.Plan;
-            Config.Save();
-            plan = result.Plan;
-            conflicts = PlanCheck.Run(timeline, plan, catalog);
-            generatorNotes = result.Notes;
-            generatorNotes.Insert(0, $"Generated {result.Plan.Count} entries for {Configuration.RoleCode(Config.Role)}.");
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Tank busters: MT gets Short + Big (or Rampart + Secondary if Big isn't back);\n" +
-                             "OT sends its Short mit to whoever is targeted.\n" +
-                             "Raid-wides alternate: MT takes #1, #3...; OT #2, #4... (Reprisal + party mit).\n" +
-                             "No invulns. Edit freely afterwards.");
-        if (generatorNotes.Count > 0)
-        {
+            if (editingDefault)
+            {
+                if (ImGui.SmallButton("Rebuild Default now"))
+                {
+                    plugin.Library.EnsureDefault(fight, jobId, Config.Role, force: true);
+                    generatorNotes = plugin.Library.Notes.GetValueOrDefault(planKey) ?? new();
+                }
+            }
+            else if (active == null || set.Plans.All(p => !p.IsDefault))
+            {
+                if (ImGui.SmallButton("Bring back Default"))
+                {
+                    set.DefaultDeleted = false;
+                    plugin.Library.EnsureDefault(fight, jobId, Config.Role, force: true);
+                    if (set.Plans.FirstOrDefault(p => p.IsDefault) is { } d) { set.ActiveId = d.Id; Config.Save(); }
+                }
+            }
+            if (active != null && !editingDefault)
+            {
+                if (set.Plans.Any(p => p.IsDefault)) ImGui.SameLine();
+                if (ImGui.SmallButton("Replace with generated plan (Ctrl+click)") && ImGui.GetIO().KeyCtrl)
+                {
+                    var result = PlanGenerator.Generate(Config, fight, timeline, jobId, Config.Role, catalog);
+                    active.Entries = result.Plan;
+                    plan = result.Plan;
+                    Config.Save();
+                    conflicts = PlanCheck.Run(timeline, plan, catalog);
+                    generatorNotes = result.Notes;
+                    generatorNotes.Insert(0, $"Replaced '{active.Name}' with {result.Plan.Count} generated entries.");
+                }
+            }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(isHealer
+                    ? "Tank busters: up to two off-GCD shields on the tank, when a tank is targeted\n" +
+                      "(none back in time: the GCD shield, as a callout).\n" +
+                      "Raid-wides: one party mit each; ground heals at the arena center\n" +
+                      "(none back in time: the GCD party shield, as a callout)."
+                    : "Tank busters: MT gets Short + Big (or Rampart + Secondary if Big isn't back);\n" +
+                      "OT sends its Short mit to whoever is targeted.\n" +
+                      "Raid-wides alternate: MT takes #1, #3...; OT #2, #4... (Reprisal + party mit).\n" +
+                      "No invulns.");
+            ImGui.SameLine();
+            if (ImGui.SmallButton(generatorNotes.Count > 0 ? "Hide notes" : "Generator notes"))
+                generatorNotes = generatorNotes.Count > 0 ? new() : plugin.Library.Notes.GetValueOrDefault(planKey) ?? new() { "No notes yet." };
             foreach (var n in generatorNotes) ImGui.TextDisabled("  " + n);
-            if (ImGui.SmallButton("Hide notes")) generatorNotes.Clear();
         }
 
         // Drag a header to reorder, drag a column edge to resize; ImGui remembers the layout.
@@ -162,7 +213,7 @@ public sealed class ConfigWindow : Window
         ImGui.TableSetupColumn("Fight time", ImGuiTableColumnFlags.WidthFixed, 96);
         ImGui.TableSetupColumn("Mechanic", ImGuiTableColumnFlags.WidthFixed, 200);
         ImGui.TableSetupColumn("Type", ImGuiTableColumnFlags.WidthFixed, 110);
-        ImGui.TableSetupColumn("Cooldowns (press N seconds early; Auto = plugin presses it)", ImGuiTableColumnFlags.WidthFixed, 640);
+        ImGui.TableSetupColumn("Cooldowns (done N seconds early; Auto = plugin presses it)", ImGuiTableColumnFlags.WidthFixed, 860);
         ImGui.TableHeadersRow();
 
         var multi = timeline.Events.Where(e => !e.Hidden).GroupBy(e => e.Label).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
@@ -198,6 +249,94 @@ public sealed class ConfigWindow : Window
             ImGui.PopID();
         }
         ImGui.EndTable();
+        CommitEdits(set, active, plan);
+    }
+
+    // ================================================================ Plans
+
+    /// <summary>Something in the plan table changed this frame.</summary>
+    private void Edited() => edited = true;
+
+    /// <summary>
+    /// Save this frame's edits. Default isn't edited in place: the edited copy is saved as
+    /// "Default - custom" and runs from now on. No plan yet (jobs without a Default): "My plan".
+    /// </summary>
+    private void CommitEdits(PlanSet set, NamedPlan? active, System.Collections.Generic.List<PlanEntry> plan)
+    {
+        if (!edited) return;
+        edited = false;
+        if (active == null) plugin.Library.Add(set, "My plan", plan);
+        else if (active.IsDefault)
+        {
+            var custom = plugin.Library.ForkDefault(set, active, PlanLibrary.Clone(plan, newIds: false)); // same IDs: a drag in progress carries on
+            transferMessage = $"Your change to Default was saved as '{custom.Name}', which runs now.";
+        }
+        else Config.Save();
+    }
+
+    /// <summary>Pick the plan that runs; New / Copy / Rename / Delete.</summary>
+    private void DrawPlanPicker(PlanSet set, uint jobId)
+    {
+        static string Label(NamedPlan p) => p.IsDefault ? "Default (auto)" : p.Name;
+        var active = Configuration.ActiveOf(set);
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.BeginCombo("Plan", active != null ? Label(active) : "(no plan yet)"))
+        {
+            foreach (var p in set.Plans)
+                if (ImGui.Selectable($"{Label(p)}  ({p.Entries.Count})##{p.Id}", p == active))
+                {
+                    set.ActiveId = p.Id;
+                    Config.Save();
+                    generatorNotes = new();
+                }
+            if (set.Plans.Count == 0) ImGui.TextDisabled(PlanLibrary.CanGenerate(jobId) ? "Default appears here once it's built." : "Add a cooldown below to start a plan.");
+            ImGui.EndCombo();
+        }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("The plan picked here is the one that runs in this fight.");
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("New")) plugin.Library.Add(set, "New plan", new());
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("An empty plan (it runs once made; pick another to switch back).");
+        if (active == null) return;
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Copy")) plugin.Library.Add(set, active.IsDefault ? PlanLibrary.CustomName : $"{active.Name} copy", PlanLibrary.Clone(active.Entries, newIds: true));
+        ImGui.SameLine();
+        if (active.IsDefault) ImGui.BeginDisabled();
+        if (ImGui.SmallButton("Rename")) { renameBuffer = active.Name; ImGui.OpenPopup("##rename"); }
+        if (active.IsDefault) ImGui.EndDisabled();
+        if (active.IsDefault && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Default is rebuilt automatically, so it keeps its name. Copy it to make your own.");
+        if (ImGui.BeginPopup("##rename"))
+        {
+            ImGui.SetNextItemWidth(220);
+            if (ImGui.IsWindowAppearing()) ImGui.SetKeyboardFocusHere();
+            var enter = ImGui.InputText("##name", ref renameBuffer, 48, ImGuiInputTextFlags.EnterReturnsTrue);
+            ImGui.SameLine();
+            if ((ImGui.Button("OK") || enter) && renameBuffer.Trim().Length > 0)
+            {
+                if (!renameBuffer.Trim().Equals(active.Name, StringComparison.OrdinalIgnoreCase))
+                    active.Name = PlanLibrary.UniqueName(set, renameBuffer);
+                Config.Save();
+                ImGui.CloseCurrentPopup();
+            }
+            ImGui.EndPopup();
+        }
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Delete (Ctrl+click)") && ImGui.GetIO().KeyCtrl)
+        {
+            plugin.Library.Delete(set, active);
+            generatorNotes = new();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(active.IsDefault
+                ? "Delete Default. It comes back only once this fight has no plans left (or 'Bring back Default')."
+                : $"Delete '{active.Name}'. Can't be undone.");
+
+        ImGui.TextDisabled(active.IsDefault
+            ? "Default is built from the current timeline and tags and kept up to date. Editing it saves your change as 'Default - custom', which then runs."
+            : active.FromDefault ? "Your edited copy of Default. Default itself keeps updating; pick it to switch back."
+            : "Your plan. It runs in this fight while it's picked here.");
     }
 
     private void DrawEntries(System.Collections.Generic.List<PlanEntry> plan, TimelineEvent e, System.Collections.Generic.IReadOnlyList<CatalogEntry> catalog,
@@ -219,11 +358,20 @@ public sealed class ConfigWindow : Window
             ImGui.SameLine();
             var lead = p.LeadSeconds;
             ImGui.SetNextItemWidth(60);
-            if (ImGui.DragFloat("##lead", ref lead, 0.1f, 0f, 30f, "%.1fs")) { p.LeadSeconds = lead; Config.Save(); }
+            if (ImGui.DragFloat("##lead", ref lead, 0.1f, 0f, 30f, "%.1fs")) { p.LeadSeconds = lead; Edited(); }
+            if (ImGui.IsItemHovered())
+            {
+                var extra = Timing.Extra(p.ActionId);
+                ImGui.SetTooltip(extra > 0.05f
+                    ? $"Done {p.LeadSeconds:0.0}s before the hit. Pressed {Timing.PressBefore(p):0.0}s before:\n" +
+                      $"+{extra:0.0}s for its cast time, a GCD that goes first (Eukrasia), one GCD of room\n" +
+                      "(the GCD may still be rolling), or Earthly Star maturing."
+                    : $"Pressed {p.LeadSeconds:0.0}s before the hit.");
+            }
             ImGui.SameLine();
             var cond = (int)p.Condition;
             ImGui.SetNextItemWidth(130);
-            if (ImGui.Combo("##cond", ref cond, Style.ConditionNames, Style.ConditionNames.Length)) { p.Condition = (TargetCondition)cond; Config.Save(); }
+            if (ImGui.Combo("##cond", ref cond, Style.ConditionNames, Style.ConditionNames.Length)) { p.Condition = (TargetCondition)cond; Edited(); }
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Who this mechanic hits decides whether to call it out / auto-press.\n" +
                                  "Checked live: head marker, then the boss's cast target, then who the boss is attacking.");
@@ -236,7 +384,7 @@ public sealed class ConfigWindow : Window
                 {
                     p.SendToTarget = send;
                     if (send && p.Condition == TargetCondition.Always) p.Condition = TargetCondition.IfNotTargeted;
-                    Config.Save();
+                    Edited();
                 }
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip("OT Sent Mits: cast this on whoever the mechanic targets (normally the MT),\n" +
@@ -245,11 +393,22 @@ public sealed class ConfigWindow : Window
             else if (ability != null && p.SendToTarget)
             {
                 p.SendToTarget = false; // self-only ability: can't be sent (e.g. from an older plan)
-                Config.Save();
+                if (!editingDefault) Edited();
             }
+            DrawPlacement(p, ability);
             ImGui.SameLine();
             var auto = p.AutoUse;
-            if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Config.Save(); }
+            if (ImGui.Checkbox("Auto", ref auto)) { p.AutoUse = auto; Edited(); }
+            if (ability?.IsGcd == true || HealerKits.Prereq(p.ActionId) != 0)
+            {
+                ImGui.SameLine();
+                var gcd = p.AllowGcdAutoUse;
+                if (ImGui.Checkbox("GCD auto", ref gcd)) { p.AllowGcdAutoUse = gcd; Edited(); }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("This is a GCD spell" + (HealerKits.Prereq(p.ActionId) != 0 ? " (with Eukrasia first)" : "") + ".\n" +
+                                     "Off: callout only. On: auto-use presses it too, which can cut off a spell\n" +
+                                     "you're casting or delay your rotation.");
+            }
             ImGui.SameLine();
             if (ImGui.SmallButton("x")) remove = p;
 
@@ -267,7 +426,7 @@ public sealed class ConfigWindow : Window
             }
             ImGui.PopID();
         }
-        if (remove != null) { plan.Remove(remove); Config.Save(); }
+        if (remove != null) { plan.Remove(remove); Edited(); }
 
         ImGui.SetNextItemWidth(180);
         if (ImGui.BeginCombo("##add", "+ Add cooldown", ImGuiComboFlags.HeightLarge))
@@ -297,21 +456,78 @@ public sealed class ConfigWindow : Window
             foreach (var c in list)
             {
                 any = true;
-                if (ImGui.Selectable($"{c.Name}  ({Style.ClockWithSeconds(c.RecastSeconds)})##{c.ActionId}"))
+                if (ImGui.Selectable($"{c.Name}  ({(c.IsGcd ? "GCD" : Style.ClockWithSeconds(c.RecastSeconds))})##{c.ActionId}"))
                 {
-                    // Tank-buster mits default to "only if I'm targeted".
+                    // Tank-buster mits default to "only if I'm targeted"; healers' to "if a tank is targeted", cast on the tank.
+                    var healer = HealerKits.IsHealer(Plugin.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0);
+                    var buster = type is MechanicType.TankBuster or MechanicType.SharedTankBuster;
                     plan.Add(new PlanEntry
                     {
                         EventKey = e.Key,
                         ActionId = c.ActionId,
-                        Condition = type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,  // shared busters hit both tanks
+                        LeadSeconds = healer ? Config.HealerLeadSeconds : 3f,
+                        Condition = healer ? (buster ? TargetCondition.IfTankTargeted : TargetCondition.Always)
+                                  : type == MechanicType.TankBuster ? TargetCondition.IfTargeted : TargetCondition.Always,  // shared busters hit both tanks
+                        Placement = c.IsGround ? (buster ? EntryPlacement.OnTank : EntryPlacement.ArenaCenter)
+                                  : c.CanTargetAlly && healer && buster ? EntryPlacement.OnTank : EntryPlacement.Default,
                         AutoUse = true, // still needs the Auto: ON switch
                     });
-                    Config.Save();
+                    Edited();
                 }
             }
             if (!any) ImGui.TextDisabled("No matching abilities.");
             ImGui.EndCombo();
+        }
+    }
+
+    /// <summary>Where it goes: ground heals (tank / me / boss / arena center) and spells you can cast on someone.</summary>
+    private void DrawPlacement(PlanEntry p, CatalogEntry? ability)
+    {
+        if (ability == null || p.SendToTarget) return;
+        string[] names;
+        EntryPlacement[] values;
+        if (ability.IsGround) { names = Placement.GroundNames; values = Placement.GroundValues; }
+        else if (ability.CanTargetAlly && HealerKits.IsHealer(Plugin.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0)) { names = Placement.AllyNames; values = Placement.AllyValues; }
+        else return;
+
+        var idx = Array.IndexOf(values, p.Placement);
+        if (idx < 0) idx = ability.IsGround ? Array.IndexOf(values, EntryPlacement.OnSelf) : 0;
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.Combo("##place", ref idx, names, names.Length)) { p.Placement = values[idx]; Edited(); }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(ability.IsGround
+                ? "Where auto-use places it. The tank: whoever the mechanic targets if that's a tank,\n" +
+                  "else the tank the boss is attacking. Arena center: BossMod Reborn's, a center you\n" +
+                  "saved (above the plan), or where the boss started, in that order."
+                : "Who auto-use casts it on. The tank: whoever the mechanic targets if that's a tank,\n" +
+                  "else the tank the boss is attacking.");
+    }
+
+    /// <summary>Save/clear this fight's arena center (used when BossMod Reborn can't give one).</summary>
+    private void DrawArenaCenter(FightDefinition fight)
+    {
+        var saved = Config.ArenaCenters.TryGetValue(fight.TerritoryId, out var c) ? c : null;
+        ImGui.TextUnformatted("Arena center:");
+        ImGui.SameLine();
+        ImGui.TextDisabled(saved != null ? $"saved ({saved.X:0.0}, {saved.Z:0.0})" : "not saved (BossMod Reborn or the boss's start position)");
+        var me = Plugin.ObjectTable.LocalPlayer;
+        var inZone = Plugin.ClientState.TerritoryType == fight.TerritoryId;
+        ImGui.SameLine();
+        if (!inZone) ImGui.BeginDisabled();
+        if (ImGui.SmallButton("Set arena center here") && me != null)
+        {
+            Config.ArenaCenters[fight.TerritoryId] = SavedPoint.From(me.Position);
+            Config.Save();
+        }
+        if (!inZone) ImGui.EndDisabled();
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(inZone ? "Stand in the middle of the arena and click. Used when BossMod Reborn has no proper\nmodule for this boss (it's checked live in the pull)."
+                                    : "Be in this fight's zone to save its center.");
+        if (saved != null)
+        {
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Clear##center")) { Config.ArenaCenters.Remove(fight.TerritoryId); Config.Save(); }
         }
     }
 
@@ -360,11 +576,20 @@ public sealed class ConfigWindow : Window
         if (ImGui.Checkbox("Allow auto-use (only for plan entries ticked 'Auto')", ref allowAuto)) { Config.AllowAutoUse = allowAuto; Config.Save(); }
         ImGui.TextDisabled("Auto-use presses combat actions for you. That's automation: same risk category as Tank Stance Manager.");
 
+        var hlead = Config.HealerLeadSeconds;
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.DragFloat("Healers: shields finish this long before the hit", ref hlead, 0.1f, 0f, 15f, "%.1fs"))
+        { Config.HealerLeadSeconds = Math.Clamp(hlead, 0f, 15f); Config.Save(); }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Default for new and generated healer entries (each entry can be changed).\n" +
+                             "Cast time, Eukrasia first, and Earthly Star's 10 s to mature are added on top.");
+
         var react = Config.ReactToBusterMarkers;
         if (ImGui.Checkbox("Cover unplanned tank busters (cactbot tank-buster markers)", ref react)) { Config.ReactToBusterMarkers = react; Config.Save(); }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Tank-buster marker on you, or a shared-buster marker on a tank, and nothing planned covers it:\n" +
                              "call out the best mits off cooldown (Big, else Rampart + Secondary; plus Short).\n" +
+                             "Healers: a tank-buster marker on a tank: the first off-GCD tank shield that's ready, on that tank.\n" +
                              "With auto-use allowed, it presses them too.");
         var autoPlan = Config.AutoPlanLearned;
         if (ImGui.Checkbox("Add learned tank busters to my plan", ref autoPlan)) { Config.AutoPlanLearned = autoPlan; Config.Save(); }
@@ -416,6 +641,17 @@ public sealed class ConfigWindow : Window
             t.PullShortHpPercent = F("Short mit while gathering below HP %", t.PullShortHpPercent, 0, 100, "%.0f");
             t.PullRampartHpPercent = F("Rampart while gathering (no short mit) below HP %", t.PullRampartHpPercent, 0, 100, "%.0f");
             t.PullShortMinMobs = I("  ...with at least this many mobs on you", t.PullShortMinMobs, 1, 20);
+            var big = t.PullBigWhenOut;
+            if (ImGui.Checkbox("Big mit while gathering when short, Reprisal and Rampart are all down", ref big)) { t.PullBigWhenOut = big; changed = true; }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Last resort for big gathers at low level (e.g. a second big pack right after the first).\n" +
+                                 "Only with this many mobs on you, below this HP, and still losing HP:");
+            if (t.PullBigWhenOut)
+            {
+                t.PullBigMinMobs = I("  ...mobs on you", t.PullBigMinMobs, 3, 30);
+                t.PullBigHpPercent = F("  ...below HP %", t.PullBigHpPercent, 0, 100, "%.0f");
+                t.PullBigDrainPctPerSec = F("  ...losing at least %/s", t.PullBigDrainPctPerSec, 0, 30, "%.1f");
+            }
             t.IdleHpPercent = F("No new big mit at or above HP %...", t.IdleHpPercent, 0, 100, "%.0f");
             t.IdleDamagePctPerSec = F("  ...while taking less than %/s", t.IdleDamagePctPerSec, 0, 20, "%.1f");
         }
@@ -457,6 +693,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextUnformatted($"Clock: {(r.Running ? Style.Clock(r.Now) : "stopped")}{(r.Preview ? " (preview)" : "")}");
         ImGui.TextUnformatted($"Last sync: {r.LastSync}");
         ImGui.TextUnformatted($"Active callouts: {plugin.Tracker.Active.Count}");
+        ImGui.TextUnformatted($"Arena center: {plugin.Arena.Describe()}");
         ImGui.Spacing();
         ImGui.TextDisabled($"Bundled fights: {Fights.All.Count} (cactbot timelines, refreshed weekly)");
     }

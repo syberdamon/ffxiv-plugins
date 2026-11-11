@@ -4,6 +4,10 @@ Build cactbot-format boss timelines from Combat Recorder logs, for fights cactbo
 for (and, for checking the tool, ones it does).
 
     python3 tools/build_timeline.py LOG.jsonl.gz [LOG2.jsonl.gz ...] --out DIR [--min-kills 2]
+        [--ends-without-death "BOSS NAME" ...]
+
+--ends-without-death: a boss whose fight ends by script, not by dying (Praetorium's Gaius van
+Baelsar leaves). Its pulls count as kills when they ran at least 80% as long as its longest pull.
 
 All logs must be from the same zone. For each boss (an enemy with >= 8x your max HP, the same
 rule Mit Planner's Trash mode uses) and each pull of it:
@@ -258,7 +262,7 @@ def find_loop(lines, min_len=4, tol=1.5):
     return None
 
 
-def write(logs, out, min_kills):
+def write(logs, out, min_kills, no_death=()):
     zone, territory = logs[0].zone, logs[0].territory
     by_boss = defaultdict(list)
     party, mhp = {}, {}
@@ -275,7 +279,8 @@ def write(logs, out, min_kills):
     tags, trigger_ids, kills = {}, defaultdict(set), {}
     for b, (boss, bp) in enumerate(by_boss.items(), start=1):
         base = 1000.0 * b
-        kills[boss] = sum(1 for p in bp if p[1])
+        longest = max((p[3] for p in bp), default=0)
+        kills[boss] = sum(1 for p in bp if p[1] or (boss in no_death and longest > 0 and p[3] >= 0.8 * longest))
         lines = merge(bp)
         kinds = {}
         for act in {l["act"] for l in lines}:
@@ -337,12 +342,14 @@ def main():
     ap.add_argument("logs", nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument("--min-kills", type=int, default=2)
+    ap.add_argument("--ends-without-death", action="append", default=[], metavar="BOSS",
+                    help="boss whose fight ends without it dying; full-length pulls count as kills")
     a = ap.parse_args()
     logs = [Log(p) for p in a.logs]
     zones = {l.territory for l in logs}
     if len(zones) != 1:
         sys.exit(f"logs are from different zones: {zones}")
-    write(logs, a.out, a.min_kills)
+    write(logs, a.out, a.min_kills, set(a.ends_without_death))
 
 
 if __name__ == "__main__":

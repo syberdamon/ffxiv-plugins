@@ -46,6 +46,56 @@ Commands: `/mitplan` (settings), `/mitplan on` / `off` (run the plan), `/mitplan
 ## MT / OT
 Plans are kept separately for MT and OT (per fight, per job). The **Role: MT/OT**
 button on the timeline window (or `/mitplan mt|ot`) picks which one runs.
+Healers have one set of plans per job (no MT/OT).
+
+## Several plans per fight, and Default
+Each fight (per job, and per MT/OT for tanks) can have several named plans. The **Plan**
+dropdown on the Plan tab (also on the timeline window, between pulls) picks the one that runs.
+- **Default (auto):** tanks and healers get one for every fight with a timeline, built by the
+  starter-plan rules below from the current timeline and tags. It's rebuilt as that improves
+  (entering the zone, changing job, each pull start, and while the Plan tab shows it; never
+  mid-pull), so it picks up busters learned in earlier pulls.
+- **Editing Default** saves your change as **Default - custom**, which runs from then on.
+  Default itself keeps updating; pick it again to switch back.
+- **New / Copy / Rename / Delete (Ctrl+click)** for any plan. Deleting Default keeps it away
+  until the fight has no plans left (or **Bring back Default**).
+- Plans from before 0.10 became a plan called **Custom**, and still run.
+- With **Allow auto-use** on, Default's entries are auto-pressed like any other plan's
+  (they're generated with Auto ticked). Turn Auto off per entry, or pick an empty plan.
+
+## Healers
+Starter plan / Default for WHM, SCH, AST and SGE:
+- **Tank busters:** up to two off-GCD shields or mits, cast on the tank, only when the buster
+  targets a tank (*If a tank is targeted*). None back in time: the GCD shield instead.
+- **Raid-wides** (and stacks in raids): one party mit each, the first in the list that's back.
+  None back in time: the GCD party shield instead.
+- **Timing:** each entry is set for when it should be *done*, 3 s before the hit by default
+  (Display tab; per entry in the plan). Cast time is added on top, one GCD for a button that
+  has to go first (Sage: Eukrasia), one GCD of room for GCD spells (the GCD may still be
+  rolling), and 10 s for Earthly Star to mature before it's detonated.
+- **GCD spells** (Adloquium, Eukrasian Diagnosis/Prognosis, Aspected Benefic/Helios, Succor)
+  are callouts only unless you tick **GCD auto** on the entry: auto-pressing a GCD can cut off
+  a cast or delay your rotation.
+- **Placement:** ground heals (Asylum, Liturgy of the Bell, Sacred Soil, Earthly Star) can go
+  **on the tank**, **on me**, **on the boss**, or at the **arena center**; single-target
+  spells **on the tank** or **on me**. "The tank" = whoever the mechanic targets if that's a
+  tank, else the tank the boss is attacking.
+- **Arena center** comes from BossMod Reborn when it has a proper module for the boss (checked
+  live: its fallback "center" just follows you, so it has to be seen 7+ y from you once
+  in the pull), else a center you saved (**Set arena center here** on the Plan tab), else
+  where the boss was when first seen in the pull. Unknown: no auto-press, callout only.
+- **Unplanned buster markers:** a tank-buster marker on a tank and nothing planned covers it:
+  the first off-GCD tank shield that's ready, on that tank.
+
+| Job | Busters (off-GCD) | Busters (GCD) | Raid-wides (off-GCD) | Raid-wides (GCD) |
+|---|---|---|---|---|
+| WHM | Divine Benison, Aquaveil | none | Temperance, Liturgy of the Bell, Asylum | none |
+| SCH | Protraction, Excogitation | Adloquium | Sacred Soil, Expedient, Fey Illumination | Succor/Concitation |
+| AST | Exaltation, Celestial Intersection | Aspected Benefic | Collective Unconscious, Earthly Star | Aspected Helios/Helios Conjunction |
+| SGE | Haima, Taurochole | Eukrasian Diagnosis | Kerachole, Physis II, Holos, Panhaima | Eukrasian Prognosis |
+
+Aetherflow (SCH) and Addersgall (SGE) aren't visible to the cooldown check: keep stacks for
+Sacred Soil, Excogitation, Kerachole and Taurochole.
 
 ## Starter plans (tanks)
 Plan tab > **Generate starter plan** builds one from these rules:
@@ -122,7 +172,7 @@ QC uses the same fight time.
 ## Saving and moving plans
 Plans and tags save automatically, per fight and per job, in Dalamud's plugin
 settings on that PC. To move a plan to another PC (or share it): Plan tab >
-**Copy plan to clipboard**, then **Paste plan** on the other PC (same fight, same job).
+**Copy plan to clipboard**, then **Paste as a new plan** on the other PC (same fight, same job).
 
 ## Testing without a duty
 Display > **Preview** runs the timeline from 0 anywhere (no syncing, no auto-use),
@@ -185,6 +235,10 @@ Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
   wait until it has worn off **and** HP is below 70% (both configurable). Refill when it expires
   (Rampart / 40% / Arm's Length), Secondary to fill gaps, heals under 70% (party mits as
   heals allowed; Shake It Off never consumes WAR's buffs). No new big mits with under 6 s left.
+- **While gathering:** Short below 80% with 3+ mobs; with no Short to press, Reprisal, then
+  Rampart below 70%. Last resort for a big gather when Short, Reprisal and Rampart are all
+  down (e.g. a second big pack right after the first, at low level): the 40% with 6+ mobs,
+  below 70% and still losing HP (all configurable; switch on the Trash mode tab).
 - **Emergency** (also while moving): under 35% HP, or a big HP drop rate. **Invuln** when
   2 s (configurable) of incoming damage, with no heals, would kill you and no major mit is
   up or ready. Per-job invuln switches.

@@ -43,13 +43,16 @@ public sealed class TimelineWindow : Window
         var now = runner.Running ? runner.Now : 0;
 
         // Quick toggles: MT/OT role, run the plan at all, auto-use, callouts.
-        if (ToggleButton(config.Role == TankRole.OffTank ? "Role: OT" : "Role: MT", true))
+        if (!HealerKits.IsHealer(Plugin.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
         {
-            config.Role = config.Role == TankRole.OffTank ? TankRole.MainTank : TankRole.OffTank;
-            config.Save();
+            if (ToggleButton(config.Role == TankRole.OffTank ? "Role: OT" : "Role: MT", true))
+            {
+                config.Role = config.Role == TankRole.OffTank ? TankRole.MainTank : TankRole.OffTank;
+                config.Save();
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to switch between your MT and OT plans.");
+            ImGui.SameLine();
         }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to switch between your MT and OT plans.");
-        ImGui.SameLine();
         if (ToggleButton(config.PlanEnabled ? "Plan: ON" : "Plan: OFF", config.PlanEnabled))
         {
             config.PlanEnabled = !config.PlanEnabled;
@@ -69,6 +72,33 @@ public sealed class TimelineWindow : Window
             config.Save();
         }
         ImGui.EndDisabled();
+
+        // Which plan runs (Default / Default - custom / your own). Locked during a pull.
+        if (Plugin.ObjectTable.LocalPlayer is { } me)
+        {
+            var set = config.SetFor(fight.TerritoryId, me.ClassJob.RowId);
+            var active = Configuration.ActiveOf(set);
+            if (set.Plans.Count > 1 || active != null)
+            {
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(150);
+                var locked = runner.Running && !runner.Preview;
+                ImGui.BeginDisabled(locked);
+                if (ImGui.BeginCombo("##planpick", active == null ? "(no plan)" : active.IsDefault ? "Default (auto)" : active.Name))
+                {
+                    foreach (var p in set.Plans)
+                        if (ImGui.Selectable($"{(p.IsDefault ? "Default (auto)" : p.Name)}##{p.Id}", p == active))
+                        {
+                            set.ActiveId = p.Id;
+                            config.Save();
+                        }
+                    ImGui.EndCombo();
+                }
+                ImGui.EndDisabled();
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip(locked ? "Plan that runs (switch between pulls)." : "Plan that runs in this fight. Edit plans in /mitplan.");
+            }
+        }
         if (!runner.Running) { ImGui.SameLine(); ImGui.TextDisabled("Waiting for the pull..."); }
 
         var events = runner.Upcoming(config.UpcomingCount,
