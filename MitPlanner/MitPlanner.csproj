@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.9.8.0</Version>
+    <Version>0.10.0.0</Version>
     <Author>syberdamon</Author>
     <Name>Mit Planner</Name>
     <Punchline>Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.</Punchline>
-    <Description>Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job, and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.</Description>
+    <Description>Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job (tanks and healers get an automatic Default plan; keep several plans per fight), and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.</Description>
     <Tags>timeline;mitigation;cooldowns;raid;tank</Tags>
     <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

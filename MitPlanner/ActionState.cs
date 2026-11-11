@@ -94,6 +94,15 @@ public static unsafe class ActionState
         return detail != null && detail->IsActive && detail->ActionId == id && detail->Elapsed <= seconds;
     }
 
+    /// <summary>The GCD (recast group 58, index 57) started in the last <paramref name="seconds"/>, by anything.</summary>
+    public static bool GcdStartedWithin(float seconds)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        var detail = am->GetRecastGroupDetail(57);
+        return detail != null && detail->IsActive && detail->Elapsed <= seconds;
+    }
+
     /// <summary>Use on a specific target (OT Sent Mits: cast on the MT without targeting them).</summary>
     public static bool Use(uint baseActionId, ulong targetObjectId)
     {
