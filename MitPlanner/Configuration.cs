@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Configuration;
 
 namespace MitPlanner;
@@ -64,6 +65,32 @@ public class SavedPoint
     public static SavedPoint From(System.Numerics.Vector3 v) => new() { X = v.X, Y = v.Y, Z = v.Z };
 }
 
+/// <summary>
+/// One named plan for a fight + job (+ MT/OT for tanks). "Default" is generated from the current
+/// timeline and tags and rebuilt as they improve; editing it saves a "Default - custom" copy.
+/// </summary>
+[Serializable]
+public class NamedPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    /// <summary>The auto-generated plan: rebuilt from the generator, never edited in place by you.</summary>
+    public bool IsDefault { get; set; }
+    /// <summary>Made by editing Default ("Default - custom"): preferred over Default.</summary>
+    public bool FromDefault { get; set; }
+    public List<PlanEntry> Entries { get; set; } = new();
+}
+
+/// <summary>Every plan for one fight + job (+ MT/OT), and which one runs.</summary>
+[Serializable]
+public class PlanSet
+{
+    public List<NamedPlan> Plans { get; set; } = new();
+    public Guid ActiveId { get; set; }
+    /// <summary>You deleted Default: it's only rebuilt once this fight has no plans left.</summary>
+    public bool DefaultDeleted { get; set; }
+}
+
 /// <summary>Which tank you are this pull; plans are kept separately for each.</summary>
 public enum TankRole
 {
@@ -89,12 +116,15 @@ public enum AbilitySort
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 3;
+    public int Version { get; set; } = 4;
 
     /// <summary>MT or OT: picks which plan runs. Non-tanks just use the MT slot.</summary>
     public TankRole Role { get; set; } = TankRole.MainTank;
 
-    /// <summary>"territoryId:classJobId:MT|OT" -> plan.</summary>
+    /// <summary>"territoryId:classJobId:MT|OT|H" -> that fight's plans for that job (and tank slot).</summary>
+    public Dictionary<string, PlanSet> PlanSets { get; set; } = new();
+
+    /// <summary>Before v4: one unnamed plan per key. Moved into <see cref="PlanSets"/> as "Custom"; kept only to read old settings.</summary>
     public Dictionary<string, List<PlanEntry>> Plans { get; set; } = new();
 
     /// <summary>"territoryId:label" -> mechanic type, overriding the bundled tags.</summary>
@@ -160,14 +190,32 @@ public class Configuration : IPluginConfiguration
     public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{PlanRoleCode(job, role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";
 
-    public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
+    public PlanSet SetFor(uint territory, uint job) => SetFor(territory, job, Role);
 
-    public List<PlanEntry> PlanFor(uint territory, uint job, TankRole role)
+    public PlanSet SetFor(uint territory, uint job, TankRole role)
     {
         var key = PlanKey(territory, job, role);
-        if (!Plans.TryGetValue(key, out var list)) { list = new(); Plans[key] = list; }
-        return list;
+        if (!PlanSets.TryGetValue(key, out var set)) { set = new(); PlanSets[key] = set; }
+        return set;
     }
+
+    /// <summary>
+    /// The plan that runs: the one you picked, else a "Default - custom", else Default, else the first.
+    /// </summary>
+    public static NamedPlan? ActiveOf(PlanSet set)
+    {
+        var picked = set.Plans.FirstOrDefault(p => p.Id == set.ActiveId);
+        if (picked != null) return picked;
+        picked = set.Plans.LastOrDefault(p => p.FromDefault) ?? set.Plans.FirstOrDefault(p => p.IsDefault) ?? set.Plans.FirstOrDefault();
+        if (picked != null) set.ActiveId = picked.Id;
+        return picked;
+    }
+
+    /// <summary>The running plan's entries (an empty, unsaved list when there's no plan).</summary>
+    public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
+
+    public List<PlanEntry> PlanFor(uint territory, uint job, TankRole role) =>
+        ActiveOf(SetFor(territory, job, role))?.Entries ?? new List<PlanEntry>();
 
     public MechanicType TagFor(FightDefinition fight, string label) =>
         TagOverrides.TryGetValue(TagKey(fight.TerritoryId, label), out var t) ? t
@@ -179,7 +227,7 @@ public class Configuration : IPluginConfiguration
     /// <summary>v3: healers' plans lived in the MT slot ("897:24:MT"); they move to "897:24:H".</summary>
     public void Migrate()
     {
-        if (Version >= 3) return;
+        if (Version >= 4) return;
         if (Version < 2)
         {
             foreach (var key in new List<string>(Plans.Keys))
@@ -198,7 +246,15 @@ public class Configuration : IPluginConfiguration
             if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
             Plans.Remove(key);
         }
-        Version = 3;
+        // v4: named plans. Each old plan becomes "Custom" and stays the one that runs.
+        foreach (var (key, list) in Plans)
+        {
+            if (list.Count == 0 || PlanSets.ContainsKey(key)) continue;
+            var custom = new NamedPlan { Name = "Custom", Entries = list };
+            PlanSets[key] = new PlanSet { Plans = { custom }, ActiveId = custom.Id };
+        }
+        Plans.Clear();
+        Version = 4;
         Save();
     }
 
