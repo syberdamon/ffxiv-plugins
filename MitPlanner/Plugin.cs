@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
     public Targeting Targeting { get; }
     public BusterGuard Guard { get; }
     public TrashMode Trash { get; }
+    public ArenaCenter Arena { get; }
 
     /// <summary>Show the callout window's background so it can be dragged into place.</summary>
     public bool ShowCalloutPlacement { get; set; }
@@ -44,7 +45,8 @@ public sealed class Plugin : IDalamudPlugin
         Configuration.Migrate();
         Runner = new TimelineRunner();
         Targeting = new Targeting(Runner, Configuration);
-        Tracker = new PlanTracker(Configuration, Runner, Targeting);
+        Arena = new ArenaCenter(Configuration, Runner);
+        Tracker = new PlanTracker(Configuration, Runner, Targeting, Arena);
         Guard = new BusterGuard(Configuration, Runner, Targeting, Tracker);
         Trash = new TrashMode(Configuration, Runner);
         RegisterIpc();
@@ -99,6 +101,7 @@ public sealed class Plugin : IDalamudPlugin
         Trash.Dispose();
         Guard.Dispose();
         Tracker.Dispose();
+        Arena.Dispose();
         Targeting.Dispose();
         Runner.Dispose();
         CommandManager.RemoveHandler(CommandName);

@@ -55,6 +55,8 @@ public sealed class CalloutWindow : Window
         {
             var name = p.Ability?.Name ?? $"Action {p.Entry.ActionId}";
             if (p.Entry.SendToTarget && p.Ability?.CanTargetAlly == true) name = $"Send {name} to {p.SendTo ?? "MT"}";
+            else if (p.Placed) name = $"Detonate {name}";
+            else if (p.SendTo != null) name = $"{name} {p.SendTo}";
             if (p.Ability != null)
             {
                 var tex = Plugin.TextureProvider.GetFromGameIcon(new GameIconLookup(p.Ability.Icon)).GetWrapOrEmpty();

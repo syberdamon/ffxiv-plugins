@@ -124,7 +124,7 @@ public sealed unsafe class Targeting : IDisposable
             var added = PlanGenerator.AddForLearnedBuster(config, fight, runner.Timeline, me.ClassJob.RowId,
                 ActionCatalog.ForFight(fight), ev.Label);
             if (added.Count > 0)
-                Plugin.ChatGui.Print($"[MitPlanner] Added to your {Configuration.RoleCode(config.Role)} plan: {string.Join(", ", added)}");
+                Plugin.ChatGui.Print($"[MitPlanner] Added to your {Configuration.PlanRoleCode(me.ClassJob.RowId, config.Role)} plan: {string.Join(", ", added)}");
         }
     }
 

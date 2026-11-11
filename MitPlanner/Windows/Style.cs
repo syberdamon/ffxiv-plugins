@@ -36,7 +36,7 @@ public static class Style
     public static string FightTime(TimelineEvent e) =>
         $"{(e.FightTimeEstimated ? "~" : "")}{(int)e.FightTime / 60}:{(int)e.FightTime % 60:00} ({e.FightTime:0}s)";
 
-    public static readonly string[] ConditionNames = { "Always", "If I'm targeted", "If I'm NOT targeted" };
+    public static readonly string[] ConditionNames = { "Always", "If I'm targeted", "If I'm NOT targeted", "If a tank is targeted" };
 
     public static readonly Vector4 Warning = new(1f, 0.35f, 0.30f, 1f);
     public static readonly Vector4 Ok = new(0.45f, 0.85f, 0.45f, 1f);

@@ -43,13 +43,16 @@ public sealed class TimelineWindow : Window
         var now = runner.Running ? runner.Now : 0;
 
         // Quick toggles: MT/OT role, run the plan at all, auto-use, callouts.
-        if (ToggleButton(config.Role == TankRole.OffTank ? "Role: OT" : "Role: MT", true))
+        if (!HealerKits.IsHealer(Plugin.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
         {
-            config.Role = config.Role == TankRole.OffTank ? TankRole.MainTank : TankRole.OffTank;
-            config.Save();
+            if (ToggleButton(config.Role == TankRole.OffTank ? "Role: OT" : "Role: MT", true))
+            {
+                config.Role = config.Role == TankRole.OffTank ? TankRole.MainTank : TankRole.OffTank;
+                config.Save();
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to switch between your MT and OT plans.");
+            ImGui.SameLine();
         }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to switch between your MT and OT plans.");
-        ImGui.SameLine();
         if (ToggleButton(config.PlanEnabled ? "Plan: ON" : "Plan: OFF", config.PlanEnabled))
         {
             config.PlanEnabled = !config.PlanEnabled;

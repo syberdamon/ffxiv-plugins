@@ -30,6 +30,38 @@ public class PlanEntry
     /// on your current target. Pairs with "If I'm NOT targeted".
     /// </summary>
     public bool SendToTarget { get; set; } = false;
+
+    /// <summary>
+    /// Where it goes: on the tank, on you, on the boss, or (ground-targeted heals: Asylum, Sacred
+    /// Soil, Earthly Star, Liturgy of the Bell) at the arena center. Default = the game's choice.
+    /// </summary>
+    public EntryPlacement Placement { get; set; } = EntryPlacement.Default;
+
+    /// <summary>
+    /// GCD spells (Adloquium, Eukrasian Diagnosis, ...) are callouts only unless this is on:
+    /// auto-pressing a GCD can cut off a cast or delay your rotation.
+    /// </summary>
+    public bool AllowGcdAutoUse { get; set; } = false;
+}
+
+public enum EntryPlacement
+{
+    Default = 0,
+    OnTank = 1,
+    OnSelf = 2,
+    OnBoss = 3,
+    ArenaCenter = 4,
+}
+
+/// <summary>A saved world position (arena centers).</summary>
+[Serializable]
+public class SavedPoint
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
+    public System.Numerics.Vector3 ToVector() => new(X, Y, Z);
+    public static SavedPoint From(System.Numerics.Vector3 v) => new() { X = v.X, Y = v.Y, Z = v.Z };
 }
 
 /// <summary>Which tank you are this pull; plans are kept separately for each.</summary>
@@ -44,6 +76,8 @@ public enum TargetCondition
     Always = 0,
     IfTargeted = 1,
     IfNotTargeted = 2,
+    /// <summary>Healers: when the mechanic targets a tank (not a buster on someone else).</summary>
+    IfTankTargeted = 3,
 }
 
 public enum AbilitySort
@@ -55,7 +89,7 @@ public enum AbilitySort
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     /// <summary>MT or OT: picks which plan runs. Non-tanks just use the MT slot.</summary>
     public TankRole Role { get; set; } = TankRole.MainTank;
@@ -108,11 +142,22 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool ReactToBusterMarkers { get; set; } = true;
 
+    /// <summary>
+    /// Healers: new plan entries (and generated ones) finish this many seconds before the hit.
+    /// Cast time, a Eukrasia first, and Earthly Star's maturing are added on top automatically.
+    /// </summary>
+    public float HealerLeadSeconds { get; set; } = 3f;
+
+    /// <summary>Arena centers you saved, by zone ("Set arena center here").</summary>
+    public Dictionary<uint, SavedPoint> ArenaCenters { get; set; } = new();
+
     /// <summary>Trash mode: automatic tank mitigation for dungeon pulls (see TrashMode.cs).</summary>
     public TrashSettings Trash { get; set; } = new();
 
     public static string RoleCode(TankRole role) => role == TankRole.OffTank ? "OT" : "MT";
-    public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{RoleCode(role)}";
+    /// <summary>"MT"/"OT" for tanks (and everyone else's old plans), "H" for healers (one plan per job).</summary>
+    public static string PlanRoleCode(uint job, TankRole role) => HealerKits.IsHealer(job) ? "H" : RoleCode(role);
+    public static string PlanKey(uint territory, uint job, TankRole role) => $"{territory}:{job}:{PlanRoleCode(job, role)}";
     public static string TagKey(uint territory, string label) => $"{territory}:{label}";
 
     public List<PlanEntry> PlanFor(uint territory, uint job) => PlanFor(territory, job, Role);
@@ -131,17 +176,29 @@ public class Configuration : IPluginConfiguration
         : MechanicType.Other;
 
     /// <summary>v1 plans had no role ("897:21"); they become MT plans ("897:21:MT").</summary>
+    /// <summary>v3: healers' plans lived in the MT slot ("897:24:MT"); they move to "897:24:H".</summary>
     public void Migrate()
     {
-        if (Version >= 2) return;
+        if (Version >= 3) return;
+        if (Version < 2)
+        {
+            foreach (var key in new List<string>(Plans.Keys))
+            {
+                if (key.Split(':').Length != 2) continue;
+                var target = key + ":MT";
+                if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
+                Plans.Remove(key);
+            }
+        }
         foreach (var key in new List<string>(Plans.Keys))
         {
-            if (key.Split(':').Length != 2) continue;
-            var target = key + ":MT";
+            var parts = key.Split(':');
+            if (parts.Length != 3 || parts[2] != "MT" || !uint.TryParse(parts[1], out var job) || !HealerKits.IsHealer(job)) continue;
+            var target = $"{parts[0]}:{parts[1]}:H";
             if (!Plans.ContainsKey(target)) Plans[target] = Plans[key];
             Plans.Remove(key);
         }
-        Version = 2;
+        Version = 3;
         Save();
     }
 

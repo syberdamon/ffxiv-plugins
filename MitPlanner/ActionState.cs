@@ -64,6 +64,36 @@ public static unsafe class ActionState
     /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
     public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
 
+    /// <summary>The live action a base ID turns into right now (upgrades, Eukrasia, a placed Earthly Star).</summary>
+    public static uint Adjusted(uint baseActionId)
+    {
+        var am = ActionManager.Instance();
+        return am == null ? baseActionId : am->GetAdjustedActionId(baseActionId);
+    }
+
+    /// <summary>Place a ground-targeted ability (Asylum, Sacred Soil, Earthly Star) at a spot.</summary>
+    public static bool UseAt(uint baseActionId, System.Numerics.Vector3 location)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        return am->UseActionLocation(ActionType.Action, am->GetAdjustedActionId(baseActionId), 0xE000_0000, &location);
+    }
+
+    /// <summary>
+    /// A GCD spell was cast in the last <paramref name="seconds"/>: the GCD's recast group was last
+    /// started by it. (GCDs can't use the "went on cooldown" check: any GCD starts that timer.)
+    /// </summary>
+    public static bool GcdUsedWithin(uint baseActionId, float seconds)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        var id = am->GetAdjustedActionId(baseActionId);
+        var group = am->GetRecastGroup((int)ActionType.Action, id);
+        if (group < 0) return false;
+        var detail = am->GetRecastGroupDetail(group);
+        return detail != null && detail->IsActive && detail->ActionId == id && detail->Elapsed <= seconds;
+    }
+
     /// <summary>Use on a specific target (OT Sent Mits: cast on the MT without targeting them).</summary>
     public static bool Use(uint baseActionId, ulong targetObjectId)
     {
