@@ -18,6 +18,8 @@ public class Configuration : IPluginConfiguration
     public int AutoDelayMs { get; set; } = 500;
     /// <summary>...and the AoE must resolve within this many seconds.</summary>
     public float AutoWithinSeconds { get; set; } = 1.8f;
+    /// <summary>Automatic: wait at least this long between two rescues.</summary>
+    public float AutoCooldownSeconds { get; set; } = 2f;
 
     public bool IgnoreTanksHoldingEnemies { get; set; } = true;
     /// <summary>Skip players with a head marker in the last few seconds (spreads, stacks: their spot is "unsafe" on purpose).</summary>
