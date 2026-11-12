@@ -510,8 +510,16 @@ public sealed unsafe class Runner : IDisposable
         foreach (var name in new[] { "RetainerSellList", "InventoryRetainerLarge", "InventoryRetainer" })
         {
             var inv = GameUi.Get(name);
-            if (inv != null) { inv->Close(true); return; }
+            if (inv == null) continue;
+            // Close it the way its own X does (callback -1), so the game's agent tears down the paired inventory
+            // window too. A bare addon close left your bags stuck open with a dead X after a sell. Fall back to
+            // the bare close only if the window ignores that.
+            if (closeTried != name) { closeTried = name; inv->FireCallbackInt(-1); next = DateTime.UtcNow.AddSeconds(1.5); return; }
+            inv->Close(true);
+            closeTried = null;
+            return;
         }
+        closeTried = null;
         // Closing the retainer's window from here doesn't always take your own inventory with it (the game's
         // "entrust" bag window stayed up after a venture-returns stash). Close it too, unless it was already
         // open before the run.
@@ -524,6 +532,7 @@ public sealed unsafe class Runner : IDisposable
         Set(Phase.Quit);
     }
 
+    private string? closeTried;
     private static readonly string[] BagWindows = { "InventoryExpansion", "InventoryLarge", "Inventory" };
     /// <summary>Your own inventory window was open when the run started (then it's left open).</summary>
     private bool bagsOpenAtStart;
