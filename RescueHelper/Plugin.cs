@@ -43,6 +43,8 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi += settings.Toggle;
     }
 
+    public void ToggleSettings() => settings.Toggle();
+
     private void OnCommand(string cmd, string args)
     {
         var c = Configuration;
