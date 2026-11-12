@@ -33,7 +33,7 @@ public sealed record BatchMaterials(Dictionary<uint, int> Fetch, Dictionary<uint
 /// </summary>
 public sealed unsafe class ScripGoals : IDisposable
 {
-    private enum Step { Idle, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering, Cosmo, Earning, ToMoon }
+    private enum Step { Idle, TurnInStart, TurnIn, ToBell, Fetching, LeaveBell, Pricing, WaitMarket, Crafting, Gathering, Cosmo, Earning, ToMoon }
 
     private readonly Plugin plugin;
     private Configuration C => plugin.Configuration;
@@ -51,6 +51,10 @@ public sealed unsafe class ScripGoals : IDisposable
     private int iceGoal = -1;
     private readonly LifestreamIpc lifestream = new();
     private bool moonTried;
+    /// <summary>The cosmocredit exchange failed for this goal: don't keep going back to it.</summary>
+    private bool cosmoBroken;
+    private TurnInStarter starter = null!;
+    private (int Held, int Have) turnInBefore;
     private DateTime arrived = DateTime.MinValue;
     private string cosmoFor = "";
     private CollectableReward? gatherItem;
@@ -85,6 +89,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         this.plugin = plugin;
         Cosmo = new CosmoShop(plugin.Configuration);
+        starter = new TurnInStarter(TurnIn, GatherBuddy, vnav);
         Plugin.Framework.Update += OnUpdate;
     }
 
@@ -289,6 +294,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         fetchTried = marketTried = false;
         cosmoGoalTried = cosmoMatTried = false;
+        moonTried = false; // a later batch may go back (e.g. scrips bought some, cosmocredits buy the rest); cosmoBroken stops repeats
         fetchList = new();
         MarketList = new();
     }
@@ -342,7 +348,7 @@ public sealed unsafe class ScripGoals : IDisposable
     {
         while (gi < goals.Count)
         {
-            if (gi != iceGoal) { iceTried = false; iceGoal = gi; }
+            if (gi != iceGoal) { iceTried = false; moonTried = false; cosmoBroken = false; iceGoal = gi; }
             var me = plugin.Tracker.Me();
             if (me == null) { Stop("Logged out."); return; }
             var g = Goal;
@@ -353,16 +359,15 @@ public sealed unsafe class ScripGoals : IDisposable
 
             if (plan.Held > 0 || plan.Scrips >= plan.Shop.Cost)
             {
-                var msg = TurnIn.Start(g.ItemId, plan.Need);
-                if (msg.Length > 0) { Note($"{name}: {msg}"); gi++; ResetBatch(); continue; }
-                heldBefore = plan.Held;
-                haveBefore = plan.Have;
-                Set(Step.TurnIn, $"{name}: turning in {plan.Held} collectable(s) and buying (Turn-In Manager)...");
+                // Started once you're free to travel (off the mount, GatherBuddy stopped), retrying refusals that pass.
+                starter.Begin(g.ItemId, plan.Need);
+                turnInBefore = (plan.Held, plan.Have);
+                Set(Step.TurnInStart, $"{name}: getting ready to turn in {plan.Held} collectable(s) and buy (Turn-In Manager)...");
                 return;
             }
 
             // Cosmocredits first for the item itself (no materials spent).
-            if (C.ScripUseCosmo && !cosmoGoalTried && CosmoData.Sells(g.ItemId))
+            if (C.ScripUseCosmo && !cosmoGoalTried && !cosmoBroken && CosmoData.Sells(g.ItemId))
             {
                 cosmoGoalTried = true;
                 if (TryCosmo(new Dictionary<uint, int> { [g.ItemId] = plan.Need }, name)) return;
@@ -417,7 +422,7 @@ public sealed unsafe class ScripGoals : IDisposable
 
         // 2. cosmocredits (no materials spent), for what the exchange sells
         var cosmoMissing = mats.Missing.Where(kv => CosmoData.Sells(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
-        if (cosmoMissing.Count > 0 && C.ScripUseCosmo && !cosmoMatTried)
+        if (cosmoMissing.Count > 0 && C.ScripUseCosmo && !cosmoMatTried && !cosmoBroken)
         {
             cosmoMatTried = true;
             if (TryCosmo(cosmoMissing, name)) return true;
@@ -548,16 +553,18 @@ public sealed unsafe class ScripGoals : IDisposable
             if (arrived == DateTime.MinValue) arrived = DateTime.UtcNow;
             if ((DateTime.UtcNow - arrived).TotalSeconds < 4) return; // let the zone settle
             if (TryCosmo(cosmoWant, cosmoFor)) return;
+            cosmoBroken = true; // made the trip and nothing to do there: don't come back for this goal
             Advance();
             return;
         }
-        if ((DateTime.UtcNow - stepStart).TotalSeconds > 240) { Note("Lifestream didn't reach Cosmic Exploration: skipping cosmocredits."); Advance(); }
+        if ((DateTime.UtcNow - stepStart).TotalSeconds > 240) { cosmoBroken = true; Note("Lifestream didn't reach Cosmic Exploration: skipping cosmocredits."); Advance(); }
     }
 
     private void TickCosmo()
     {
         if (Cosmo.Busy) { Status = $"{ItemName(Goal.ItemId)}: {Cosmo.Status}"; return; }
-        if (Cosmo.Failed) { Note($"{ItemName(Goal.ItemId)}: {Cosmo.Status}"); }
+        if (Cosmo.Failed) { cosmoBroken = true; Note($"{ItemName(Goal.ItemId)}: {Cosmo.Status} (not trying the exchange again for this goal)"); }
+        else if (Cosmo.Bought.Count == 0) cosmoBroken = true; // nothing it could buy: no more trips for this goal
         Advance();
     }
 
@@ -704,9 +711,10 @@ public sealed unsafe class ScripGoals : IDisposable
         next = DateTime.UtcNow.AddSeconds(1);
         try
         {
-            if (Plugin.Condition[ConditionFlag.InCombat] && step is not (Step.Crafting or Step.Gathering or Step.Earning)) { Stop("Combat started."); return; }
+            if (Plugin.Condition[ConditionFlag.InCombat] && step is not (Step.Crafting or Step.Gathering or Step.Earning or Step.TurnInStart)) { Stop("Combat started."); return; }
             switch (step)
             {
+                case Step.TurnInStart: TickTurnInStart(); break;
                 case Step.TurnIn: TickTurnIn(); break;
                 case Step.ToBell: TickToBell(); break;
                 case Step.Fetching: TickFetching(); break;
@@ -724,6 +732,27 @@ public sealed unsafe class ScripGoals : IDisposable
             Plugin.Log.Error(ex, "Scrip goals failed");
             Stop("Error (see /xllog).");
         }
+    }
+
+    private void TickTurnInStart()
+    {
+        var name = ItemName(Goal.ItemId);
+        var r = starter.Tick();
+        if (r == null) { Status = $"{name}: {(starter.Waiting.Length > 0 ? $"waiting to travel ({starter.Waiting})" : "starting the turn-in")}..."; return; }
+        var (why, stuck) = r.Value;
+        if (why.Length == 0)
+        {
+            heldBefore = turnInBefore.Held;
+            haveBefore = turnInBefore.Have;
+            Set(Step.TurnIn, $"{name}: turning in {heldBefore} collectable(s) and buying (Turn-In Manager)...");
+            return;
+        }
+        // Stop (don't quietly skip the goal): the collectables are still in your bags.
+        if (stuck) { Stop($"{name}: Turn-In Manager couldn't start ({why}). Your collectables are still in your bags; Run again or use Turn in collectables."); return; }
+        Note($"{name}: {why}");
+        gi++;
+        ResetBatch();
+        Advance();
     }
 
     private void TickTurnIn()

@@ -4,7 +4,7 @@ using Dalamud.Interface.Windowing;
 
 namespace MaterialStash.Windows;
 
-/// <summary>Small window while scrip goals are running: what's happening, Stop, and Resume after market buying.</summary>
+/// <summary>Small window while scrip goals or a collectables turn-in run: what's happening, Stop, and Resume after market buying.</summary>
 public sealed class ScripWindow : Window
 {
     private readonly Plugin plugin;
@@ -18,10 +18,18 @@ public sealed class ScripWindow : Window
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking;
     }
 
-    public override bool DrawConditions() => plugin.Scrips.Busy;
+    public override bool DrawConditions() => plugin.Scrips.Busy || plugin.TurnIns.Busy;
 
     public override void Draw()
     {
+        if (!plugin.Scrips.Busy)
+        {
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 30);
+            ImGui.TextUnformatted(plugin.TurnIns.Status);
+            ImGui.PopTextWrapPos();
+            if (ImGui.Button("Stop")) plugin.TurnIns.Stop();
+            return;
+        }
         var s = plugin.Scrips;
         ImGui.PushTextWrapPos(ImGui.GetFontSize() * 30);
         ImGui.TextUnformatted(s.Status);

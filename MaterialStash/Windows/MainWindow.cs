@@ -1198,6 +1198,23 @@ public sealed class MainWindow : Window
             if (sg.Status.Length > 0) ImGui.TextWrapped(sg.Status);
         }
 
+        // Turn in what's already in your bags, without running the goals.
+        var ti = plugin.TurnIns;
+        if (ti.Busy) { if (ImGui.Button("Stop turning in")) ti.Stop(); ImGui.SameLine(); ImGui.TextWrapped(ti.Status); }
+        else if (!sg.Busy)
+        {
+            var held = CollectableTurnIn.Payable().Values.Sum();
+            var tiWhy = ti.CantStart();
+            if (tiWhy != null) ImGui.BeginDisabled();
+            if (ImGui.Button($"Turn in collectables ({held})")) ti.Start();
+            if (tiWhy != null) ImGui.EndDisabled();
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetTooltip(tiWhy ?? "Turn-In Manager turns in every collectable in your bags that pays scrips (/stash turnin).\n" +
+                                         "Scrips go toward a scrip goal's item when one uses that scrip, so they don't hit the 4,000 cap;\n" +
+                                         "otherwise nothing is bought and anything that would go over the cap stays in your bags.");
+            if (ti.Status.Length > 0) { ImGui.SameLine(); ImGui.TextWrapped(ti.Status); }
+        }
+
         var changed = false;
         if (ImGui.CollapsingHeader("How it gets materials and crafts", ImGuiTreeNodeFlags.DefaultOpen))
         {

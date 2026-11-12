@@ -154,9 +154,19 @@ public sealed unsafe class CosmoShop : IDisposable
         }
     }
 
-    private static IGameObject? Npc() =>
-        Plugin.ObjectTable.FirstOrDefault(o => o.ObjectKind == ObjectKind.EventNpc && o.IsTargetable &&
-                                               o.Name.TextValue.Equals(CosmoData.Vendor, StringComparison.OrdinalIgnoreCase));
+    /// <summary>The nearest targetable Mesouaidonque (there can be more than one object by that name).</summary>
+    private static IGameObject? Npc()
+    {
+        var me = Plugin.ObjectTable.LocalPlayer;
+        return Plugin.ObjectTable
+            .Where(o => o.ObjectKind == ObjectKind.EventNpc && o.IsTargetable &&
+                        o.Name.TextValue.Equals(CosmoData.Vendor, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(o => me == null ? 0 : Vector3.Distance(me.Position, o.Position))
+            .FirstOrDefault();
+    }
+
+    /// <summary>Talking range. [Assumption] 4.5 was too far for him: both failed runs started talking at once and nothing opened.</summary>
+    private const float TalkRange = 3f;
 
     private void TickWalk()
     {
@@ -166,12 +176,12 @@ public sealed unsafe class CosmoShop : IDisposable
         if (!CosmoData.VendorSpots.TryGetValue(Plugin.ClientState.TerritoryType, out var spot)) { Fail("Left the Cosmic Exploration zone."); return; }
         var npc = Npc();
         var goal = npc?.Position ?? spot;
-        if (npc != null && Vector3.Distance(me.Position, npc.Position) <= 4.5f) { vnav.Stop(); Set(Phase.Talk, $"Talking to {CosmoData.Vendor}..."); return; }
+        if (npc != null && Vector3.Distance(me.Position, npc.Position) <= TalkRange) { vnav.Stop(); Set(Phase.Talk, $"Talking to {CosmoData.Vendor}..."); return; }
         var dest = vnav.NearestPoint(goal, 6, 6) ?? goal;
         var dist = Vector3.Distance(me.Position, dest);
         if (dist < best - 0.5f) { best = dist; lastProgress = DateTime.UtcNow; }
         if ((DateTime.UtcNow - lastProgress).TotalSeconds > 10) { Fail($"vnavmesh isn't getting closer to {CosmoData.Vendor}."); return; }
-        if (!vnav.IsBusy) vnav.MoveCloseTo(dest, 2f);
+        if (!vnav.IsBusy) vnav.MoveCloseTo(dest, TalkRange - 1f);
     }
 
     private DateTime menuSeen = DateTime.MinValue;
@@ -203,13 +213,23 @@ public sealed unsafe class CosmoShop : IDisposable
         var talk = GameUi.Get("Talk");
         if (talk != null) { GameUi.ClickTalk(talk); return; }
         if (menuPicked && (DateTime.UtcNow - talkedAt).TotalSeconds < 6) return;
-        if (++tries > 3) { Dump("SelectIconString"); Fail($"{CosmoData.Vendor} didn't open the exchange."); return; }
+        if (talkedAt != DateTime.MinValue && (DateTime.UtcNow - talkedAt).TotalSeconds < 2.5) return; // give the window time to open
+        // Mounted (Lifestream can land you on one) or still busy: the game ignores the talk.
+        if (Plugin.Condition[ConditionFlag.Mounted]) { FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23); Log("dismounting before talking"); next = DateTime.UtcNow.AddSeconds(1.5); return; }
+        if (Plugin.Condition[ConditionFlag.Casting] || Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.Condition[ConditionFlag.Jumping]) return;
+        if (++tries > 5) { Dump("SelectIconString"); Fail($"{CosmoData.Vendor} didn't open the exchange."); return; }
         var npc = Npc();
         if (npc == null) { Fail($"Can't see {CosmoData.Vendor}."); return; }
+        var me = Plugin.ObjectTable.LocalPlayer;
+        var dist = me == null ? 0 : Vector3.Distance(me.Position, npc.Position);
+        if (dist > TalkRange + 0.5f) { Set(Phase.Walk, $"Walking to {CosmoData.Vendor}..."); best = float.MaxValue; lastProgress = DateTime.UtcNow; return; }
         menuPicked = false;
         menuSeen = DateTime.MinValue;
-        Log($"talking to {CosmoData.Vendor} (try {tries})");
-        TargetSystem.Instance()->InteractWithObject((GameObjectStruct*)npc.Address, true);
+        Log($"talking to {CosmoData.Vendor} (try {tries}, {dist:0.0} y, conditions: {Conditions()})");
+        // Target first, then talk without the line-of-sight check (ICE / ECommons style). [Assumption] the LOS check was refusing it.
+        var ts = TargetSystem.Instance();
+        ts->Target = (GameObjectStruct*)npc.Address;
+        ts->InteractWithObject((GameObjectStruct*)npc.Address, false);
         talkedAt = DateTime.UtcNow;
         next = DateTime.UtcNow.AddSeconds(1);
     }
@@ -282,6 +302,9 @@ public sealed unsafe class CosmoShop : IDisposable
         v[2] = default; v[2].Type = ValueType.Int; v[2].Int = amount;
         a->FireCallback(3, v, true);
     }
+
+    private static string Conditions() =>
+        string.Join(",", Enum.GetValues<ConditionFlag>().Where(f => (int)f > 1 && Plugin.Condition[f]).Select(f => f.ToString()).Distinct());
 
     private static bool IsReady(AtkUnitBase* a) => a->IsVisible && a->UldManager.LoadedState == AtkLoadState.Loaded;
     private static bool Ready(string name) { var a = GameUi.Get(name); return a != null && IsReady(a); }
