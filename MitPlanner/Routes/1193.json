@@ -6,7 +6,7 @@
   {
    "x": 121.2,
    "z": 183.9,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 73.3,
    "gapBefore": null,
@@ -16,7 +16,7 @@
   {
    "x": -23.9,
    "z": 189.8,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 6,
    "duration": 54.7,
    "gapBefore": 11.0,
@@ -26,7 +26,7 @@
   {
    "x": -107.7,
    "z": 120.4,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 29,
    "duration": 138.2,
    "gapBefore": 14.1,
@@ -36,7 +36,7 @@
   {
    "x": -137.7,
    "z": 77.4,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 78.8,
    "gapBefore": 10.8,
@@ -46,7 +46,7 @@
   {
    "x": -117.4,
    "z": 16.6,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 63.2,
    "gapBefore": 42.2,
@@ -56,7 +56,7 @@
   {
    "x": -53.6,
    "z": -52.1,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 138.7,
    "gapBefore": 19.0,
@@ -66,7 +66,7 @@
   {
    "x": -119.9,
    "z": -75.4,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 74.5,
    "gapBefore": 12.6,
@@ -76,7 +76,7 @@
   {
    "x": -106.4,
    "z": -60.5,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 5,
    "duration": 76.5,
    "gapBefore": 14.2,
@@ -86,7 +86,7 @@
   {
    "x": -55.2,
    "z": -191.2,
-   "radius": 10.0,
+   "radius": 15.0,
    "mobs": 29,
    "duration": 235.0,
    "gapBefore": 18.4,

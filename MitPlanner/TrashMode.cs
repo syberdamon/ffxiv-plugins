@@ -75,6 +75,7 @@ public sealed class TrashMode : IDisposable
     private bool inPull;
     private bool majorUsedThisSet;
     private DateTime pullStart;
+    private Vector3 pullStartPos;
     private float pullMinHp;
     private int pullPresses;
     private bool dead;
@@ -178,11 +179,11 @@ public sealed class TrashMode : IDisposable
 
         if (state is PullState.Set && State is not PullState.Set)
         {
-            if (!inPull) { inPull = true; pullStart = now; pullMinHp = hp; pullPresses = 0; }
+            if (!inPull) { inPull = true; pullStart = now; pullStartPos = me.Position; pullMinHp = hp; pullPresses = 0; }
             majorUsedThisSet = false;
             log.Write("PULL", $"{(forced ? "forced (low HP while moving)" : "set")}\t{Describe(me, kit, sig)}");
         }
-        if (state is PullState.Pulling && !inPull) { inPull = true; pullStart = now; pullMinHp = hp; pullPresses = 0; }
+        if (state is PullState.Pulling && !inPull) { inPull = true; pullStart = now; pullStartPos = me.Position; pullMinHp = hp; pullPresses = 0; }
         SetState(state, me, sig);
 
         if (me.IsCasting || Plugin.Condition[ConditionFlag.Mounted] || me.CurrentHp == 0) return;
@@ -243,7 +244,8 @@ public sealed class TrashMode : IDisposable
     {
         if (!S.LookaheadHold || !Ready(kit.Big)) return false;
         var elapsed = inPull ? (float)(DateTime.UtcNow - pullStart).TotalSeconds : 0f;
-        var next = Decision.Lookaheads.From(Plugin.ClientState.TerritoryType, me.Position, elapsed, sig.Ttk);
+        // The stop is where the pull started: by the time the big mit comes up you've often walked off it.
+        var next = Decision.Lookaheads.From(Plugin.ClientState.TerritoryType, inPull ? pullStartPos : me.Position, elapsed, sig.Ttk);
         var recast = ActionCatalog.Find(kit.Big)?.RecastSeconds ?? 120f;
         // [Assumption] every tank's big mit: 40% for 15 s (Vengeance/Damnation, Sentinel/Guardian,
         // Shadow Wall/Vigil, Nebula/Great Nebula).

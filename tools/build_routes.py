@@ -157,7 +157,7 @@ def build(paths, out, sources=None):
             g = [s["gap"] for s in segs if s["gap"] is not None]
             radius = max([math.hypot(s["x"] - st["x"], s["z"] - st["z"]) for s in segs] + [0.0])
             doc["stops"].append(dict(
-                x=round(st["x"], 1), z=round(st["z"], 1), radius=round(max(10.0, radius + 5), 1),
+                x=round(st["x"], 1), z=round(st["z"], 1), radius=round(max(15.0, radius + 8), 1),  # Trash mode starts a pull later than combat does (mobs on you), often 10+ y on
                 mobs=round(statistics.median(s["mobs"] for s in segs), 1),
                 duration=round(statistics.median(s["duration"] for s in segs), 1),
                 gapBefore=round(statistics.median(g), 1) if g else None,

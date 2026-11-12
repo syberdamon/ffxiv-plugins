@@ -9,11 +9,14 @@ namespace MitPlanner.Decision;
 ///
 ///   now  = incoming %/s x min(duration, rest of this pull) x reduction x Danger(HP now)
 ///   held = 0 if it's back before the next pull starts; else
-///          expected %/s there x min(duration, next pull length) x reduction x Danger(60)
+///          expected %/s there x min(duration, next pull length) x reduction
 ///          x the share of the next pull it would miss
+///   (No HP weighting on "held": HP at the next pull is unknown, and weighting it made every pull lose
+///   to the next one, so the big mit would never go out. Replay of 2026-11-03..10: 28 of 37 held.
+///   Without it, holding only wins when what's next is clearly worse: a boss or a bigger pack.)
 ///   expected %/s at the next pull: this pull's incoming per mob x its mobs (packs), or BossRate
 ///          (bosses; their tank busters are what the big mits are for), blended by the boss chance
-///   use if now >= held x HoldBias, or always when survival is at risk (see <see cref="Critical"/>).
+///   hold only if held > now x HoldBias (what's next is clearly worse); always use when survival is at risk (see <see cref="Critical"/>).
 /// [Assumption] the weights (Danger curve, BossRate, HoldBias, survival thresholds) are first
 /// guesses, set so the Hullbreaker death would have been prevented and an ordinary pull isn't
 /// changed; tune them from the DECIDE lines in the trash logs.
@@ -22,7 +25,7 @@ public static class MitScorer
 {
     /// <summary>Incoming %/s assumed at a boss for a big mit (busters are spiky; this averages one over its window).</summary>
     public const float BossRate = 4f;
-    /// <summary>Held value must beat the value now by this factor to hold (favours using it: a mit in hand is real).</summary>
+    /// <summary>Hold only when the held value beats the value now by this factor (favours using it: a mit in hand is real).</summary>
     public const float HoldBias = 1.25f;
     /// <summary>Below this HP, or when this many seconds of current damage would take you under 20%, always use.</summary>
     public const float CriticalHp = 45f;
@@ -62,12 +65,12 @@ public static class MitScorer
             var window = Math.Min(duration, Math.Max(1f, next.NextDuration));
             // Still recasting for this much of the next pull (all of it if it isn't back by the end).
             var missed = Math.Clamp((recast - next.SecondsUntil) / Math.Max(1f, next.NextDuration), 0f, 1f);
-            held = rate * window * reduction * Danger(60f) * missed;
+            held = rate * window * reduction * missed;
         }
 
         if (critical) return new(now, held, true, true, "survival");
         if (held <= 0) return new(now, held, false, true, "back before the next pull");
-        var use = now >= held * HoldBias;
+        var use = held <= now * HoldBias;
         return new(now, held, false, use, use ? "worth more now" : $"keep for the {(next.NextIsBoss ? "boss" : "next pack")}");
     }
 }
