@@ -646,6 +646,12 @@ public sealed class ConfigWindow : Window
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Last resort for big gathers at low level (e.g. a second big pack right after the first).\n" +
                                  "Only with this many mobs on you, below this HP, and still losing HP:");
+            var look = t.LookaheadHold;
+            if (ImGui.Checkbox("Look ahead: keep the big mit for the next pack or boss when it's worth more there", ref look)) { t.LookaheadHold = look; changed = true; }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Uses dungeon route maps (built from recorded runs) to see what's next and whether\n" +
+                                 "the big mit will be back in time. Survival always comes first. Each decision is\n" +
+                                 "written to the run log (DECIDE) so it can be tuned.");
             if (t.PullBigWhenOut)
             {
                 t.PullBigMinMobs = I("  ...mobs on you", t.PullBigMinMobs, 3, 30);
