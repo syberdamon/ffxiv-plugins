@@ -141,8 +141,7 @@ the most on your **home world** instead, if one passes:
 - The "What each retainer would go for now" list shows the choice and the numbers behind it.
 
 What comes back goes on the **to-sell list**: it stays in your bags (Stash leaves it), a sound plays (`<se.6>` by
-default), chat lists it with an estimated value, and the stacks are boxed in your inventory (each stack in the
-expanded layout; the window and bag/slot numbers in the smaller ones).
+default), and chat lists it with an estimated value.
 
 **Auto-sell** (off by default): pick a selling retainer; **Sell (N)** at the bell (or `/stash sell`, or at the end of
 every Stash run) lists them with the game's own listing call: lowest home-world listing minus your undercut (1 gil),

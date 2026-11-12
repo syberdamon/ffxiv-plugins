@@ -48,7 +48,6 @@ public sealed class Plugin : IDalamudPlugin
     private readonly BellOverlay bell;
     private readonly SaddleOverlay saddle;
     private readonly VentureWindow ventures;
-    private readonly SellHighlight sellHighlight;
     private readonly ScripWindow scripWindow;
 
     public Plugin()
@@ -77,13 +76,11 @@ public sealed class Plugin : IDalamudPlugin
         bell = new BellOverlay(this);
         saddle = new SaddleOverlay(this);
         ventures = new VentureWindow(this);
-        sellHighlight = new SellHighlight(this);
         scripWindow = new ScripWindow(this);
         windows.AddWindow(main);
         windows.AddWindow(bell);
         windows.AddWindow(saddle);
         windows.AddWindow(ventures);
-        windows.AddWindow(sellHighlight);
         windows.AddWindow(scripWindow);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
