@@ -129,11 +129,23 @@ public static unsafe class GameUi
     /// handler reads them, and a blank event crashed the game (null read in Talk's ReceiveEvent).
     /// Same event ECommons' AddonMaster.Talk.Click sends: flags 132, mouse down then click.
     /// </remarks>
+    // Talk clicks are guarded: two game crashes (11/9, 11/10) were the Talk window's own event handler reading a
+    // null pointer when it got our click, most likely mid-open/close or in the same frame as TextAdvance's click.
+    // So: only a fully loaded, visible window that has been up a moment (TextAdvance usually handles it first),
+    // one click (no mouse-down) at most every 0.8 s.
+    private static nint talkSeen;
+    private static DateTime talkSeenAt, lastTalkClick;
+
     public static void ClickTalk(AtkUnitBase* talk)
     {
-        if (talk == null) return;
+        if (talk == null || !talk->IsVisible || talk->UldManager.LoadedState != AtkLoadState.Loaded) return;
+        var now = DateTime.UtcNow;
+        if ((nint)talk != talkSeen) { talkSeen = (nint)talk; talkSeenAt = now; return; }
+        if ((now - talkSeenAt).TotalSeconds < 0.8 || (now - lastTalkClick).TotalSeconds < 0.8) return;
         var stage = AtkStage.Instance();
         if (stage == null) return;
+        lastTalkClick = now;
+        talkSeenAt = now; // the same window may show the next line: wait again before the next click
         var evt = stackalloc AtkEvent[1];
         evt[0] = default;
         evt[0].Listener = (AtkEventListener*)talk;
@@ -141,7 +153,6 @@ public static unsafe class GameUi
         evt[0].State.StateFlags = (AtkEventStateFlags)132;
         var data = stackalloc AtkEventData[1];
         data[0] = default;
-        talk->ReceiveEvent(AtkEventType.MouseDown, 0, evt, data);
         talk->ReceiveEvent(AtkEventType.MouseClick, 0, evt, data);
     }
 
