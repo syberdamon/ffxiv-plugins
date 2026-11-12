@@ -13,5 +13,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Timelines\cactbot.zip" LogicalName="MitPlanner.Timelines.cactbot.zip" />
     <EmbeddedResource Include="Timelines\Learned\*.txt;Timelines\Learned\*.json" LogicalName="MitPlanner.Learned.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Routes\*.json" LogicalName="MitPlanner.Routes.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
