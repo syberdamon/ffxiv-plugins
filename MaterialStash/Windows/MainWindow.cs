@@ -797,8 +797,6 @@ public sealed class MainWindow : Window
         if (ImGui.InputInt("<se.#>", ref sid, 1, 1)) { C.SellSoundId = Math.Clamp(sid, 1, 16); changed = true; }
         ImGui.SameLine();
         if (ImGui.SmallButton("Test")) unsafe { FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)C.SellSoundId); }
-        var hl = C.SellHighlight;
-        if (ImGui.Checkbox("Box them in my bags", ref hl)) { C.SellHighlight = hl; changed = true; }
         ImGui.TextColored(Dim, "They stay in your bags (Stash leaves them alone) and chat lists them.");
 
         ImGui.Separator();
