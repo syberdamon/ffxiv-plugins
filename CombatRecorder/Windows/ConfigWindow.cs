@@ -114,9 +114,6 @@ public sealed class ConfigWindow : Window
             var fs = c.MeterFontScale;
             ImGui.SetNextItemWidth(120);
             if (ImGui.SliderFloat("Text size", ref fs, 0.6f, 2f, "%.2f")) { c.MeterFontScale = fs; c.Save(); }
-            var bw = c.MeterBarWidth;
-            ImGui.SetNextItemWidth(120);
-            if (ImGui.SliderInt("Compact bar width", ref bw, 120, 600)) { c.MeterBarWidth = bw; c.Save(); }
             var op = c.MeterOpacity;
             ImGui.SetNextItemWidth(120);
             if (ImGui.SliderFloat("Background opacity", ref op, 0f, 1f, "%.2f")) { c.MeterOpacity = op; c.Save(); }
@@ -131,6 +128,12 @@ public sealed class ConfigWindow : Window
                 if (i++ % 4 != 0) ImGui.SameLine(0, 12);
                 if (ImGui.Checkbox($"{header}##col", ref v)) { flip(); c.Save(); }
             }
+            ImGui.SetNextItemWidth(120);
+            var al = c.MeterAlign;
+            if (ImGui.Combo("Align numbers", ref al, MeterWindow.AlignNames, MeterWindow.AlignNames.Length)) { c.MeterAlign = al; c.Save(); }
+            ImGui.SameLine();
+            if (ImGui.Button("Reset column widths")) mw.ResetColumnWidths();
+            ImGui.TextDisabled("Drag the lines between the meter's column headers to resize columns.");
             ImGui.TextDisabled("In a player's skill rows, the Deaths column shows hit count and Taken shows the max hit.");
         }
         ImGui.TextDisabled("Counted like ACT: encounter DPS = damage / time from first to last hit, DoTs and pets included.");
