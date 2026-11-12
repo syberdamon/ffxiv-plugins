@@ -144,7 +144,17 @@ jobs:
             if (-not $version) { Write-Host "$plugin has no <Version>; skipping"; continue }
             $tag = "$plugin-v$version"
             gh release view $tag *> $null
-            if ($LASTEXITCODE -eq 0) { Write-Host "$tag already released"; continue }
+            if ($LASTEXITCODE -eq 0) {
+              # Released, but repo.json may still be behind (a push of repo.json that was rejected
+              # earlier): point it at the release so Dalamud offers the update.
+              $listed = (Get-Content repo.json -Raw | ConvertFrom-Json) | Where-Object { $_.InternalName -eq $plugin } | Select-Object -First 1
+              if ($listed -and $listed.AssemblyVersion -eq $version) { Write-Host "$tag already released and listed"; continue }
+              Write-Host "$tag already released but repo.json lists $($listed.AssemblyVersion): updating repo.json"
+              python .github/scripts/update_repo_json.py $plugin $tag
+              if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin" }
+              $changed = $true
+              continue
+            }
 
             $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin" -Filter latest.zip | Select-Object -First 1
             if (-not $zip) { throw "No latest.zip found for $plugin" }
@@ -159,6 +169,14 @@ jobs:
           if ($changed) {
             git add repo.json
             git commit -m "repo.json: publish new plugin versions [skip ci]"
-            git push origin HEAD:main
+            # Someone else may have pushed to main during the build: rebase onto it and retry, and fail
+            # the run loudly if it still won't go (a silent failure left Dalamud on old versions).
+            $pushed = $false
+            for ($i = 1; $i -le 5 -and -not $pushed; $i++) {
+              git pull --rebase origin main
+              git push origin HEAD:main
+              if ($LASTEXITCODE -eq 0) { $pushed = $true } else { Write-Host "push of repo.json failed (try $i); retrying"; Start-Sleep -Seconds (5 * $i) }
+            }
+            if (-not $pushed) { throw "Couldn't push repo.json: Dalamud won't see the new versions" }
           }
           exit 0
