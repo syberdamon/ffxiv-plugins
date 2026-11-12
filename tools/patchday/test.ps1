@@ -17,8 +17,9 @@ function Run([string] $name, [string] $answer, [string[]] $mustHave, [string[]] 
     $env:PATCHDAY_ANSWER = $answer
     $out = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script *>&1 | Out-String)
     $ok = $true
-    foreach ($m in $mustHave) { if ($out -notlike "*$m*") { $ok = $false; Write-Host "  missing: $m" } }
-    foreach ($m in $mustNot)  { if ($out -like "*$m*")    { $ok = $false; Write-Host "  unexpected: $m" } }
+    # Plain substring match: -like would read "[OK]" as a wildcard character class.
+    foreach ($m in $mustHave) { if (-not $out.Contains($m)) { $ok = $false; Write-Host "  missing: $m" } }
+    foreach ($m in $mustNot)  { if ($out.Contains($m))      { $ok = $false; Write-Host "  unexpected: $m" } }
     Write-Host ("{0} {1}" -f $(if ($ok) { 'PASS' } else { 'FAIL' }), $name)
     if (-not $ok) { Write-Host $out; $script:fails++ }
 }
