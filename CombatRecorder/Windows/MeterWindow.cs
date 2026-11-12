@@ -9,7 +9,7 @@ using Dalamud.Interface.Windowing;
 namespace CombatRecorder.Windows;
 
 /// <summary>
-/// The DPS meter: the current (or a past) encounter, one row per player. Full view: DPS, share, damage,
+/// The DPS meter: the current (or a past) encounter, one row per player. Full view: DPS, rDPS, aDPS, share, damage,
 /// crit %, direct hit %, deaths, HPS, damage taken (each column can be hidden); click a row for that
 /// player's skills. Compact view: one bar per player, with an optional % share. A small Full/Bars button
 /// swaps views; right-click anywhere on the meter for views, past fights and settings. Position mode
@@ -31,11 +31,11 @@ public sealed class MeterWindow : Window
     private static readonly Vector2 DefaultPos = new(40, 420);
     private static readonly Vector2 DefaultSize = new(520, 220);
 
-    private enum Col { Dps, Share, Damage, Crit, Dh, Deaths, Hps, Taken }
+    private enum Col { Dps, Rdps, Adps, Share, Damage, Crit, Dh, Deaths, Hps, Taken }
 
     private static readonly (Col Col, string Header, float Width)[] Columns =
     {
-        (Col.Dps, "DPS", 60), (Col.Share, "%", 38), (Col.Damage, "Damage", 72), (Col.Crit, "Crit", 38),
+        (Col.Dps, "DPS", 60), (Col.Rdps, "rDPS", 60), (Col.Adps, "aDPS", 60), (Col.Share, "%", 38), (Col.Damage, "Damage", 72), (Col.Crit, "Crit", 38),
         (Col.Dh, "DH", 38), (Col.Deaths, "Deaths", 44), (Col.Hps, "HPS", 55), (Col.Taken, "Taken", 66),
     };
 
@@ -183,7 +183,7 @@ public sealed class MeterWindow : Window
                 {
                     1 => $"{Label(p)}  {v / secs:N0} hps",
                     2 => $"{Label(p)}  {v:N0} taken",
-                    _ => $"{Label(p)}  {v / secs:N0}",
+                    _ => C.MeterColRdps ? $"{Label(p)}  {v / secs:N0}  (r {p.RaidDamage / secs:N0})" : $"{Label(p)}  {v / secs:N0}",
                 };
                 if (C.MeterCompactPercent) text += $"  {100.0 * v / sum:0}%";
                 ImGui.PushStyleColor(ImGuiCol.PlotHistogram, BarColor(p));
@@ -273,6 +273,8 @@ public sealed class MeterWindow : Window
     private static string PlayerCell(Col c, Combatant p, double secs, long total) => c switch
     {
         Col.Dps => $"{p.Damage / secs:N0}",
+        Col.Rdps => $"{p.RaidDamage / secs:N0}",
+        Col.Adps => $"{p.AdjustedDamage / secs:N0}",
         Col.Share => $"{100.0 * p.Damage / total:0}%",
         Col.Damage => $"{p.Damage:N0}",
         Col.Crit => p.Hits == 0 ? "-" : $"{100.0 * p.Crits / p.Hits:0}%",
@@ -299,7 +301,7 @@ public sealed class MeterWindow : Window
 
     private bool Shown(Col c) => c switch
     {
-        Col.Dps => C.MeterColDps, Col.Share => C.MeterColShare, Col.Damage => C.MeterColDamage, Col.Crit => C.MeterColCrit,
+        Col.Dps => C.MeterColDps, Col.Rdps => C.MeterColRdps, Col.Adps => C.MeterColAdps, Col.Share => C.MeterColShare, Col.Damage => C.MeterColDamage, Col.Crit => C.MeterColCrit,
         Col.Dh => C.MeterColDh, Col.Deaths => C.MeterColDeaths, Col.Hps => C.MeterColHps, Col.Taken => C.MeterColTaken,
         _ => true,
     };
@@ -309,6 +311,8 @@ public sealed class MeterWindow : Window
         switch (c)
         {
             case Col.Dps: C.MeterColDps = !C.MeterColDps; break;
+            case Col.Rdps: C.MeterColRdps = !C.MeterColRdps; break;
+            case Col.Adps: C.MeterColAdps = !C.MeterColAdps; break;
             case Col.Share: C.MeterColShare = !C.MeterColShare; break;
             case Col.Damage: C.MeterColDamage = !C.MeterColDamage; break;
             case Col.Crit: C.MeterColCrit = !C.MeterColCrit; break;
