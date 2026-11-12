@@ -210,19 +210,61 @@ public sealed class MeterWindow : Window
             var top = Math.Max(1, rows.Max(SortValue));
             // share of everyone counted (not just the rows shown, so max rows doesn't inflate it)
             var sum = Math.Max(1, e.Players.Values.Sum(SortValue));
+            var cscale = Math.Clamp(C.MeterFontScale, 0.5f, 2.5f);
+
+            // Number columns, laid out from the right edge with the full view's widths (so resizing a column there
+            // resizes it here too). Name takes what's left on the left.
+            var ccols = new List<(string Header, float Width, Func<Combatant, string> Value)>();
+            switch (C.MeterSortBy)
+            {
+                case 1: ccols.Add(("HPS", ColWidth("HPS", 55), p => $"{p.Healing / secs:N0}")); break;
+                case 2: ccols.Add(("Taken", ColWidth("Taken", 66), p => $"{p.Taken:N0}")); break;
+                default:
+                    ccols.Add(("DPS", ColWidth("DPS", 60), p => $"{p.Damage / secs:N0}"));
+                    if (C.MeterColRdps) ccols.Add(("rDPS", ColWidth("rDPS", 60), p => $"{p.RaidDamage / secs:N0}"));
+                    break;
+            }
+            if (C.MeterCompactPercent) ccols.Add(("%", ColWidth("%", 38), p => $"{100.0 * SortValue(p) / sum:0}%"));
+
+            var width = Math.Max(40, ImGui.GetContentRegionAvail().X);
+            var pad = ImGui.GetStyle().FramePadding;
+            var gap = ImGui.GetStyle().ItemSpacing.X;
+            // left edge of each number column, relative to the bar's left
+            var lefts = new float[ccols.Count];
+            var right = width - pad.X;
+            for (var i = ccols.Count - 1; i >= 0; i--) { right -= ccols[i].Width * cscale; lefts[i] = right; right -= gap; }
+            var nameWidth = Math.Max(0, right - pad.X);
+
+            void Line(Vector2 origin, float height, string name, Func<int, string> value, Vector4? color)
+            {
+                if (color is { } col) ImGui.PushStyleColor(ImGuiCol.Text, col);
+                ImGui.SetCursorScreenPos(origin + new Vector2(pad.X, (height - ImGui.GetTextLineHeight()) / 2));
+                ImGui.TextUnformatted(Fit(name, nameWidth));
+                for (var i = 0; i < ccols.Count; i++)
+                {
+                    var t = value(i);
+                    var w = ccols[i].Width * cscale;
+                    var free = Math.Max(0, w - ImGui.CalcTextSize(t).X);
+                    var x = C.MeterAlign switch { 0 => 0, 1 => free / 2, _ => free };
+                    ImGui.SetCursorScreenPos(origin + new Vector2(lefts[i] + x, (height - ImGui.GetTextLineHeight()) / 2));
+                    ImGui.TextUnformatted(t);
+                }
+                if (color != null) ImGui.PopStyleColor();
+                ImGui.SetCursorScreenPos(origin);
+                ImGui.Dummy(new Vector2(width, height)); // one layout item for the whole line
+            }
+
+            // header line
+            Line(ImGui.GetCursorScreenPos(), ImGui.GetTextLineHeightWithSpacing(), "Name", i => ccols[i].Header, Dim);
+
             foreach (var p in rows)
             {
-                var v = SortValue(p);
-                var text = C.MeterSortBy switch
-                {
-                    1 => $"{Label(p)}  {v / secs:N0} hps",
-                    2 => $"{Label(p)}  {v:N0} taken",
-                    _ => C.MeterColRdps ? $"{Label(p)}  {v / secs:N0}  (r {p.RaidDamage / secs:N0})" : $"{Label(p)}  {v / secs:N0}",
-                };
-                if (C.MeterCompactPercent) text += $"  {100.0 * v / sum:0}%";
+                var origin = ImGui.GetCursorScreenPos();
+                var h = ImGui.GetFrameHeight();
                 ImGui.PushStyleColor(ImGuiCol.PlotHistogram, BarColor(p));
-                ImGui.ProgressBar((float)v / top, new Vector2(Math.Max(40, ImGui.GetContentRegionAvail().X), 0), text);
+                ImGui.ProgressBar((float)SortValue(p) / top, new Vector2(width, h), "");
                 ImGui.PopStyleColor();
+                Line(origin, h, Label(p), i => ccols[i].Value(p), null);
             }
             return;
         }
@@ -390,6 +432,22 @@ public sealed class MeterWindow : Window
             case Col.Hps: C.MeterColHps = !C.MeterColHps; break;
             case Col.Taken: C.MeterColTaken = !C.MeterColTaken; break;
         }
+    }
+
+    /// <summary>A column's width at text size 1: the saved width from the full view, else the default.</summary>
+    private float ColWidth(string header, float fallback) =>
+        C.MeterColumnWidths.TryGetValue(header, out var w) && w > 8 ? w : fallback;
+
+    /// <summary>Shortens text with "..." to fit a width.</summary>
+    private static string Fit(string text, float width)
+    {
+        if (ImGui.CalcTextSize(text).X <= width) return text;
+        for (var n = text.Length - 1; n > 0; n--)
+        {
+            var t = text[..n].TrimEnd() + "...";
+            if (ImGui.CalcTextSize(t).X <= width) return t;
+        }
+        return "";
     }
 
     public static readonly string[] AlignNames = { "Left", "Center", "Right" };
