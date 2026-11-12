@@ -41,6 +41,8 @@ Settings (`/crec`):
 - **Columns:** turn each full-view column on or off; align numbers left / center / right (default right); reset widths.
 - **Sizing:** drag the lines between the full view's column headers to resize columns (saved). Both views can be
   resized from the window corner, and each keeps its own size; the compact bars stretch to the window's width.
+- **Compact view columns:** a header line (Name, DPS, rDPS, % — or HPS / Taken when sorted that way) with each bar's
+  numbers lined up under it. Column widths are shared with the full view, so resize them there.
 
 Counted the way ACT does it (and so Cactbot's overlays):
 - Damage is every hit (normal, blocked, parried) plus damage-over-time ticks; healing includes heal-over-time ticks and
@@ -60,7 +62,7 @@ Counted the way ACT does it (and so Cactbot's overlays):
     skills (e.g. Inner Release) are credited like normal hits, so these buffs are slightly over-credited on them.
   - DoT ticks aren't re-credited (they lock in buffs when applied). [Estimate]: a small under-credit for buffers.
   - Only buffs from players the meter counts are moved (your party, or everyone with "count everyone").
-  - Compact view shows rDPS in brackets when the rDPS column is on.
+  - Compact view shows an rDPS column when the rDPS column is on.
 
 ## Privacy
 Party members are written as `p1`..`p7` with their job, never by name (the meter shows names on your screen only; it can hide them). Enemy names are kept.
