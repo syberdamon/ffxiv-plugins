@@ -151,6 +151,8 @@ public sealed unsafe class Runner : IDisposable
         if (CantStart(insideAutoRetainer) is { } why) { Status = why; return; }
         if (!onlyStarting) planner.Only = null; // ordinary runs take everything
         duringAr = insideAutoRetainer;
+        // Only counts when no retainer is open yet: at a retainer, the bag window belongs to the retainer's.
+        bagsOpenAtStart = !Tracker.RetainerInventoryOpen && BagWindows.Any(GameUi.IsOpen);
         var me = tracker.Me()!;
         mode = m;
         pass = 1;
@@ -510,8 +512,21 @@ public sealed unsafe class Runner : IDisposable
             var inv = GameUi.Get(name);
             if (inv != null) { inv->Close(true); return; }
         }
+        // Closing the retainer's window from here doesn't always take your own inventory with it (the game's
+        // "entrust" bag window stayed up after a venture-returns stash). Close it too, unless it was already
+        // open before the run.
+        if (!bagsOpenAtStart)
+            foreach (var name in BagWindows)
+            {
+                var bags = GameUi.Get(name);
+                if (bags != null) { bags->Close(true); return; }
+            }
         Set(Phase.Quit);
     }
+
+    private static readonly string[] BagWindows = { "InventoryExpansion", "InventoryLarge", "Inventory" };
+    /// <summary>Your own inventory window was open when the run started (then it's left open).</summary>
+    private bool bagsOpenAtStart;
 
     private void TickQuit()
     {
