@@ -81,19 +81,35 @@ public sealed class SettingsWindow : Window
         ImGui.SameLine(); if (ImGui.RadioButton("Click to rescue", ref mode, 0)) { c.Mode = RescueMode.Click; changed = true; }
         ImGui.SameLine(); if (ImGui.RadioButton("Automatic", ref mode, 1)) { c.Mode = RescueMode.Automatic; changed = true; }
 
+        // Timers (Ctrl+click a slider to type an exact value).
+        ImGui.Separator();
+        ImGui.TextUnformatted("Timers");
         var warn = c.WarnSeconds;
         ImGui.SetNextItemWidth(200);
-        if (ImGui.SliderFloat("Show danger this far ahead (s)", ref warn, 1, 8, "%.1f")) { c.WarnSeconds = warn; changed = true; }
-        if (c.Mode == RescueMode.Automatic)
-        {
-            var delay = c.AutoDelayMs;
-            ImGui.SetNextItemWidth(200);
-            if (ImGui.SliderInt("Automatic: in danger at least (ms)", ref delay, 0, 2000)) { c.AutoDelayMs = delay; changed = true; }
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Gives them a chance to walk out on their own first.");
-            var within = c.AutoWithinSeconds;
-            ImGui.SetNextItemWidth(200);
-            if (ImGui.SliderFloat("Automatic: AoE goes off within (s)", ref within, 0.5f, 4, "%.1f")) { c.AutoWithinSeconds = within; changed = true; }
-        }
+        if (ImGui.SliderFloat("Mark as in danger when the AoE lands within (s)", ref warn, 0.5f, 8, "%.1f")) { c.WarnSeconds = warn; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("A player turns red in the panel once the AoE they stand in goes off within this time.");
+
+        var auto = c.Mode == RescueMode.Automatic;
+        if (!auto) ImGui.BeginDisabled();
+        var delay = c.AutoDelayMs;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.SliderInt("Automatic: wait before rescuing (ms)", ref delay, 0, 3000)) { c.AutoDelayMs = delay; changed = true; }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGui.SetTooltip("They must have been red at least this long: a chance to walk out on their own first.");
+        var within = c.AutoWithinSeconds;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.SliderFloat("Automatic: only when the AoE lands within (s)", ref within, 0.3f, 6, "%.1f")) { c.AutoWithinSeconds = within; changed = true; }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGui.SetTooltip("Rescue only this close to the hit, so someone with time to move isn't pulled early.");
+        var cd = c.AutoCooldownSeconds;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.SliderFloat("Automatic: at most one rescue every (s)", ref cd, 0.5f, 10, "%.1f")) { c.AutoCooldownSeconds = cd; changed = true; }
+        if (!auto) ImGui.EndDisabled();
+        if (!auto) ImGui.TextDisabled("(The Automatic timers apply once Mode is Automatic.)");
+
+        var mem = c.MarkerMemorySeconds;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.SliderFloat("Treat a head marker as active for (s)", ref mem, 1, 20, "%.0f")) { c.MarkerMemorySeconds = mem; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("With 'skip players with a mechanic marker' on: how long after a spread/stack marker they're left alone.");
+        ImGui.Separator();
         Box("Never pull a tank holding enemies", c.IgnoreTanksHoldingEnemies, v => c.IgnoreTanksHoldingEnemies = v);
         Box("Skip players with a mechanic marker (spread, stack...)", c.IgnoreMarkedPlayers, v => c.IgnoreMarkedPlayers = v);
         Box("Show the party panel", c.ShowPanel, v => c.ShowPanel = v);
