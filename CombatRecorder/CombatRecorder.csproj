@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.3.1.0</Version>
+    <Version>0.4.0.0</Version>
     <Author>syberdamon</Author>
     <Name>Combat Recorder</Name>
     <Punchline>Records your fights (actions, damage, heals, buffs, HP, movement) to compact local files for review.</Punchline>
-    <Description>Writes one compressed JSON-lines file per duty: every action you, your party and enemies use (with damage/heal numbers), buffs and debuffs gained and lost, HP/MP and positions twice a second, casts, deaths and target changes. Party members are recorded by job and slot, never by name. /crec mark &lt;note&gt; drops a marker you can point to later ("downtime here"). Nothing leaves your PC. Also a DPS meter in game: party DPS, HPS, damage taken, crit and direct hit rates, deaths and per-skill breakdowns, counted the way ACT does (encounter DPS, DoTs and pets included), with the last 10 fights kept.</Description>
+    <Description>Writes one compressed JSON-lines file per duty: every action you, your party and enemies use (with damage/heal numbers), buffs and debuffs gained and lost, HP/MP and positions twice a second, casts, deaths and target changes. Party members are recorded by job and slot, never by name. /crec mark &lt;note&gt; drops a marker you can point to later ("downtime here"). Nothing leaves your PC. Also a DPS meter in game: party DPS, rDPS and aDPS (raid buffs credited to whoever gave them), HPS, damage taken, crit and direct hit rates, deaths and per-skill breakdowns, counted the way ACT does (encounter DPS, DoTs and pets included), with the last 10 fights kept.</Description>
     <Tags>log;combat;analysis;recorder;dps;meter;parser</Tags>
     <RepoUrl>https://github.com/syberdamon/ffxiv-plugins</RepoUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dalamud.Game;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
@@ -27,6 +28,19 @@ public sealed class Combatant
     public long MaxHit;
     public string MaxHitName = "";
     public readonly Dictionary<string, SkillTotals> Skills = new();
+
+    // ---- raid-buff crediting (FFLogs-style rDPS / aDPS)
+    /// <summary>Damage this player dealt that came from other players' buffs (taken off for rDPS and aDPS).</summary>
+    public long BuffedByOthers;
+    /// <summary>Damage other players dealt that came from this player's buffs (added for rDPS).</summary>
+    public long BuffGiven;
+    /// <summary>Hits with no outside crit / direct hit rate buff, for estimating this player's own rates.</summary>
+    public int PlainCritHits, PlainCrits, PlainDhHits, PlainDhs;
+
+    /// <summary>rDPS damage: own damage, minus what others' buffs added, plus what this player's buffs added to others.</summary>
+    public long RaidDamage => Damage - BuffedByOthers + BuffGiven;
+    /// <summary>aDPS damage: own damage minus what others' buffs added.</summary>
+    public long AdjustedDamage => Damage - BuffedByOthers;
 }
 
 public sealed class SkillTotals
@@ -60,6 +74,10 @@ public sealed class Encounter
 ///    duration for everyone ("ENCDPS"), so a death or downtime lowers your number.
 ///  - DoT ticks name their source when the game sends it; when it doesn't, the tick goes to whoever has that
 ///    status on the target, split evenly if several do. [Estimate] for that case, as in ACT.
+///  - rDPS / aDPS (FFLogs-style): on each direct hit, the part added by another player's raid buff (see RaidBuffs)
+///    is taken off the hitter (aDPS) and, for rDPS, handed to the player who gave the buff. Damage-up buffs are
+///    exact; crit / direct hit rate buffs use each player's own rates estimated from their unbuffed hits
+///    [Estimate]. DoT ticks aren't re-credited (they snapshot buffs when applied) [Estimate].
 /// The last 10 encounters are kept.
 /// </summary>
 public sealed unsafe class Meter : IDisposable
@@ -203,7 +221,11 @@ public sealed unsafe class Meter : IDisposable
                     e.LastDamage = DateTime.UtcNow;
                     var t = e.Enemies.GetValueOrDefault(target);
                     e.Enemies[target] = (Plugin.ObjectTable.SearchByEntityId(target)?.Name.TextValue ?? "", t.Taken + value);
-                    if (Player(e, src) is { } c) AddDamage(c, ActionName(action), value, crit, dh);
+                    if (Player(e, src) is { } c)
+                    {
+                        AddDamage(c, ActionName(action), value, crit, dh);
+                        CreditBuffs(e, c, src, target, value, crit, dh);
+                    }
                 }
                 else if (IsEnemy(caster) && Owner(target) is { } victim)
                 {
@@ -239,6 +261,127 @@ public sealed unsafe class Meter : IDisposable
         c.Healing += value;
         if (!c.Skills.TryGetValue(skill, out var s)) c.Skills[skill] = s = new SkillTotals();
         s.Healing += value;
+    }
+
+    // ================================================================ raid buffs (rDPS / aDPS)
+
+    private enum BuffKind { Damage, Crit, DirectHit, CritAndDh }
+
+    /// <summary>
+    /// Raid buffs by English status name (matched against the game's status sheet, so every ID with that name counts).
+    /// Damage % for melee+tanks / ranged+healers (the same unless it's an AST card); OnTarget = an enemy debuff.
+    /// Values per Dawntrail tooltips. Radiant Finale assumes 3 codas (6%) and Technical/Standard Finish full steps (5%):
+    /// [Estimate] when fewer were used.
+    /// </summary>
+    private static readonly (string Name, BuffKind Kind, double Melee, double Ranged, bool OnTarget)[] RaidBuffs =
+    {
+        ("Divination", BuffKind.Damage, 0.06, 0.06, false),
+        ("The Balance", BuffKind.Damage, 0.06, 0.03, false),
+        ("The Spear", BuffKind.Damage, 0.03, 0.06, false),
+        ("Arcane Circle", BuffKind.Damage, 0.03, 0.03, false),
+        ("Brotherhood", BuffKind.Damage, 0.05, 0.05, false),
+        ("Embolden", BuffKind.Damage, 0.05, 0.05, false),
+        ("Searing Light", BuffKind.Damage, 0.05, 0.05, false),
+        ("Starry Muse", BuffKind.Damage, 0.05, 0.05, false),
+        ("Technical Finish", BuffKind.Damage, 0.05, 0.05, false),
+        ("Standard Finish", BuffKind.Damage, 0.05, 0.05, false),
+        ("Radiant Finale", BuffKind.Damage, 0.06, 0.06, false),
+        ("Dokumori", BuffKind.Damage, 0.05, 0.05, true),
+        ("Battle Litany", BuffKind.Crit, 0.10, 0.10, false),
+        ("Chain Stratagem", BuffKind.Crit, 0.10, 0.10, true),
+        ("Battle Voice", BuffKind.DirectHit, 0.20, 0.20, false),
+        ("Devilment", BuffKind.CritAndDh, 0.20, 0.20, false),
+    };
+
+    private static readonly HashSet<string> MeleeOrTank = new()
+    {
+        "PLD", "WAR", "DRK", "GNB", "GLA", "MRD", "MNK", "DRG", "NIN", "SAM", "RPR", "VPR", "PGL", "LNC", "ROG",
+    };
+
+    private static Dictionary<uint, int>? buffIds; // status ID -> index into RaidBuffs
+
+    private static Dictionary<uint, int> BuffIds()
+    {
+        if (buffIds != null) return buffIds;
+        var byName = new Dictionary<string, int>();
+        for (var i = 0; i < RaidBuffs.Length; i++) byName[RaidBuffs[i].Name] = i;
+        var map = new Dictionary<uint, int>();
+        foreach (var row in Plugin.DataManager.GetExcelSheet<LuminaStatus>(ClientLanguage.English))
+            if (byName.TryGetValue(row.Name.ExtractText(), out var i)) map[row.RowId] = i;
+        return buffIds = map;
+    }
+
+    /// <summary>Running estimate of a rate from unbuffed hits, starting from 25% (worth 20 hits) so early numbers stay sane.</summary>
+    private static double Rate(int hits, int count, double lo, double hi) => Math.Clamp((count + 0.25 * 20) / (hits + 20.0), lo, hi);
+
+    /// <summary>Takes the part of this hit that other players' raid buffs added off the hitter and gives it to them.</summary>
+    private void CreditBuffs(Encounter e, Combatant hitter, IBattleChara src, uint targetId, long value, bool crit, bool dh)
+    {
+        var ids = BuffIds();
+        var melee = MeleeOrTank.Contains(hitter.Job);
+        var found = new List<(IBattleChara From, BuffKind Kind, double Pct)>();
+        void Scan(IBattleChara? holder, bool onTarget)
+        {
+            if (holder == null) return;
+            foreach (var st in holder.StatusList)
+            {
+                if (st.StatusId == 0 || !ids.TryGetValue(st.StatusId, out var i) || RaidBuffs[i].OnTarget != onTarget) continue;
+                if (Owner(st.SourceId) is not { } from || from.EntityId == src.EntityId) continue; // own buffs stay with the hitter
+                var b = RaidBuffs[i];
+                if (!found.Any(f => f.From.EntityId == from.EntityId && f.Kind == b.Kind && f.Pct == (melee ? b.Melee : b.Ranged)))
+                    found.Add((from, b.Kind, melee ? b.Melee : b.Ranged));
+            }
+        }
+        Scan(src, false);
+        Scan(Plugin.ObjectTable.SearchByEntityId(targetId) as IBattleChara, true);
+
+        var critBuffs = found.Where(f => f.Kind is BuffKind.Crit or BuffKind.CritAndDh).ToList();
+        var dhBuffs = found.Where(f => f.Kind is BuffKind.DirectHit or BuffKind.CritAndDh).ToList();
+
+        // Own rates, before this hit updates them.
+        var critRate = Rate(hitter.PlainCritHits, hitter.PlainCrits, 0.05, 0.6);
+        var dhRate = Rate(hitter.PlainDhHits, hitter.PlainDhs, 0.0, 0.6);
+        if (critBuffs.Count == 0) { hitter.PlainCritHits++; if (crit) hitter.PlainCrits++; }
+        if (dhBuffs.Count == 0) { hitter.PlainDhHits++; if (dh) hitter.PlainDhs++; }
+        if (found.Count == 0 || value <= 0) return;
+
+        var credits = new List<(IBattleChara From, double Amount)>();
+
+        // Damage-up buffs multiply: split the extra by each buff's share of the combined multiplier (log split, exact).
+        var dmgBuffs = found.Where(f => f.Kind == BuffKind.Damage).ToList();
+        var mult = dmgBuffs.Aggregate(1.0, (m, f) => m * (1 + f.Pct));
+        var unbuffed = value / mult;
+        if (dmgBuffs.Count > 0)
+        {
+            var extra = value - unbuffed;
+            var logTotal = Math.Log(mult);
+            foreach (var f in dmgBuffs) credits.Add((f.From, extra * Math.Log(1 + f.Pct) / logTotal));
+        }
+
+        // Crit rate buffs: if the hit crit, the crit's extra damage is credited by the buff's share of the total crit rate.
+        // Crit damage multiplier = 1.35 + crit rate (the game's formula). [Estimate] via the estimated own rate.
+        if (crit && critBuffs.Count > 0)
+        {
+            var sum = critBuffs.Sum(f => f.Pct);
+            var extra = unbuffed * (1 - 1 / (1.35 + critRate)) * sum / (critRate + sum);
+            foreach (var f in critBuffs) credits.Add((f.From, extra * f.Pct / sum));
+        }
+
+        // Direct hit rate buffs: same idea, direct hits are x1.25.
+        if (dh && dhBuffs.Count > 0)
+        {
+            var sum = dhBuffs.Sum(f => f.Pct);
+            var extra = unbuffed * (1 - 1 / 1.25) * sum / (dhRate + sum);
+            foreach (var f in dhBuffs) credits.Add((f.From, extra * f.Pct / sum));
+        }
+
+        foreach (var (from, amount) in credits)
+        {
+            var give = (long)Math.Round(amount);
+            if (give <= 0 || Player(e, from) is not { } giver) continue; // buffer not counted (not in party): leave it with the hitter
+            giver.BuffGiven += give;
+            hitter.BuffedByOthers += give;
+        }
     }
 
     private void OnActorControl(uint entityId, uint category, uint arg1, uint arg2, uint arg3, uint arg4, uint arg5, uint arg6,

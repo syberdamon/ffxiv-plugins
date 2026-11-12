@@ -22,7 +22,7 @@ One file per duty (and per zone visit in the open world if enabled), in
   analysed without game data.
 
 ## DPS meter
-A window with the current fight (or one of the last 10): one row per party member with **DPS, share, damage, crit %,
+A window with the current fight (or one of the last 10): one row per party member with **DPS, rDPS, aDPS, share, damage, crit %,
 direct hit %, deaths, HPS and damage taken**; click a row for that player's skills (damage, share, hits, crit/DH %,
 max hit; DoT ticks listed by status). The small **Bars** / **Full** button at the top swaps
 between this table and the **compact view** (one bar per player, optionally with each player's % share).
@@ -47,8 +47,18 @@ Counted the way ACT does it (and so Cactbot's overlays):
   change zone). DPS = damage / encounter time (first to last hit), the same time for everyone ("ENCDPS").
 - DoT ticks name their source when the game sends it; when it doesn't, the tick goes to whoever has that status on the
   target, split evenly if several do. [Estimate] for that case.
-- Not included: rDPS/aDPS (FFLogs' crediting of raid buffs). It needs each player's critical hit and direct hit rates,
-  which the game doesn't give for other players, so any figure would be a rough guess.
+- **rDPS / aDPS** (FFLogs-style raid-buff credit). On each hit, the extra damage another player's raid buff added is
+  taken off the hitter (**aDPS** = damage without others' buffs) and, for **rDPS**, credited to whoever gave the buff.
+  So an AST's rDPS includes what Divination and their cards added to everyone else. Your own buffs on yourself stay yours.
+  - Damage-up buffs (Divination, The Balance / The Spear, Arcane Circle, Brotherhood, Embolden, Searing Light,
+    Starry Muse, Technical / Standard Finish, Radiant Finale, Dokumori) are exact, split fairly when several stack.
+    [Estimate]: Radiant Finale is taken as 3 codas (6%) and Technical/Standard Finish as full steps (5%).
+  - Crit and direct hit rate buffs (Battle Litany, Chain Stratagem, Battle Voice, Devilment) need the hitter's own
+    rates, estimated from their hits outside those buffs during the fight. [Estimate]. Guaranteed crit / direct hit
+    skills (e.g. Inner Release) are credited like normal hits, so these buffs are slightly over-credited on them.
+  - DoT ticks aren't re-credited (they lock in buffs when applied). [Estimate]: a small under-credit for buffers.
+  - Only buffs from players the meter counts are moved (your party, or everyone with "count everyone").
+  - Compact view shows rDPS in brackets when the rDPS column is on.
 
 ## Privacy
 Party members are written as `p1`..`p7` with their job, never by name (the meter shows names on your screen only; it can hide them). Enemy names are kept.
