@@ -246,7 +246,16 @@ retainers. **Run all goals** (or **Run** on one) repeats until you have the targ
 
 It stops a goal (and goes on to the next) when there's no usable recipe, a material can't be gathered (mob drops,
 vendor items: buy them or stock them), the bags have no room for a batch, a batch made nothing, or a turn-in changed
-nothing. **Stock mats** on a goal puts its collectable's recipe on the Stock list, so ventures bring back its
+nothing. Before a turn-in it waits until you're free to travel (GatherBuddy stopped, off your mount, not gathering or
+moving) and retries a refused start (e.g. Lifestream refusing the teleport) up to 5 times; if it still won't start,
+the whole run **stops** with your collectables still in your bags (it no longer skips the goal and ends quietly in the
+field). **Stop**: the small Scrip goals window that shows while a run is going, the Stop button on the tab, or
+`/stash stop`.
+
+**Turn in collectables** (button on the Scrip goals tab, `/stash turnin`): turns in every collectable in your bags
+that pays scrips, one scrip kind at a time, through Turn-In Manager, without running the goals. When a switched-on
+goal uses that scrip, its item is bought with the scrips (up to what the goal still needs) so the 4,000 cap isn't
+hit; otherwise nothing is bought, and collectables that would push past the cap stay in your bags. **Stock mats** on a goal puts its collectable's recipe on the Stock list, so ventures bring back its
 materials.
 
 **Cosmocredits** (Cosmic Exploration): Mesouaidonque's exchange sells some goal items (Mason's Abrasive, 1,000) and
@@ -256,7 +265,8 @@ the market board or gathering, keeping a reserve (default 10,000). Short of cred
 Exploration, its missions as you've set them up in ICE) until there are enough, once per goal, then buys; ICE's
 credit stop is put back to its defaults (cap 30,000, stop-at-cap off) afterwards. Not in one of those zones: if
 credits can be spent (or earned with ICE), Lifestream's `/li cosmic` takes you there (home world first if needed),
-once per run. [Assumption] which zone it lands in is Lifestream's choice (it tries the transport menu's options from
+once per batch while it's useful (after a trip that bought nothing, or an exchange that wouldn't open, not again
+for that goal). [Assumption] which zone it lands in is Lifestream's choice (it tries the transport menu's options from
 the last one up, so likely the newest you've unlocked); Mesouaidonque is in all four. The item list and costs are ICE's as of Nov 2026; the live
 window decides.
 

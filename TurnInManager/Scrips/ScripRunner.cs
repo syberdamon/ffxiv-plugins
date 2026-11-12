@@ -211,15 +211,36 @@ public sealed unsafe class ScripRunner : IDisposable
             return;
         }
         Log($"Teleport: aetheryte {config.HubAetheryte}");
-        if (!lifestream.Teleport(config.HubAetheryte, 0)) { Fail("Lifestream refused the teleport (unlocked? enough gil?)."); return; }
-        Set(ScripPhase.Teleport, "Teleporting to the scrip hub...");
-        nextAction = DateTime.UtcNow.AddSeconds(2);
+        teleportTries = 1;
+        teleportSent = lifestream.Teleport(config.HubAetheryte, 0);
+        if (!teleportSent) Log("  Lifestream refused the teleport: retrying (mounted / still moving?)");
+        Set(ScripPhase.Teleport, teleportSent ? "Teleporting to the scrip hub..." : "Waiting to teleport to the scrip hub...");
+        nextAction = DateTime.UtcNow.AddSeconds(teleportSent ? 2 : 3);
     }
+
+    // A refused teleport is retried a few times: right after gathering you can still be mounted or moving.
+    private int teleportTries;
+    private bool teleportSent;
 
     private static bool Moving => Plugin.Condition[ConditionFlag.BetweenAreas] || Plugin.Condition[ConditionFlag.BetweenAreas51] || Plugin.Condition[ConditionFlag.Casting];
 
     private void TickTeleport()
     {
+        if (!teleportSent)
+        {
+            if (lifestream.IsBusy || Moving) return;
+            if (Plugin.Condition[ConditionFlag.Mounted] || Plugin.Condition[ConditionFlag.InFlight])
+                FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23); // Dismount ([Assumption] lets the teleport through)
+            else if (++teleportTries > 4) { Fail("Lifestream refused the teleport 4 times (unlocked? enough gil?)."); return; }
+            else
+            {
+                teleportSent = lifestream.Teleport(config.HubAetheryte, 0);
+                Log($"  teleport try {teleportTries}: {(teleportSent ? "sent" : "refused")}");
+                if (teleportSent) { phaseStarted = DateTime.UtcNow; Status = "Teleporting to the scrip hub..."; }
+            }
+            nextAction = DateTime.UtcNow.AddSeconds(3);
+            return;
+        }
         if (lifestream.IsBusy || Moving) return;
         if (Plugin.ClientState.TerritoryType != config.HubTerritory)
         {
