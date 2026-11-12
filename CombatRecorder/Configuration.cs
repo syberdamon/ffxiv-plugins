@@ -46,7 +46,19 @@ public class Configuration : IPluginConfiguration
     /// <summary>Show at most this many rows (0 = all). You're always included.</summary>
     public int MeterMaxRows { get; set; } = 0;
     public float MeterFontScale { get; set; } = 1f;
+    /// <summary>Old fixed compact bar width; now only the starting width of the compact window.</summary>
     public int MeterBarWidth { get; set; } = 240;
+
+    /// <summary>Window size per view (0 = not set yet), so full and compact each keep their own size.</summary>
+    public float MeterFullWidth { get; set; } = 0;
+    public float MeterFullHeight { get; set; } = 0;
+    public float MeterCompactWidth { get; set; } = 0;
+    public float MeterCompactHeight { get; set; } = 0;
+
+    /// <summary>Full-view column widths by header, at text size 1 (missing = default).</summary>
+    public System.Collections.Generic.Dictionary<string, float> MeterColumnWidths { get; set; } = new();
+    /// <summary>Numbers in the full view: 0 = left, 1 = center, 2 = right.</summary>
+    public int MeterAlign { get; set; } = 2;
     public bool MeterRoleColors { get; set; } = false;
     public bool MeterHighlightMe { get; set; } = true;
     public bool MeterShowTitle { get; set; } = true;

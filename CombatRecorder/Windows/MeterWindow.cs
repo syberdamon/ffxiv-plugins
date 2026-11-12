@@ -46,6 +46,11 @@ public sealed class MeterWindow : Window
     private int pushedStyles;
     private Encounter? sample;
     private bool moving;
+    private bool? sizedFor;      // the view (compact or not) whose saved size was last applied
+    private int tableGen;        // bumped to make ImGui forget column widths (reset)
+
+    /// <summary>Default compact size: the old bar width, about six rows tall.</summary>
+    private Vector2 CompactDefault => new(Math.Clamp(C.MeterBarWidth, 120, 1000) + 16, 170);
 
     public MeterWindow(Plugin plugin) : base("Meter###CombatRecorderMeter")
     {
@@ -90,15 +95,26 @@ public sealed class MeterWindow : Window
             Flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize;
             if (C.MeterClickThrough) Flags |= ImGuiWindowFlags.NoInputs;
         }
-        if (C.MeterCompact) Flags |= ImGuiWindowFlags.AlwaysAutoResize;
         BgAlpha = Moving ? Math.Max(C.MeterOpacity, 0.85f) : C.MeterOpacity;
         ShowCloseButton = false;
 
         if (resetLayout)
         {
             ImGui.SetNextWindowPos(DefaultPos, ImGuiCond.Always);
-            ImGui.SetNextWindowSize(DefaultSize, ImGuiCond.Always);
+            var size = C.MeterCompact ? CompactDefault : DefaultSize;
+            ImGui.SetNextWindowSize(size, ImGuiCond.Always);
+            StoreSize(size);
+            sizedFor = C.MeterCompact;
             resetLayout = false;
+        }
+        else if (sizedFor != C.MeterCompact)
+        {
+            // First draw, or the view changed: use that view's own saved size.
+            var saved = C.MeterCompact ? new Vector2(C.MeterCompactWidth, C.MeterCompactHeight) : new Vector2(C.MeterFullWidth, C.MeterFullHeight);
+            if (saved.X <= 0 || saved.Y <= 0) saved = C.MeterCompact ? CompactDefault : DefaultSize;
+            ImGui.SetNextWindowSize(saved, sizedFor == null ? ImGuiCond.FirstUseEver : ImGuiCond.Always);
+            if (sizedFor == null) ImGui.SetNextWindowPos(DefaultPos, ImGuiCond.FirstUseEver);
+            sizedFor = C.MeterCompact;
         }
         else
         {
@@ -123,8 +139,26 @@ public sealed class MeterWindow : Window
         pushedStyles = 0;
     }
 
+    private void StoreSize(Vector2 size)
+    {
+        if (C.MeterCompact) { C.MeterCompactWidth = size.X; C.MeterCompactHeight = size.Y; }
+        else { C.MeterFullWidth = size.X; C.MeterFullHeight = size.Y; }
+    }
+
+    /// <summary>Remember the window's size for the current view once a drag-resize is finished.</summary>
+    private void TrackSize()
+    {
+        if (sizedFor != C.MeterCompact || ImGui.IsMouseDown(ImGuiMouseButton.Left)) return;
+        var size = ImGui.GetWindowSize();
+        var old = C.MeterCompact ? new Vector2(C.MeterCompactWidth, C.MeterCompactHeight) : new Vector2(C.MeterFullWidth, C.MeterFullHeight);
+        if (Math.Abs(size.X - old.X) < 1 && Math.Abs(size.Y - old.Y) < 1) return;
+        StoreSize(size);
+        C.Save();
+    }
+
     public override void Draw()
     {
+        TrackSize();
         ImGui.SetWindowFontScale(Math.Clamp(C.MeterFontScale, 0.5f, 2.5f));
         var m = plugin.Meter;
         if (shown >= m.History.Count) shown = -1;
@@ -187,18 +221,45 @@ public sealed class MeterWindow : Window
                 };
                 if (C.MeterCompactPercent) text += $"  {100.0 * v / sum:0}%";
                 ImGui.PushStyleColor(ImGuiCol.PlotHistogram, BarColor(p));
-                ImGui.ProgressBar((float)v / top, new Vector2(Math.Clamp(C.MeterBarWidth, 80, 1000), 0), text);
+                ImGui.ProgressBar((float)v / top, new Vector2(Math.Max(40, ImGui.GetContentRegionAvail().X), 0), text);
                 ImGui.PopStyleColor();
             }
             return;
         }
 
         var cols = Columns.Where(c => Shown(c.Col)).ToList();
-        if (!ImGui.BeginTable("##meter", 1 + cols.Count, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY)) return;
-        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch, 2f);
-        foreach (var c in cols) ImGui.TableSetupColumn(c.Header, ImGuiTableColumnFlags.WidthFixed, c.Width * C.MeterFontScale);
+        var scale = Math.Clamp(C.MeterFontScale, 0.5f, 2.5f);
+        // Drag the lines between headers to resize a column; widths are saved in the plugin's settings (not ImGui's),
+        // so the table's ID carries the shown-column set and a reset counter.
+        var mask = cols.Aggregate(0, (m, c) => m | (1 << (int)c.Col));
+        var flags = ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollY | ImGuiTableFlags.NoSavedSettings;
+        if (!Moving) flags |= ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV;
+        if (!ImGui.BeginTable($"##meter{mask}_{tableGen}", 1 + cols.Count, flags)) return;
+        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch, 1f);
+        foreach (var c in cols)
+            ImGui.TableSetupColumn(c.Header, ImGuiTableColumnFlags.WidthFixed,
+                (C.MeterColumnWidths.TryGetValue(c.Header, out var w) && w > 8 ? w : c.Width) * scale);
         ImGui.TableSetupScrollFreeze(0, 1);
-        ImGui.TableHeadersRow();
+
+        // Header row, aligned like the numbers; also where the current widths are read back.
+        ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+        ImGui.TableNextColumn();
+        ImGui.TableHeader("Name");
+        var widthsChanged = false;
+        foreach (var c in cols)
+        {
+            ImGui.TableNextColumn();
+            var w = ImGui.GetContentRegionAvail().X / scale;
+            if (!ImGui.IsMouseDown(ImGuiMouseButton.Left) &&
+                (!C.MeterColumnWidths.TryGetValue(c.Header, out var old) ? Math.Abs(w - c.Width) >= 1 : Math.Abs(w - old) >= 1))
+            {
+                C.MeterColumnWidths[c.Header] = (float)Math.Round(w, 1);
+                widthsChanged = true;
+            }
+            Align(c.Header);
+            ImGui.TableHeader(c.Header);
+        }
+        if (widthsChanged) C.Save();
         foreach (var p in rows)
         {
             ImGui.TableNextRow();
@@ -239,6 +300,14 @@ public sealed class MeterWindow : Window
         {
             foreach (var (col, header, _) in Columns)
                 if (ImGui.MenuItem(header, "", Shown(col))) { Toggle(col); C.Save(); }
+            ImGui.Separator();
+            if (ImGui.BeginMenu("Align numbers"))
+            {
+                for (var a = 0; a < AlignNames.Length; a++)
+                    if (ImGui.MenuItem(AlignNames[a], "", C.MeterAlign == a)) { C.MeterAlign = a; C.Save(); }
+                ImGui.EndMenu();
+            }
+            if (ImGui.MenuItem("Reset column widths")) ResetColumnWidths();
             ImGui.EndMenu();
         }
         if (ImGui.MenuItem("Hide names (show jobs)", "", C.MeterHideNames)) { C.MeterHideNames = !C.MeterHideNames; C.Save(); }
@@ -323,6 +392,16 @@ public sealed class MeterWindow : Window
         }
     }
 
+    public static readonly string[] AlignNames = { "Left", "Center", "Right" };
+
+    /// <summary>Back to the default column widths.</summary>
+    public void ResetColumnWidths()
+    {
+        C.MeterColumnWidths.Clear();
+        C.Save();
+        tableGen++;
+    }
+
     /// <summary>Column names and on/off state, for the settings window.</summary>
     public IEnumerable<(string Header, bool On, System.Action Flip)> ColumnToggles() =>
         Columns.Select(c => (c.Header, Shown(c.Col), (System.Action)(() => Toggle(c.Col))));
@@ -351,9 +430,19 @@ public sealed class MeterWindow : Window
 
     private string Label(Combatant p) => C.MeterHideNames || p.Name.Length == 0 ? (p.IsMe ? $"{p.Job} (you)" : p.Job) : $"{p.Name} ({p.Job})";
 
-    private static void Cell(string text, bool mine = false, bool dim = false)
+    /// <summary>Moves the cursor so the text lands left, centered or right in the current cell (the align setting).</summary>
+    private void Align(string text)
+    {
+        if (C.MeterAlign == 0) return;
+        var free = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(text).X;
+        if (free <= 0) return;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (C.MeterAlign == 1 ? free / 2 : free));
+    }
+
+    private void Cell(string text, bool mine = false, bool dim = false)
     {
         ImGui.TableNextColumn();
+        Align(text);
         if (mine) ImGui.TextColored(Mine, text);
         else if (dim) ImGui.TextColored(Dim, text);
         else ImGui.TextUnformatted(text);
