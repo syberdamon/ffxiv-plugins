@@ -36,9 +36,11 @@ combat too, unlocked and outlined, with sample rows if there's no fight yet. Dra
 Settings (`/crec`):
 - **When it shows:** only while fighting, and for how long after a fight (default 10 s); hide during cutscenes.
 - **Layout and look:** lock, click-through when locked, compact view, title line on/off, hide names, color by role,
-  compact-view % share on/off, highlight your row, sort by damage / healing / damage taken, max rows (you're always shown), text size, compact bar
-  width, background opacity.
-- **Columns:** turn each full-view column on or off.
+  compact-view % share on/off, highlight your row, sort by damage / healing / damage taken, max rows (you're always shown), text size,
+  background opacity.
+- **Columns:** turn each full-view column on or off; align numbers left / center / right (default right); reset widths.
+- **Sizing:** drag the lines between the full view's column headers to resize columns (saved). Both views can be
+  resized from the window corner, and each keeps its own size; the compact bars stretch to the window's width.
 
 Counted the way ACT does it (and so Cactbot's overlays):
 - Damage is every hit (normal, blocked, parried) plus damage-over-time ticks; healing includes heal-over-time ticks and
