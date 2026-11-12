@@ -1359,12 +1359,14 @@ public sealed class MainWindow : Window
     {
         var changed = false;
         var p = plan.Gather;
-        var label = p == null ? "Auto: none usable"
-            : $"{(g.GatherItemId == 0 ? "Auto: " : "")}{p.Name} ({ScripData.GatherJob(p.JobTab)}, {p.High})";
+        var allCount = plan.GatherAll?.Count ?? 0;
+        var label = g.GatherItemId == 0
+            ? (allCount == 0 ? "All: none usable" : $"All: {allCount} collectable(s), whichever node is up")
+            : p == null ? "?" : $"{p.Name} ({ScripData.GatherJob(p.JobTab)}, {p.High})";
         ImGui.SetNextItemWidth(-1);
         if (ImGui.BeginCombo("##gather", label))
         {
-            if (ImGui.Selectable("Auto (most scrips per item)", g.GatherItemId == 0)) { g.GatherItemId = 0; changed = true; }
+            if (ImGui.Selectable("All you can gather (GatherBuddy cycles to whichever node is up)", g.GatherItemId == 0)) { g.GatherItemId = 0; changed = true; }
             foreach (var r in ScripData.Gatherables(Plugin.DataManager, plan.Shop.CurrencyItemId))
             {
                 var cant = ScripData.CantGather(Plugin.DataManager, r);
@@ -1375,7 +1377,10 @@ public sealed class MainWindow : Window
             }
             ImGui.EndCombo();
         }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Timed (unspoiled / legendary) nodes gather slowly; pick a regular node if Auto chose a timed one.");
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(g.GatherItemId == 0 && allCount > 0
+                ? "In GatherBuddy's list:\n" + string.Join("\n", plan.GatherAll!.Select(x => $"{x.Name} ({ScripData.GatherJob(x.JobTab)} {x.LevelMin}+, {x.High} scrips)"))
+                : "All (the default) puts every collectable paying this scrip in GatherBuddy's list, so it goes to whichever node is up.");
         return changed;
     }
 
