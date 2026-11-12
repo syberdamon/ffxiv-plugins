@@ -224,7 +224,6 @@ public class Configuration : IPluginConfiguration
     public bool SellSound { get; set; } = true;
     /// <summary>Chat sound effect number (the &lt;se.N&gt; sounds, 1-16).</summary>
     public int SellSoundId { get; set; } = 6;
-    public bool SellHighlight { get; set; } = true;
     // ---- auto-sell
     public bool AutoSell { get; set; } = false;
     /// <summary>After a Stash run, go to the selling retainer and list what's queued.</summary>
