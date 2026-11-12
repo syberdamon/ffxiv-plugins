@@ -53,6 +53,8 @@ public class Configuration : IPluginConfiguration
 
     // Full-view columns (Name is always shown).
     public bool MeterColDps { get; set; } = true;
+    public bool MeterColRdps { get; set; } = true;
+    public bool MeterColAdps { get; set; } = true;
     public bool MeterColShare { get; set; } = true;
     public bool MeterColDamage { get; set; } = true;
     public bool MeterColCrit { get; set; } = true;
