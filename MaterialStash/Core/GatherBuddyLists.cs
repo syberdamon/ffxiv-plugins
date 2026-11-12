@@ -85,11 +85,23 @@ public sealed class GatherBuddyLists
     /// Make our list hold exactly this item with this quantity (GatherBuddy gathers until you hold
     /// that many), creating the list if needed. Doesn't switch it on.
     /// </summary>
-    public object? SetOurList(uint itemId, int quantity)
+    public object? SetOurList(uint itemId, int quantity) => SetOurList(new[] { (itemId, quantity) }, out _);
+
+    /// <summary>
+    /// Our list with exactly these items and quantities (several: GatherBuddy goes to whichever node is up).
+    /// Items GatherBuddy doesn't know are left out and returned in <paramref name="unknown"/>.
+    /// </summary>
+    public object? SetOurList(IEnumerable<(uint ItemId, int Quantity)> wants, out List<uint> unknown)
     {
+        unknown = new List<uint>();
         if (manager == null || listType == null) { Error = "Not connected to GatherBuddy."; return null; }
-        var g = Gatherable(itemId);
-        if (g == null) { Error = $"GatherBuddy doesn't know item #{itemId} as gatherable."; return null; }
+        var known = new List<(object G, int Quantity)>();
+        foreach (var (id, q) in wants)
+        {
+            var gi = Gatherable(id);
+            if (gi == null) unknown.Add(id); else known.Add((gi, q));
+        }
+        if (known.Count == 0) { Error = "GatherBuddy doesn't know any of these items as gatherable."; return null; }
         var list = Find(OurList);
         if (list == null)
         {
@@ -100,13 +112,17 @@ public sealed class GatherBuddyLists
             list = Find(OurList);
             if (list == null) { Error = "GatherBuddy didn't keep the new list."; return null; }
         }
+        bool Wanted(object x) => known.Any(k => ReferenceEquals(x, k.G) || x.Equals(k.G));
         // Remove anything else in it, newest first.
         var items = ((IEnumerable)Get(list, "Items")!).Cast<object>().ToList();
         for (var i = items.Count - 1; i >= 0; i--)
-            if (!ReferenceEquals(items[i], g) && !items[i].Equals(g)) Call(manager, "RemoveItem", list, i);
-        items = ((IEnumerable)Get(list, "Items")!).Cast<object>().ToList();
-        if (!items.Any(x => ReferenceEquals(x, g) || x.Equals(g))) Call(manager, "AddItem", list, g);
-        Call(manager, "ChangeQuantity", list, g, (uint)Math.Max(1, quantity));
+            if (!Wanted(items[i])) Call(manager, "RemoveItem", list, i);
+        foreach (var (g, q) in known)
+        {
+            items = ((IEnumerable)Get(list, "Items")!).Cast<object>().ToList();
+            if (!items.Any(x => ReferenceEquals(x, g) || x.Equals(g))) Call(manager, "AddItem", list, g);
+            Call(manager, "ChangeQuantity", list, g, (uint)Math.Max(1, q));
+        }
         return list;
     }
 

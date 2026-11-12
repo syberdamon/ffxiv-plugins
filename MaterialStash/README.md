@@ -271,11 +271,14 @@ the last one up, so likely the newest you've unlocked); Mesouaidonque is in all 
 window decides.
 
 **Gatherer scrips** (e.g. items bought with purple/orange gatherers' scrips): instead of crafting, a batch is gathered
-with GatherBuddy Reborn's auto-gather. Auto picks the Miner/Botanist collectable paying the most you can turn in
-(or pick one per goal; timed nodes are slow, so pick a regular one if Auto chose a timed one). For each batch:
-your switched-on auto-gather lists are switched off (and noted), a list named "Material Stash: scrip goals" is
-created or reused with the collectable and the amount, it's switched on, auto-gather starts, and it's switched off
-when the batch is in your bags (or bags are down to the free slots you keep). Then your lists are switched back on.
+with GatherBuddy Reborn's auto-gather. **All** (the default) puts every Miner/Botanist collectable you can gather
+and turn in for that scrip into the list, so GatherBuddy cycles to whichever node is up instead of waiting on one
+timed node; or pick a single collectable per goal. For each batch: your switched-on auto-gather lists are switched
+off (and noted), a list named "Material Stash: scrip goals" is created or reused with those collectables, it's
+switched on, auto-gather starts, and it's switched off once the collectables gathered are worth the scrips the goal
+is still short (or the batch size / bag room is reached). Collectables GatherBuddy switches off in the list (e.g.
+perception too low) or doesn't know are left out and logged. [Assumption] GatherBuddy skips legendary nodes you
+haven't unlocked (folklore); if it walks to one anyway, pick single collectables instead. Then your lists are switched back on.
 If a run is cut off, the tab shows the lists still off and a button to switch them back. Fishing collectables
 aren't automated (bait). GatherBuddy has no IPC for lists, so this reaches its list manager through reflection
 [Assumption: its internal names as of Nov 2026]; after a GatherBuddy update that renames them, the run stops with

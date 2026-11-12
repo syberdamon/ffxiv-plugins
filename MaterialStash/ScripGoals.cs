@@ -13,7 +13,8 @@ namespace MaterialStash;
 /// <summary>Where a scrip goal stands right now.</summary>
 public sealed record ScripPlan(
     ScripGoal Goal, ScripShopEntry Shop, int Have, int Need, int Scrips,
-    int Held, int HeldValue, CollectableRecipe? Recipe, string? RecipeWhy, int CraftsNeeded, CollectableReward? Gather = null);
+    int Held, int HeldValue, CollectableRecipe? Recipe, string? RecipeWhy, int CraftsNeeded, CollectableReward? Gather = null,
+    IReadOnlyList<CollectableReward>? GatherAll = null);
 
 /// <summary>Materials for one batch: what to take out of retainers, and what isn't anywhere.</summary>
 public sealed record BatchMaterials(Dictionary<uint, int> Fetch, Dictionary<uint, int> Missing, int NewSlots);
@@ -58,6 +59,10 @@ public sealed unsafe class ScripGoals : IDisposable
     private DateTime arrived = DateTime.MinValue;
     private string cosmoFor = "";
     private CollectableReward? gatherItem;
+    /// <summary>The collectables in our GatherBuddy list this batch, and what the batch should earn.</summary>
+    private List<CollectableReward> gatherSet = new();
+    private int startValue, batchScrips;
+    private uint gatherCurrency;
     private bool listsTouched;
 
     private Step step = Step.Idle;
@@ -121,11 +126,17 @@ public sealed unsafe class ScripGoals : IDisposable
         if (!ScripData.IsCrafterScrip(shop.CurrencyItemId))
         {
             // Gatherer scrips: gather a collectable with GatherBuddy's auto-gather.
+            // Default (GatherItemId 0): every collectable you can gather that pays this scrip, so GatherBuddy
+            // cycles to whichever node is up instead of waiting on one timed node. Or one you picked.
             var options = ScripData.Gatherables(Data, shop.CurrencyItemId);
-            var pick = g.GatherItemId != 0 ? options.FirstOrDefault(x => x.ItemId == g.GatherItemId) : options.FirstOrDefault(x => ScripData.CantGather(Data, x) == null);
-            why = pick == null ? $"no collectable you can gather pays {ScripData.ScripNames[shop.CurrencyItemId]}" : ScripData.CantGather(Data, pick);
-            var n = pick == null || pick.High <= 0 || shortScrips0 <= 0 ? 0 : (shortScrips0 + pick.High - 1) / pick.High;
-            return new ScripPlan(g, shop, have, need, scrips, held.Count, value, null, why, n, pick);
+            var usable = options.Where(x => ScripData.CantGather(Data, x) == null).ToList();
+            var pick = g.GatherItemId != 0 ? options.FirstOrDefault(x => x.ItemId == g.GatherItemId) : usable.FirstOrDefault();
+            var all = g.GatherItemId != 0 ? (pick == null ? new List<CollectableReward>() : new List<CollectableReward> { pick }) : usable;
+            why = pick == null ? $"no collectable you can gather pays {ScripData.ScripNames[shop.CurrencyItemId]}" : g.GatherItemId != 0 ? ScripData.CantGather(Data, pick) : null;
+            // Count estimate from the lowest top-tier payout in the set (several kinds get mixed). [Estimate]
+            var per = all.Count == 0 ? 0 : all.Min(x => x.High);
+            var n = per <= 0 || shortScrips0 <= 0 ? 0 : (shortScrips0 + per - 1) / per;
+            return new ScripPlan(g, shop, have, need, scrips, held.Count, value, null, why, n, pick, all);
         }
         if (g.RecipeId != 0)
         {
@@ -603,8 +614,10 @@ public sealed unsafe class ScripGoals : IDisposable
     private bool StartGather(ScripPlan plan)
     {
         var name = ItemName(plan.Goal.ItemId);
-        var item = plan.Gather!;
-        if (!GatherBuddy.IsLoaded) { Note($"{name}: GatherBuddy Reborn isn't loaded (it gathers {item.Name})."); return false; }
+        var set = (plan.GatherAll ?? (plan.Gather != null ? new[] { plan.Gather } : Array.Empty<CollectableReward>())).ToList();
+        if (set.Count == 0) { Note($"{name}: no collectable to gather."); return false; }
+        var label = set.Count == 1 ? set[0].Name : $"{set.Count} collectables";
+        if (!GatherBuddy.IsLoaded) { Note($"{name}: GatherBuddy Reborn isn't loaded (it gathers {label})."); return false; }
         if (GatherBuddy.AutoGathering) { Note($"{name}: GatherBuddy's auto-gather is already running: stop it first."); return false; }
         if (!Lists.Connect()) { Note($"{name}: {Lists.Error}"); return false; }
 
@@ -612,7 +625,11 @@ public sealed unsafe class ScripGoals : IDisposable
         var wanted = Math.Max(1, Math.Min(plan.CraftsNeeded, Math.Max(1, C.ScripMaxBatch)));
         batch = Math.Min(wanted, free - C.ScripReserveSlots);
         if (batch <= 0) { Note($"{name}: not enough bag room for a batch ({free} free, keeping {C.ScripReserveSlots} open)."); return false; }
+        // Scrips this batch should bring in: what the goal is still short, capped by what fits in the bags.
+        var shortScrips = Math.Max(1, plan.Need * plan.Shop.Cost - plan.Scrips - plan.HeldValue);
+        batchScrips = Math.Min(shortScrips, batch * set.Max(x => x.High));
 
+        var skipped = new List<string>();
         try
         {
             listsTouched = true;
@@ -625,11 +642,16 @@ public sealed unsafe class ScripGoals : IDisposable
                 C.Save();
                 if (!Lists.SetEnabled(l, false)) { Note($"{name}: couldn't switch off your GatherBuddy list '{n}'."); return false; }
             }
-            startCount = lastMade = CollectableCount(item.ItemId);
-            var ours = Lists.SetOurList(item.ItemId, startCount + batch);
+            // Each kind's quantity covers the whole batch on its own: GatherBuddy goes to whichever node is up,
+            // and we stop it once the batch's scrips are in (or the bags are full).
+            var wants = set.Select(x => (x.ItemId, CollectableCount(x.ItemId) + Math.Max(1, (batchScrips + x.High - 1) / Math.Max(1, x.High)))).ToList();
+            var ours = Lists.SetOurList(wants, out var unknown);
             if (ours == null) { Note($"{name}: {Lists.Error}"); return false; }
-            if (!Lists.SetEnabled(ours, true)) { Note($"{name}: GatherBuddy wouldn't switch on the list for {item.Name} (bait / perception check?)."); return false; }
-            if (!Lists.ItemEnabled(ours, item.ItemId)) { Note($"{name}: GatherBuddy switched {item.Name} off in the list (perception too low for it?)."); return false; }
+            if (!Lists.SetEnabled(ours, true)) { Note($"{name}: GatherBuddy wouldn't switch on the list (bait / perception check?)."); return false; }
+            var kept = set.Where(x => !unknown.Contains(x.ItemId) && Lists.ItemEnabled(ours, x.ItemId)).ToList();
+            skipped = set.Except(kept).Select(x => x.Name).ToList();
+            if (kept.Count == 0) { Note($"{name}: GatherBuddy switched every collectable off in the list (perception too low?)."); return false; }
+            set = kept;
         }
         catch (Exception ex)
         {
@@ -639,31 +661,52 @@ public sealed unsafe class ScripGoals : IDisposable
         }
 
         if (!GatherBuddy.StartAutoGather()) { Note($"{name}: couldn't start GatherBuddy's auto-gather."); return false; }
-        gatherItem = item;
+        gatherSet = set;
+        gatherItem = set[0];
+        gatherCurrency = plan.Shop.CurrencyItemId;
+        startCount = lastMade = SetCount();
+        startValue = SetValue();
         sawActive = false;
         lastActive = DateTime.UtcNow;
-        Set(Step.Gathering, $"{name}: GatherBuddy gathering {batch} {item.Name} ({ScripData.GatherJob(item.JobTab)}, up to {item.High} scrips each)...");
+        if (skipped.Count > 0) Log($"GatherBuddy left out: {string.Join(", ", skipped)}");
+        Log($"gathering for {batchScrips} scrips (max {batch} items) from: {string.Join(", ", set.Select(x => $"{x.Name} ({ScripData.GatherJob(x.JobTab)}, {x.High})"))}");
+        Set(Step.Gathering, $"{name}: GatherBuddy gathering ~{batchScrips} scrips' worth from {(set.Count == 1 ? set[0].Name : $"{set.Count} collectables (whichever node is up)")}...");
         return true;
+    }
+
+    /// <summary>Collectables of this batch's kinds in your bags.</summary>
+    private int SetCount()
+    {
+        var ids = gatherSet.Select(x => x.ItemId).ToHashSet();
+        return ScripData.CollectablesInBags(Data).Count(c => ids.Contains(c.ItemId));
+    }
+
+    /// <summary>What the collectables of this batch's kinds in your bags pay.</summary>
+    private int SetValue()
+    {
+        var ids = gatherSet.Select(x => x.ItemId).ToHashSet();
+        var rw = ScripData.Rewards(Data);
+        return ScripData.CollectablesInBags(Data, gatherCurrency).Where(c => ids.Contains(c.ItemId)).Sum(c => ScripData.Pays(rw[c.ItemId], c.Collectability));
     }
 
     private void TickGathering()
     {
-        var item = gatherItem!;
-        var made = CollectableCount(item.ItemId) - startCount;
+        var made = SetCount() - startCount;
+        var earned = SetValue() - startValue;
         var on = GatherBuddy.AutoGathering;
         if (made != lastMade || on) { lastActive = DateTime.UtcNow; sawActive = true; }
         lastMade = made;
-        Status = $"{ItemName(Goal.ItemId)}: GatherBuddy {Math.Max(0, made)}/{batch} {item.Name}...";
+        Status = $"{ItemName(Goal.ItemId)}: GatherBuddy {Math.Max(0, made)} gathered, {Math.Max(0, earned)}/{batchScrips} scrips...";
 
         var full = FreeSlots() <= C.ScripReserveSlots;
-        if (made >= batch || full)
+        if (earned >= batchScrips || made >= batch || full)
         {
             GatherBuddy.StopAutoGather();
-            if (full && made < batch) Note($"Bags down to {C.ScripReserveSlots} free slots: stopped gathering.");
+            if (full && earned < batchScrips) Note($"Bags down to {C.ScripReserveSlots} free slots: stopped gathering.");
             EndGather(made);
             return;
         }
-        if (!sawActive && (DateTime.UtcNow - stepStart).TotalSeconds > 60) { Stop($"GatherBuddy's auto-gather didn't start for {item.Name}."); return; }
+        if (!sawActive && (DateTime.UtcNow - stepStart).TotalSeconds > 60) { Stop("GatherBuddy's auto-gather didn't start."); return; }
         // Auto-gather switched itself off (list done, or it gave up): wait a little in case it's between steps.
         if (sawActive && !on && (DateTime.UtcNow - lastActive).TotalSeconds > 20) EndGather(made);
     }
@@ -673,7 +716,7 @@ public sealed unsafe class ScripGoals : IDisposable
         RestoreLists();
         if (made <= 0)
         {
-            Note($"{ItemName(Goal.ItemId)}: gathered no {gatherItem!.Name} (see GatherBuddy's status: {GatherBuddy.Status}).");
+            Note($"{ItemName(Goal.ItemId)}: gathered nothing (see GatherBuddy's status: {GatherBuddy.Status}).");
             gi++;
         }
         ResetBatch();
