@@ -239,6 +239,13 @@ Toggle: `/mitplan trash on|off`. Dungeons and tank jobs only.
   Rampart below 70%. Last resort for a big gather when Short, Reprisal and Rampart are all
   down (e.g. a second big pack right after the first, at low level): the 40% with 6+ mobs,
   below 70% and still losing HP (all configurable; switch on the Trash mode tab).
+- **Look ahead (big mit):** before the 40% goes out, Trash mode checks what's next: dungeon
+  route maps (built from recorded runs; `tools/build_routes.py`) say where the pulls are, how big
+  they are, the walk between them and which stops are bosses; without a map, average pacing
+  (17 s between pulls, 60 s pulls). It keeps the 40% when it won't be back in time and the next
+  pack or boss is clearly worse than this pull, and uses Rampart/Arm's Length now instead.
+  Survival always wins (under 45% HP, or 4 s of current damage would take you under 20%).
+  Each decision is in the run log as `DECIDE` with its scores. Switch on the Trash mode tab.
 - **Emergency** (also while moving): under 35% HP, or a big HP drop rate. **Invuln** when
   2 s (configurable) of incoming damage, with no heals, would kill you and no major mit is
   up or ready. Per-job invuln switches.

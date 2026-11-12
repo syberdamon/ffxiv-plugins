@@ -1,0 +1,137 @@
+{
+ "territory": 1066,
+ "zone": "the Vault",
+ "runs": 2,
+ "stops": [
+  {
+   "x": 3.6,
+   "z": 35.4,
+   "radius": 15.0,
+   "mobs": 4.0,
+   "duration": 15.2,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 50.6,
+   "z": -6.3,
+   "radius": 15.0,
+   "mobs": 5.0,
+   "duration": 25.9,
+   "gapBefore": 14.7,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -2.0,
+   "z": -31.0,
+   "radius": 15.0,
+   "mobs": 8.5,
+   "duration": 33.2,
+   "gapBefore": 11.0,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -26.0,
+   "z": -72.4,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 15.5,
+   "gapBefore": 13.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -3.2,
+   "z": -99.7,
+   "radius": 15.0,
+   "mobs": 17.5,
+   "duration": 101.4,
+   "gapBefore": 9.5,
+   "boss": "Brightsphere",
+   "seen": 2
+  },
+  {
+   "x": 52.5,
+   "z": -73.2,
+   "radius": 15.0,
+   "mobs": 6.0,
+   "duration": 63.4,
+   "gapBefore": 18.5,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 91.4,
+   "z": -0.1,
+   "radius": 15.0,
+   "mobs": 2,
+   "duration": 34.2,
+   "gapBefore": 14.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 56.6,
+   "z": 64.4,
+   "radius": 15.0,
+   "mobs": 5.0,
+   "duration": 36.3,
+   "gapBefore": 24.8,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 8.1,
+   "z": 72.9,
+   "radius": 15.0,
+   "mobs": 7.5,
+   "duration": 109.2,
+   "gapBefore": 6.8,
+   "boss": "Ser Grinnaux",
+   "seen": 2
+  },
+  {
+   "x": -66.3,
+   "z": 38.2,
+   "radius": 15.0,
+   "mobs": 4.0,
+   "duration": 51.9,
+   "gapBefore": 9.4,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -59.4,
+   "z": 52.0,
+   "radius": 15.0,
+   "mobs": 8,
+   "duration": 56.2,
+   "gapBefore": 24.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -59.9,
+   "z": 23.5,
+   "radius": 15.0,
+   "mobs": 8,
+   "duration": 58.2,
+   "gapBefore": 19.4,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -2.3,
+   "z": 8.6,
+   "radius": 15.0,
+   "mobs": 9.0,
+   "duration": 136.1,
+   "gapBefore": 35.1,
+   "boss": "Ser Charibert",
+   "seen": 2
+  }
+ ]
+}

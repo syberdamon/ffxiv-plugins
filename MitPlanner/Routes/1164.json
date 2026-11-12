@@ -1,0 +1,97 @@
+{
+ "territory": 1164,
+ "zone": "the Lunar Subterrane",
+ "runs": 1,
+ "stops": [
+  {
+   "x": -424.3,
+   "z": 151.8,
+   "radius": 15.0,
+   "mobs": 9,
+   "duration": 58.3,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -520.0,
+   "z": -34.8,
+   "radius": 15.0,
+   "mobs": 9,
+   "duration": 67.5,
+   "gapBefore": 14.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -400.9,
+   "z": -238.0,
+   "radius": 15.0,
+   "mobs": 4,
+   "duration": 178.8,
+   "gapBefore": 19.1,
+   "boss": "Dark Elf",
+   "seen": 1
+  },
+  {
+   "x": 55.4,
+   "z": 292.0,
+   "radius": 15.0,
+   "mobs": 16,
+   "duration": 66.6,
+   "gapBefore": 52.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -1.4,
+   "z": 167.3,
+   "radius": 15.0,
+   "mobs": 22,
+   "duration": 64.4,
+   "gapBefore": 19.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -0.6,
+   "z": 63.9,
+   "radius": 15.0,
+   "mobs": 7,
+   "duration": 174.4,
+   "gapBefore": 12.0,
+   "boss": "Damcyan Antlion",
+   "seen": 1
+  },
+  {
+   "x": -0.5,
+   "z": -50.0,
+   "radius": 15.0,
+   "mobs": 11,
+   "duration": 71.4,
+   "gapBefore": 17.0,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -28.1,
+   "z": -233.6,
+   "radius": 15.0,
+   "mobs": 17,
+   "duration": 75.7,
+   "gapBefore": 14.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -1.6,
+   "z": -423.9,
+   "radius": 15.0,
+   "mobs": 1,
+   "duration": 239.6,
+   "gapBefore": 19.5,
+   "boss": "Durante",
+   "seen": 1
+  }
+ ]
+}

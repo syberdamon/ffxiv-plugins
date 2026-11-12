@@ -1,0 +1,167 @@
+{
+ "territory": 1042,
+ "zone": "the Stone Vigil",
+ "runs": 1,
+ "stops": [
+  {
+   "x": 1.9,
+   "z": 267.2,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 17.5,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 32.0,
+   "z": 213.2,
+   "radius": 15.0,
+   "mobs": 2,
+   "duration": 17.4,
+   "gapBefore": 15.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 2.6,
+   "z": 212.8,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 20.3,
+   "gapBefore": 11.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -29.8,
+   "z": 176.3,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 19.1,
+   "gapBefore": 15.3,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 0.6,
+   "z": 165.5,
+   "radius": 15.0,
+   "mobs": 2,
+   "duration": 13.9,
+   "gapBefore": 10.8,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -5.3,
+   "z": 113.5,
+   "radius": 15.0,
+   "mobs": 1,
+   "duration": 57.4,
+   "gapBefore": 10.6,
+   "boss": "Chudo-Yudo",
+   "seen": 1
+  },
+  {
+   "x": -38.4,
+   "z": 23.8,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 18.5,
+   "gapBefore": 27.9,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -6.3,
+   "z": 22.9,
+   "radius": 15.0,
+   "mobs": 5,
+   "duration": 30.2,
+   "gapBefore": 7.4,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 24.1,
+   "z": -37.4,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 22.2,
+   "gapBefore": 14.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 2.5,
+   "z": -58.9,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 20.5,
+   "gapBefore": 19.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 48.9,
+   "z": -78.6,
+   "radius": 15.0,
+   "mobs": 8,
+   "duration": 93.3,
+   "gapBefore": 14.9,
+   "boss": "Maelstrom",
+   "seen": 1
+  },
+  {
+   "x": 0.9,
+   "z": -103.2,
+   "radius": 15.0,
+   "mobs": 2,
+   "duration": 13.5,
+   "gapBefore": 17.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 24.3,
+   "z": -118.5,
+   "radius": 15.0,
+   "mobs": 4,
+   "duration": 20.1,
+   "gapBefore": 4.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 25.3,
+   "z": -170.5,
+   "radius": 15.0,
+   "mobs": 3,
+   "duration": 16.9,
+   "gapBefore": 8.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -0.5,
+   "z": -189.7,
+   "radius": 15.0,
+   "mobs": 6,
+   "duration": 19.5,
+   "gapBefore": 7.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -4.5,
+   "z": -252.8,
+   "radius": 15.0,
+   "mobs": 1,
+   "duration": 126.5,
+   "gapBefore": 32.6,
+   "boss": "Isgebind",
+   "seen": 1
+  }
+ ]
+}

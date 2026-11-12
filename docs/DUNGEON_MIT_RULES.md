@@ -204,3 +204,18 @@ with thresholds that still hold up with weak healers. How we get there:
   Rampart recasting, no Raw Intuition before 56) drained 100% -> 56% with nothing pressed, then a
   death. An extreme case on purpose: across all logs from 2026-11-03 to 11-10 these conditions held
   for at most a few seconds per run. Switch and thresholds on the Trash mode tab.
+
+## Look ahead for the big mit (Mit Planner 0.11.0, decision engine phase 1)
+Before the 40% goes out, Trash mode scores "use now" against "keep for what's next"
+(`MitPlanner/Decision/MitScorer.cs`, mirrored in `tools/replay_trash.py`):
+- **now** = incoming %/s x min(15 s, rest of this pull) x 40% x HP weight (1 at 70%+, up to 3 at 30%).
+- **held** = 0 if it's back (120 s) before the next pull starts; else the next pull's expected %/s
+  (this pull's damage per mob x its mob count, or 4%/s for a boss) x min(15 s, its length) x 40% x
+  the share of it the mit would miss.
+- Keep it only if held > now x 1.25; always use it under 45% HP or when 4 s of current damage
+  would take you under 20%. Held stops it, Rampart / Arm's Length go instead.
+- "What's next" comes from route maps (`MitPlanner/Routes/<territory>.json`, built by
+  `tools/build_routes.py`), looked up from where the pull started; otherwise pacing.json.
+- [Assumption] the weights are first guesses. Replay of all 37 big-mit presses in the trash logs
+  from 2026-11-03..10 (leave-one-out maps): 3 would have been held, all sensible (a pull that was
+  ending at 1.8%/s; 1.2%/s with the boss next; a 10-mob pack next, which did drop the tank to 42%).

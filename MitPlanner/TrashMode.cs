@@ -1,4 +1,5 @@
 using System;
+using MitPlanner.Decision;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -74,6 +75,7 @@ public sealed class TrashMode : IDisposable
     private bool inPull;
     private bool majorUsedThisSet;
     private DateTime pullStart;
+    private Vector3 pullStartPos;
     private float pullMinHp;
     private int pullPresses;
     private bool dead;
@@ -177,11 +179,11 @@ public sealed class TrashMode : IDisposable
 
         if (state is PullState.Set && State is not PullState.Set)
         {
-            if (!inPull) { inPull = true; pullStart = now; pullMinHp = hp; pullPresses = 0; }
+            if (!inPull) { inPull = true; pullStart = now; pullStartPos = me.Position; pullMinHp = hp; pullPresses = 0; }
             majorUsedThisSet = false;
             log.Write("PULL", $"{(forced ? "forced (low HP while moving)" : "set")}\t{Describe(me, kit, sig)}");
         }
-        if (state is PullState.Pulling && !inPull) { inPull = true; pullStart = now; pullMinHp = hp; pullPresses = 0; }
+        if (state is PullState.Pulling && !inPull) { inPull = true; pullStart = now; pullStartPos = me.Position; pullMinHp = hp; pullPresses = 0; }
         SetState(state, me, sig);
 
         if (me.IsCasting || Plugin.Condition[ConditionFlag.Mounted] || me.CurrentHp == 0) return;
@@ -219,13 +221,45 @@ public sealed class TrashMode : IDisposable
                     if (S.PullBigWhenOut && sig.MobsOnMe >= S.PullBigMinMobs && hp < S.PullBigHpPercent &&
                         sig.NetPctPerSec >= S.PullBigDrainPctPerSec &&
                         !Active(kit.Big) && !Active(kit.Rampart) && !Active(TankKits.ReprisalId) &&
-                        !Ready(kit.Rampart) && !Ready(TankKits.ReprisalId) &&
+                        !Ready(kit.Rampart) && !Ready(TankKits.ReprisalId) && !HoldBig(me, kit, sig, hp) &&
                         TryPress(kit.Big, "pull/big", $"gathering {sig.MobsOnMe} mobs, HP<{S.PullBigHpPercent:0}% and dropping, short/Reprisal/Rampart down", me, kit, sig))
                     { majorUsedThisSet = true; break; }
                 }
                 Skip("moving", "pulling/moving: holding mits");
                 break;
         }
+    }
+
+    // ================================================================ lookahead
+
+    private DateTime lastDecideLog = DateTime.MinValue;
+    private string lastDecide = "";
+
+    /// <summary>
+    /// Keep the big mit for the next pack or the boss? (Decision/MitScorer: value now vs value held,
+    /// survival always uses it.) Each verdict is written to the run log as DECIDE, so the weights can
+    /// be tuned from real runs; on a change of verdict, or every 5 s.
+    /// </summary>
+    private bool HoldBig(IBattleChara me, TankKit kit, Signals sig, float hp)
+    {
+        if (!S.LookaheadHold || !Ready(kit.Big)) return false;
+        var elapsed = inPull ? (float)(DateTime.UtcNow - pullStart).TotalSeconds : 0f;
+        // The stop is where the pull started: by the time the big mit comes up you've often walked off it.
+        var next = Decision.Lookaheads.From(Plugin.ClientState.TerritoryType, inPull ? pullStartPos : me.Position, elapsed, sig.Ttk);
+        var recast = ActionCatalog.Find(kit.Big)?.RecastSeconds ?? 120f;
+        // [Assumption] every tank's big mit: 40% for 15 s (Vengeance/Damnation, Sentinel/Guardian,
+        // Shadow Wall/Vigil, Nebula/Great Nebula).
+        var score = Decision.MitScorer.Evaluate(hp, sig.GrossPctPerSec, sig.NetPctPerSec, sig.MobsOnMe,
+            next.RestOfPull, 0.4f, 15f, recast, next);
+        var verdict = score.Use ? "use" : "hold";
+        if (verdict != lastDecide || (DateTime.UtcNow - lastDecideLog).TotalSeconds >= 5)
+        {
+            lastDecide = verdict;
+            lastDecideLog = DateTime.UtcNow;
+            log.Write("DECIDE", $"big\t{score}\t{next}\t{Describe(me, kit, sig)}");
+        }
+        if (!score.Use) Skip("lookahead", $"keeping the big mit: {score.Why}");
+        return !score.Use;
     }
 
     // ================================================================ rules
@@ -297,7 +331,7 @@ public sealed class TrashMode : IDisposable
         if (!majorActive && idle) Skip("idle", $"HP {hp:0}%, {sig.GrossPctPerSec:0.0}%/s incoming: holding big mits");
         else if (!majorActive && (!majorUsedThisSet || PullLasts(S.GapMinPullSeconds) || hp < S.EscalateHpPercent))
         {
-            var bigOk = Ready(kit.Big) && (PullLasts(S.HeavyMinPullSeconds) || hp < S.EscalateHpPercent);
+            var bigOk = Ready(kit.Big) && (PullLasts(S.HeavyMinPullSeconds) || hp < S.EscalateHpPercent) && !HoldBig(me, kit, sig, hp);
             var warHold = kit.Job == "Warrior" && Active(kit.Short) && hp >= S.WarRampartAfterBloodwhettingHp;
             var reason = !majorUsedThisSet ? "opener" : hp < S.EscalateHpPercent ? $"HP<{S.EscalateHpPercent:0}%" : "gap refill";
 
