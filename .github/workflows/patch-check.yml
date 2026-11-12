@@ -1,0 +1,52 @@
+name: Patch-day check
+
+# Every 30 minutes: is the official Dalamud safe to run on a game version it doesn't support
+# yet? (tools/patch_check.py). The answer is published as patch-status.json on the
+# "patch-status" branch, which the patch-day launcher on the PC reads
+# (tools/patchday/XIVLauncher-PatchDay.ps1). Only committed when the answer changes.
+# Pushes to that branch don't trigger the plugin build (it only runs on main).
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patch-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check
+        run: python3 tools/patch_check.py --out /tmp/patch-status.json --work /tmp/patchcheck --repo .
+
+      - name: Publish to the patch-status branch (only when the answer changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin patch-status >/dev/null; then
+            git fetch -q origin patch-status
+            git worktree add -q /tmp/status origin/patch-status
+            git -C /tmp/status checkout -q -B patch-status
+          else
+            git worktree add -q --detach /tmp/status
+            git -C /tmp/status checkout -q --orphan patch-status
+            git -C /tmp/status rm -rfq . || true
+          fi
+          # Compare without the timestamp so the branch only moves when the answer does.
+          strip() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); d.pop('checkedAt',None); print(json.dumps(d,sort_keys=True))" "$1" 2>/dev/null; }
+          if [ -f /tmp/status/patch-status.json ] && [ "$(strip /tmp/status/patch-status.json)" = "$(strip /tmp/patch-status.json)" ]; then
+            echo "No change."
+            exit 0
+          fi
+          cp /tmp/patch-status.json /tmp/status/patch-status.json
+          git -C /tmp/status add patch-status.json
+          git -C /tmp/status commit -q -m "patch-status: $(python3 -c "import json; print(json.load(open('/tmp/patch-status.json'))['summary'][:180])")"
+          git -C /tmp/status push -q origin patch-status
