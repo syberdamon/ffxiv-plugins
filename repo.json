@@ -143,7 +143,7 @@
     "Author": "syberdamon",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
-    "AssemblyVersion": "0.10.0.0",
+    "AssemblyVersion": "0.11.0.0",
     "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job (tanks and healers get an automatic Default plan; keep several plans per fight), and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -161,9 +161,9 @@
     "LoadPriority": 0,
     "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.10.0.0/MitPlanner.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.10.0.0/MitPlanner.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.10.0.0/MitPlanner.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.11.0.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.11.0.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MitPlanner-v0.11.0.0/MitPlanner.zip"
   },
   {
     "Author": "syberdamon",
