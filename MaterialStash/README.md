@@ -252,6 +252,12 @@ the whole run **stops** with your collectables still in your bags (it no longer 
 field). **Stop**: the small Scrip goals window that shows while a run is going, the Stop button on the tab, or
 `/stash stop`.
 
+**Stuck inventory window**: after a retainer's sell or entrust window closes, the game could leave your own
+inventory on screen with a dead X. Retainer windows are now closed the way their own X does, and if your bags are
+still left in that state within 2 minutes of a stash run, they're re-synced and closed (logged in /xllog as
+"[Stash/Bags]"). `/stash closebags` does it any time. [Assumption] the stuck state is the game's inventory agent
+having closed while the window stayed.
+
 **Turn in collectables** (button on the Scrip goals tab, `/stash turnin`): turns in every collectable in your bags
 that pays scrips, one scrip kind at a time, through Turn-In Manager, without running the goals. When a switched-on
 goal uses that scrip, its item is bought with the scrips (up to what the goal still needs) so the 4,000 cap isn't
