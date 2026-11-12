@@ -292,6 +292,12 @@ public class TrashSettings
     /// logs from 2026-11-03..10 these conditions held for at most a few seconds per run.
     /// </summary>
     public bool PullBigWhenOut { get; set; } = true;
+
+    /// <summary>
+    /// Look ahead before using the big mit: keep it for the next pack or the boss when that's worth
+    /// more than what it prevents now (dungeon route maps + MitScorer). Survival always wins.
+    /// </summary>
+    public bool LookaheadHold { get; set; } = true;
     public int PullBigMinMobs { get; set; } = 6;
     public float PullBigHpPercent { get; set; } = 70f;
     /// <summary>...and still losing at least this much HP per second (net of heals).</summary>
