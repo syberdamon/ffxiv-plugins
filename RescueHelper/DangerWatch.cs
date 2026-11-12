@@ -146,7 +146,7 @@ public sealed unsafe class DangerWatch : IDisposable
 
         RescueReady = am != null && am->GetActionStatus(ActionType.Action, RescueId) == 0;
 
-        if (config.Mode == RescueMode.Automatic && (now - lastAuto).TotalSeconds > 2)
+        if (config.Mode == RescueMode.Automatic && (now - lastAuto).TotalSeconds > config.AutoCooldownSeconds)
         {
             var pick = list.Where(m => m.InDanger && m.DangerFor >= config.AutoDelayMs && m.Seconds <= config.AutoWithinSeconds)
                 .OrderBy(m => m.Seconds).FirstOrDefault();
