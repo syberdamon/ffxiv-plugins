@@ -221,7 +221,7 @@
     "Author": "syberdamon",
     "Name": "Rescue Helper",
     "InternalName": "RescueHelper",
-    "AssemblyVersion": "0.1.0.0",
+    "AssemblyVersion": "0.1.1.0",
     "Description": "Asks BossMod (Reborn) which spots are dangerous right now and checks each party member's position. Anyone standing in a danger zone that resolves within a few seconds turns red with a countdown. Click their row to Rescue them, or switch to automatic. It only Rescues when your own spot is safe, Rescue is ready and in range, and never pulls a tank holding enemies or a player carrying a mechanic marker (spread/stack). Needs BossMod or BossMod Reborn.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -238,9 +238,9 @@
     "LoadPriority": 0,
     "Punchline": "Healers: a party panel that shows who's standing in an AoE about to go off. Click to Rescue them, or let it Rescue automatically.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.0.0/RescueHelper.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.0.0/RescueHelper.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.0.0/RescueHelper.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.1.0/RescueHelper.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.1.0/RescueHelper.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/RescueHelper-v0.1.1.0/RescueHelper.zip"
   },
   {
     "Author": "syberdamon",
