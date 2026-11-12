@@ -282,7 +282,9 @@ and turn in for that scrip into the list, so GatherBuddy cycles to whichever nod
 timed node; or pick a single collectable per goal. For each batch: your switched-on auto-gather lists are switched
 off (and noted), a list named "Material Stash: scrip goals" is created or reused with those collectables, it's
 switched on, auto-gather starts, and it's switched off once the collectables gathered are worth the scrips the goal
-is still short (or the batch size / bag room is reached). Collectables GatherBuddy switches off in the list (e.g.
+is still short (or the batch size / bag room is reached). It lets GatherBuddy finish the node it's on first (up to
+90 s), so you're not left at a node with the gathering window open; if that still happens, the turn-in closes the
+window after 8 s instead of waiting. Collectables GatherBuddy switches off in the list (e.g.
 perception too low) or doesn't know are left out and logged. [Assumption] GatherBuddy skips legendary nodes you
 haven't unlocked (folklore); if it walks to one anyway, pick single collectables instead. Then your lists are switched back on.
 If a run is cut off, the tab shows the lists still off and a button to switch them back. Fishing collectables
