@@ -1,0 +1,117 @@
+{
+ "territory": 1044,
+ "zone": "the Praetorium",
+ "runs": 2,
+ "stops": [
+  {
+   "x": 178.8,
+   "z": -25.1,
+   "radius": 10.0,
+   "mobs": 4.0,
+   "duration": 31.3,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 222.9,
+   "z": 3.3,
+   "radius": 10.0,
+   "mobs": 5.0,
+   "duration": 29.3,
+   "gapBefore": 15.4,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 218.2,
+   "z": -62.4,
+   "radius": 10.0,
+   "mobs": 10.0,
+   "duration": 65.2,
+   "gapBefore": 12.3,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 187.5,
+   "z": 1.6,
+   "radius": 10.4,
+   "mobs": 1.0,
+   "duration": 86.9,
+   "gapBefore": 210.3,
+   "boss": "Mark II Magitek Colossus",
+   "seen": 2
+  },
+  {
+   "x": 181.1,
+   "z": 88.8,
+   "radius": 10.0,
+   "mobs": 5,
+   "duration": 1.2,
+   "gapBefore": 55.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 86.9,
+   "z": -34.6,
+   "radius": 10.0,
+   "mobs": 1,
+   "duration": 1.2,
+   "gapBefore": 18.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 49.8,
+   "z": -69.3,
+   "radius": 10.0,
+   "mobs": 4.5,
+   "duration": 3.9,
+   "gapBefore": 48.3,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": 11.8,
+   "z": -23.4,
+   "radius": 10.0,
+   "mobs": 5.0,
+   "duration": 3.1,
+   "gapBefore": 7.7,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -65.3,
+   "z": 0.4,
+   "radius": 10.0,
+   "mobs": 2.0,
+   "duration": 6.9,
+   "gapBefore": 15.9,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -165.3,
+   "z": 0.9,
+   "radius": 10.0,
+   "mobs": 3.0,
+   "duration": 125.4,
+   "gapBefore": 363.2,
+   "boss": "Nero tol Scaeva",
+   "seen": 2
+  },
+  {
+   "x": -564.6,
+   "z": 219.9,
+   "radius": 10.0,
+   "mobs": 33.0,
+   "duration": 207.5,
+   "gapBefore": 406.5,
+   "boss": "Gaius van Baelsar",
+   "seen": 2
+  }
+ ]
+}

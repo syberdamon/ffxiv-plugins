@@ -1,0 +1,107 @@
+{
+ "territory": 838,
+ "zone": "Amaurot",
+ "runs": 1,
+ "stops": [
+  {
+   "x": -2.8,
+   "z": 326.3,
+   "radius": 10.0,
+   "mobs": 3,
+   "duration": 40.7,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -1.1,
+   "z": 292.4,
+   "radius": 10.0,
+   "mobs": 5,
+   "duration": 38.2,
+   "gapBefore": 10.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -17.4,
+   "z": 189.5,
+   "radius": 10.0,
+   "mobs": 8,
+   "duration": 77.6,
+   "gapBefore": 14.3,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -80.1,
+   "z": 73.1,
+   "radius": 10.0,
+   "mobs": 1,
+   "duration": 166.8,
+   "gapBefore": 9.4,
+   "boss": "The First Beast",
+   "seen": 1
+  },
+  {
+   "x": -65.2,
+   "z": -101.8,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 60.8,
+   "gapBefore": 25.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 63.8,
+   "z": -146.6,
+   "radius": 10.0,
+   "mobs": 9,
+   "duration": 56.0,
+   "gapBefore": 18.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 61.3,
+   "z": -360.9,
+   "radius": 10.0,
+   "mobs": 26,
+   "duration": 133.8,
+   "gapBefore": 22.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 0.3,
+   "z": 236.0,
+   "radius": 10.0,
+   "mobs": 10,
+   "duration": 77.6,
+   "gapBefore": 20.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -0.7,
+   "z": 105.1,
+   "radius": 10.0,
+   "mobs": 8,
+   "duration": 75.9,
+   "gapBefore": 10.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 0.4,
+   "z": -67.2,
+   "radius": 10.0,
+   "mobs": 20,
+   "duration": 225.0,
+   "gapBefore": 43.0,
+   "boss": "Therion",
+   "seen": 1
+  }
+ ]
+}

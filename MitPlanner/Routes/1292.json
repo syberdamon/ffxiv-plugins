@@ -1,0 +1,97 @@
+{
+ "territory": 1292,
+ "zone": "the Meso Terminal",
+ "runs": 1,
+ "stops": [
+  {
+   "x": 69.0,
+   "z": 154.8,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 51.0,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 219.1,
+   "z": 128.0,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 61.7,
+   "gapBefore": 14.7,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 270.1,
+   "z": 2.4,
+   "radius": 10.0,
+   "mobs": 1,
+   "duration": 148.1,
+   "gapBefore": 9.4,
+   "boss": "Chirurgeon General",
+   "seen": 1
+  },
+  {
+   "x": 246.2,
+   "z": -111.6,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 49.3,
+   "gapBefore": 22.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 117.6,
+   "z": -182.0,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 56.8,
+   "gapBefore": 11.2,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 63.2,
+   "z": -262.3,
+   "radius": 10.0,
+   "mobs": 4,
+   "duration": 167.0,
+   "gapBefore": 8.3,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -21.0,
+   "z": -204.2,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 53.2,
+   "gapBefore": 18.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -47.8,
+   "z": 192.8,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 56.9,
+   "gapBefore": 26.1,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 0.1,
+   "z": -1.5,
+   "radius": 10.0,
+   "mobs": 11,
+   "duration": 229.6,
+   "gapBefore": 23.3,
+   "boss": "Immortal Remains",
+   "seen": 1
+  }
+ ]
+}

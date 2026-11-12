@@ -1,0 +1,97 @@
+{
+ "territory": 1203,
+ "zone": "Tender Valley",
+ "runs": 3,
+ "stops": [
+  {
+   "x": 41.8,
+   "z": 737.9,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 57.0,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -24.3,
+   "z": 613.3,
+   "radius": 10.4,
+   "mobs": 6,
+   "duration": 70.5,
+   "gapBefore": 10.3,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -64.4,
+   "z": 458.1,
+   "radius": 10.0,
+   "mobs": 1,
+   "duration": 117.0,
+   "gapBefore": 15.9,
+   "boss": "Barreltender",
+   "seen": 3
+  },
+  {
+   "x": -160.3,
+   "z": 262.8,
+   "radius": 16.3,
+   "mobs": 7,
+   "duration": 36.3,
+   "gapBefore": 33.1,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -152.6,
+   "z": 63.6,
+   "radius": 12.0,
+   "mobs": 6,
+   "duration": 48.3,
+   "gapBefore": 19.2,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -129.9,
+   "z": -55.7,
+   "radius": 10.4,
+   "mobs": 1,
+   "duration": 112.5,
+   "gapBefore": 12.2,
+   "boss": "Anthracite",
+   "seen": 3
+  },
+  {
+   "x": -129.3,
+   "z": -183.8,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 54.6,
+   "gapBefore": 21.6,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -128.5,
+   "z": -430.8,
+   "radius": 10.0,
+   "mobs": 5,
+   "duration": 69.2,
+   "gapBefore": 19.6,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": -130.0,
+   "z": -558.1,
+   "radius": 10.0,
+   "mobs": 15,
+   "duration": 156.8,
+   "gapBefore": 17.6,
+   "boss": "Greatest Serpent of Tural",
+   "seen": 3
+  }
+ ]
+}

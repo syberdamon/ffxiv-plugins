@@ -1,0 +1,127 @@
+{
+ "territory": 1345,
+ "zone": "the Clyteum",
+ "runs": 4,
+ "stops": [
+  {
+   "x": -805.5,
+   "z": 796.9,
+   "radius": 11.5,
+   "mobs": 6.0,
+   "duration": 46.0,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 4
+  },
+  {
+   "x": -722.2,
+   "z": 722.1,
+   "radius": 12.1,
+   "mobs": 6.0,
+   "duration": 60.5,
+   "gapBefore": 16.0,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -753.1,
+   "z": 722.2,
+   "radius": 10.0,
+   "mobs": 6.5,
+   "duration": 67.8,
+   "gapBefore": 9.8,
+   "boss": null,
+   "seen": 2
+  },
+  {
+   "x": -616.7,
+   "z": 573.3,
+   "radius": 15.4,
+   "mobs": 1.0,
+   "duration": 136.3,
+   "gapBefore": 23.9,
+   "boss": "Eye of the Scorpion",
+   "seen": 4
+  },
+  {
+   "x": 560.1,
+   "z": 125.8,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 47.1,
+   "gapBefore": 23.6,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": 562.2,
+   "z": 162.1,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 54.5,
+   "gapBefore": 17.6,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 637.0,
+   "z": 20.3,
+   "radius": 13.8,
+   "mobs": 5.0,
+   "duration": 55.9,
+   "gapBefore": 16.5,
+   "boss": null,
+   "seen": 4
+  },
+  {
+   "x": 659.4,
+   "z": -139.2,
+   "radius": 11.6,
+   "mobs": 1.0,
+   "duration": 147.1,
+   "gapBefore": 22.5,
+   "boss": "Chort",
+   "seen": 4
+  },
+  {
+   "x": 562.9,
+   "z": -219.1,
+   "radius": 13.1,
+   "mobs": 6.0,
+   "duration": 53.9,
+   "gapBefore": 24.5,
+   "boss": null,
+   "seen": 4
+  },
+  {
+   "x": 763.2,
+   "z": -628.3,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 52.1,
+   "gapBefore": 31.9,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 759.9,
+   "z": -594.4,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 54.9,
+   "gapBefore": 23.2,
+   "boss": null,
+   "seen": 3
+  },
+  {
+   "x": 759.6,
+   "z": -807.0,
+   "radius": 11.7,
+   "mobs": 17.0,
+   "duration": 181.2,
+   "gapBefore": 24.7,
+   "boss": "Malphas",
+   "seen": 4
+  }
+ ]
+}
