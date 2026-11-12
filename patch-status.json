@@ -1,0 +1,13 @@
+{
+ "checkedAt": "2026-11-12T11:26:01+00:00",
+ "officialDalamud": "15.0.4.0",
+ "officialSupportsGame": "2026.11.03.0000.0000",
+ "latestGame": "2026.11.03.0000.0000",
+ "clientStructs": {
+  "dalamudBuiltWith": "80cb4a7b7e11a6702e2eb8839afd301a918c638e",
+  "latest": "80cb4a7b7e11a6702e2eb8839afd301a918c638e"
+ },
+ "state": "official",
+ "safe": null,
+ "summary": "Official Dalamud 15.0.4.0 supports 2026.11.03.0000.0000. Nothing to do."
+}
