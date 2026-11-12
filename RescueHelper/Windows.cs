@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 
 namespace RescueHelper;
@@ -17,6 +18,14 @@ public sealed class PanelWindow : Window
         this.plugin = plugin;
         IsOpen = true;
         RespectCloseHotkey = false;
+        // Cog in the panel's title bar: opens the settings window.
+        TitleBarButtons.Add(new TitleBarButton
+        {
+            Icon = FontAwesomeIcon.Cog,
+            IconOffset = new Vector2(2, 1),
+            Click = _ => plugin.ToggleSettings(),
+            ShowTooltip = () => ImGui.SetTooltip("Rescue Helper settings"),
+        });
     }
 
     public override bool DrawConditions() =>
