@@ -62,6 +62,7 @@ public sealed unsafe class ScripGoals : IDisposable
     /// <summary>The collectables in our GatherBuddy list this batch, and what the batch should earn.</summary>
     private List<CollectableReward> gatherSet = new();
     private int startValue, batchScrips;
+    private DateTime finishingSince = DateTime.MinValue;
     private uint gatherCurrency;
     private bool listsTouched;
 
@@ -663,6 +664,7 @@ public sealed unsafe class ScripGoals : IDisposable
         if (!GatherBuddy.StartAutoGather()) { Note($"{name}: couldn't start GatherBuddy's auto-gather."); return false; }
         gatherSet = set;
         gatherItem = set[0];
+        finishingSince = DateTime.MinValue;
         gatherCurrency = plan.Shop.CurrencyItemId;
         startCount = lastMade = SetCount();
         startValue = SetValue();
@@ -701,6 +703,14 @@ public sealed unsafe class ScripGoals : IDisposable
         var full = FreeSlots() <= C.ScripReserveSlots;
         if (earned >= batchScrips || made >= batch || full)
         {
+            // Don't cut GatherBuddy off mid-node: that left the gathering window open with a swing to go and the
+            // turn-in waiting on "Gathering" until it gave up. Let it finish this node (up to 90 s), then stop.
+            if (Plugin.Condition[ConditionFlag.Gathering] && on && !full)
+            {
+                if (finishingSince == DateTime.MinValue) { finishingSince = DateTime.UtcNow; Log("batch done: letting GatherBuddy finish this node"); }
+                if ((DateTime.UtcNow - finishingSince).TotalSeconds < 90) { Status += " (finishing this node)"; return; }
+            }
+            finishingSince = DateTime.MinValue;
             GatherBuddy.StopAutoGather();
             if (full && earned < batchScrips) Note($"Bags down to {C.ScripReserveSlots} free slots: stopped gathering.");
             EndGather(made);
