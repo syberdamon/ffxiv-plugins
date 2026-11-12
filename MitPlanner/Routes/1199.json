@@ -1,0 +1,97 @@
+{
+ "territory": 1199,
+ "zone": "Alexandria",
+ "runs": 1,
+ "stops": [
+  {
+   "x": -29.0,
+   "z": 114.5,
+   "radius": 10.0,
+   "mobs": 3,
+   "duration": 35.7,
+   "gapBefore": null,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -114.2,
+   "z": 82.5,
+   "radius": 10.0,
+   "mobs": 7,
+   "duration": 116.0,
+   "gapBefore": 16.3,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 853.9,
+   "z": 825.2,
+   "radius": 10.0,
+   "mobs": 16,
+   "duration": 137.9,
+   "gapBefore": 14.2,
+   "boss": "Interferon R",
+   "seen": 1
+  },
+  {
+   "x": 787.0,
+   "z": 735.1,
+   "radius": 10.0,
+   "mobs": 5,
+   "duration": 42.7,
+   "gapBefore": 26.3,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": 785.9,
+   "z": 687.5,
+   "radius": 10.0,
+   "mobs": 5,
+   "duration": 71.4,
+   "gapBefore": 11.2,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -532.8,
+   "z": -370.0,
+   "radius": 10.0,
+   "mobs": 10,
+   "duration": 132.0,
+   "gapBefore": 41.4,
+   "boss": "Add Block",
+   "seen": 1
+  },
+  {
+   "x": -584.0,
+   "z": -435.9,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 42.7,
+   "gapBefore": 25.5,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -702.7,
+   "z": -561.5,
+   "radius": 10.0,
+   "mobs": 6,
+   "duration": 41.0,
+   "gapBefore": 28.8,
+   "boss": null,
+   "seen": 1
+  },
+  {
+   "x": -758.2,
+   "z": -649.9,
+   "radius": 10.0,
+   "mobs": 3,
+   "duration": 186.6,
+   "gapBefore": 15.1,
+   "boss": "Eliminator",
+   "seen": 1
+  }
+ ]
+}
