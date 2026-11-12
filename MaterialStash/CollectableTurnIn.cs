@@ -22,7 +22,7 @@ public sealed unsafe class TurnInStarter
     private readonly VNavIpc vnav;
     private uint item;
     private int count, tries;
-    private DateTime next, since, lastDismount;
+    private DateTime next, since, lastDismount, gatheringIdleSince = DateTime.MinValue;
 
     public TurnInStarter(TurnInIpc ipc, GatherBuddyIpc gather, VNavIpc vnav) { this.ipc = ipc; this.gather = gather; this.vnav = vnav; }
 
@@ -79,6 +79,20 @@ public sealed unsafe class TurnInStarter
         if (Plugin.ObjectTable.LocalPlayer == null) return "loading";
         if (gather.AutoGathering) { gather.StopAutoGather(); return "GatherBuddy's auto-gather is still on"; }
         if (vnav.IsBusy) { vnav.Stop(); return "still moving"; }
+        // Left at a node with the gathering window open (GatherBuddy stopped mid-node): nobody will swing, so
+        // after 8 s close the window ourselves instead of waiting it out.
+        if (Plugin.Condition[ConditionFlag.Gathering] && !Plugin.Condition[ConditionFlag.ExecutingGatheringAction])
+        {
+            if (gatheringIdleSince == DateTime.MinValue) gatheringIdleSince = DateTime.UtcNow;
+            if ((DateTime.UtcNow - gatheringIdleSince).TotalSeconds > 8)
+            {
+                foreach (var w in new[] { "GatheringMasterpiece", "Gathering" }) GameUi.Close(w);
+                gatheringIdleSince = DateTime.UtcNow;
+                return "closing the gathering window";
+            }
+            return "at a gathering node";
+        }
+        gatheringIdleSince = DateTime.MinValue;
         foreach (var f in BusyFlags) if (Plugin.Condition[f]) return f.ToString();
         if (Plugin.Condition[ConditionFlag.Mounted] || Plugin.Condition[ConditionFlag.InFlight])
         {
