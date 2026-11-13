@@ -108,7 +108,7 @@
     "Author": "syberdamon",
     "Name": "Material Stash",
     "InternalName": "MaterialStash",
-    "AssemblyVersion": "0.13.2.0",
+    "AssemblyVersion": "0.13.3.0",
     "Description": "Sorts common crafting materials onto your retainers in the order you choose. Gathered materials (mining, botany, fishing) and white, tradeable mob drops used in recipes qualify; boss drops, crafted items and collectables don't, and you can include or exclude anything by hand. Each category (ore, lumber, hides...) gets an ordered list of home retainers, with an overflow order behind it, and items already on a retainer are kept together. Crystals fill retainers in the game's list order, keeping a set amount of each on you. Nothing runs by itself: press \"Stash\" above the retainer list (after AutoRetainer is done) and it visits each retainer, deposits, and moves on. Stock list: keep a minimum and target of items, or of whole recipes (materials worked out from the recipe); when AutoRetainer sends a retainer out, it is sent for the most-needed item it can bring back. Tidy sorts items between retainers by groups (housing, gear, materials...), name rules and item pins. Keep on me protects what you carry. When nothing on the stock list fits a retainer, it can go for what sells best on your home world instead (with a demand check); those items stay in your bags and can be listed automatically. A Clean-up tab goes through everything on your retainers and suggests what to sell, vendor, turn in, desynthesize, learn, keep for its look or discard (judged by value, the glamour dresser and Armoire, and how easy it is to get again), then carries out what you approve, including a trip to an inn (Lifestream) to put looks in the Armoire or glamour dresser. Indoor furnishings can be taken off your retainers and stored in your house's storeroom (Lifestream takes you home). Scrip goals: keep a number of a scrip-exchange item; it crafts the best-paying collectable (Vulcan or Artisan, materials from bags, retainers, the market board or gathering; gatherer-scrip items are gathered with GatherBuddy Reborn auto-gather), has Turn-In Manager turn it in, and buys the item. ICE break: while Ices Cosmic Exploration (ICE) runs, once retainers are back it lets ICE finish its mission, goes to a bell for AutoRetainer and the stash, returns with Lifestream and starts ICE again. A small window counts ready ventures. Buttons on the saddlebag move mats in or out. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -135,9 +135,9 @@
     "LoadPriority": 0,
     "Punchline": "One button at the summoning bell puts your gathered and mob-dropped crafting mats and crystals on the right retainers.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.2.0/MaterialStash.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.2.0/MaterialStash.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.2.0/MaterialStash.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.3.0/MaterialStash.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.3.0/MaterialStash.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/MaterialStash-v0.13.3.0/MaterialStash.zip"
   },
   {
     "Author": "syberdamon",
@@ -323,7 +323,7 @@
     "Author": "syberdamon",
     "Name": "Turn-In Manager",
     "InternalName": "TurnInManager",
-    "AssemblyVersion": "0.2.3.0",
+    "AssemblyVersion": "0.2.4.0",
     "Description": "Turns in gear for Grand Company seals with guardrails: never items in a gearset, a maximum item level, rarity (green/blue) and HQ/NQ filters, optional armoury chest. Retrieves materia from qualifying gear first (gear turned in with materia loses it). Before seals would cap, it buys items you choose up to a stock target (e.g. Ventures up to 65,000), then keeps delivering. Preview shows exactly what would be turned in. Scrips: turns in collectables at the Collectable Appraiser and buys an item at the Scrip Exchange, buying before scrips would cap (used by Material Stash scrip goals). Uses vnavmesh to walk, and Lifestream (if installed) to travel to your Grand Company. English client.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/syberdamon/ffxiv-plugins",
@@ -343,8 +343,8 @@
     "LoadPriority": 0,
     "Punchline": "Grand Company expert delivery with guardrails, materia retrieval first, and seal spending by stock targets.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.3.0/TurnInManager.zip",
-    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.3.0/TurnInManager.zip",
-    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.3.0/TurnInManager.zip"
+    "DownloadLinkInstall": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.4.0/TurnInManager.zip",
+    "DownloadLinkUpdate": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.4.0/TurnInManager.zip",
+    "DownloadLinkTesting": "https://github.com/syberdamon/ffxiv-plugins/releases/download/TurnInManager-v0.2.4.0/TurnInManager.zip"
   }
 ]
