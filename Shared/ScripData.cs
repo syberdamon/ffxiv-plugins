@@ -99,11 +99,17 @@ public static unsafe class ScripData
         {
             var jobs = CraftJobs(dm);
             var gather = GatherJobs(dm);
+            var items = dm.GetExcelSheet<Item>();
             foreach (var row in dm.GetSubrowExcelSheet<CollectablesShopItem>())
             foreach (var sub in row)
             {
                 var itemId = sub.Item.RowId;
                 if (itemId == 0 || map.ContainsKey(itemId)) continue;
+                // The sheet still carries ~950 retired rows for ordinary (non-collectable) items, e.g. the
+                // Shadowbringers "Dwarven Cotton Gaskins of Striking" at 172 orange scrips, more than the real
+                // Rarefied items pay. The appraiser can't take them, and crafting one just makes plain gear
+                // (a whole batch of materials was lost this way). Only items the game marks collectable count.
+                if (items.GetRowOrDefault(itemId) is not { IsCollectable: true }) continue;
                 if (sub.CollectablesShopRewardScrip.ValueNullable is not { } rs || rs.Currency == 0) continue;
                 var currency = RewardCurrency(rs.Currency);
                 if (!ScripNames.ContainsKey(currency)) continue;
@@ -249,6 +255,8 @@ public static unsafe class ScripData
             foreach (var r in dm.GetExcelSheet<Recipe>())
             {
                 if (r.ItemResult.RowId == 0 || !rw.TryGetValue(r.ItemResult.RowId, out var reward)) continue;
+                // Artisan and Vulcan just run the recipe: only items that always come out collectable are safe.
+                if (!AlwaysCollectable(dm, r.ItemResult.RowId)) continue;
                 var craftType = (int)r.CraftType.RowId;
                 var job = jobs.GetRowOrDefault((uint)(craftType + 8))?.Abbreviation.ExtractText() ?? $"#{craftType}";
                 var level = r.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0;
@@ -258,6 +266,10 @@ public static unsafe class ScripData
         catch (Exception ex) { Console.WriteLine($"ScripData: reading recipes failed: {ex}"); }
         return recipes = list;
     }
+
+    /// <summary>True if crafting this item always yields a collectable (what the appraiser takes).</summary>
+    public static bool AlwaysCollectable(IDataManager dm, uint itemId) =>
+        dm.GetExcelSheet<Item>().GetRowOrDefault(itemId % 1_000_000) is { IsCollectable: true, AlwaysCollectable: true };
 
     /// <summary>Your level on a crafting job (craft type 0-7), 0 if unknown.</summary>
     public static int CraftLevel(IDataManager dm, int craftType)

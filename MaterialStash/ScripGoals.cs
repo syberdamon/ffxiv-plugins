@@ -79,7 +79,7 @@ public sealed unsafe class ScripGoals : IDisposable
     private int heldBefore, haveBefore;
     // crafting
     private CollectableRecipe? recipe;
-    private int batch, startCount, lastMade;
+    private int batch, startCount, lastMade, plainStart;
     private bool viaVulcan, sawActive, artisanStopped;
     private DateTime lastActive;
     private int closeTries;
@@ -245,6 +245,25 @@ public sealed unsafe class ScripGoals : IDisposable
     }
 
     private static int CollectableCount(uint itemId) => ScripData.CollectablesInBags(Data).Count(c => c.ItemId == itemId);
+
+    /// <summary>Ordinary (not collectable) copies of an item in your bags, NQ and HQ.</summary>
+    private static int PlainCount(uint itemId)
+    {
+        var im = InventoryManager.Instance();
+        if (im == null) return 0;
+        var n = 0;
+        foreach (var t in new[] { InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4 })
+        {
+            var c = im->GetInventoryContainer(t);
+            if (c == null || !c->IsLoaded) continue;
+            for (var i = 0; i < c->Size; i++)
+            {
+                var s = c->GetInventorySlot(i);
+                if (s != null && s->ItemId == itemId && !s->Flags.HasFlag(InventoryItem.ItemFlags.Collectable)) n += Math.Max(1, (int)s->Quantity);
+            }
+        }
+        return n;
+    }
 
     // ================================================================ start / stop
 
@@ -478,9 +497,15 @@ public sealed unsafe class ScripGoals : IDisposable
             engineVulcan = true;
         }
 
-        // 4. craft
+        // 4. craft. Last check: never start a craft that wouldn't come out collectable.
+        if (!ScripData.AlwaysCollectable(Data, r.ResultId))
+        {
+            Note($"{name}: {r.Name} doesn't come out as a collectable when crafted; skipped so no materials are spent.");
+            return false;
+        }
         viaVulcan = engineVulcan;
         startCount = lastMade = CollectableCount(r.ResultId);
+        plainStart = PlainCount(r.ResultId);
         sawActive = artisanStopped = false;
         lastActive = DateTime.UtcNow;
         var started = viaVulcan
@@ -896,6 +921,15 @@ public sealed unsafe class ScripGoals : IDisposable
         lastMade = made;
         if (active) { lastActive = DateTime.UtcNow; sawActive = true; }
         Status = $"{ItemName(Goal.ItemId)}: {(viaVulcan ? "Vulcan" : "Artisan")} {Math.Max(0, made)}/{batch} {recipe.Name}...";
+
+        // Tripwire: an ordinary copy of the result showed up, so the crafts aren't collectable. Stop at once.
+        if (PlainCount(recipe.ResultId) > plainStart)
+        {
+            if (viaVulcan) GatherBuddy.StopAutoGather(); else Artisan.Stop();
+            Stop($"{recipe.Name} came out as an ordinary item, not a collectable: stopped crafting after the first one." +
+                 (viaVulcan ? " Vulcan has no stop command: stop its crafting list in its own window if it's still going." : ""));
+            return;
+        }
 
         // Keep the reserve: Artisan can be told to stop (Vulcan's batch was sized to fit).
         if (!viaVulcan && !artisanStopped && FreeSlots() < C.ScripReserveSlots) { Artisan.Stop(); artisanStopped = true; Note("Bags nearly full: asked Artisan to stop."); }
